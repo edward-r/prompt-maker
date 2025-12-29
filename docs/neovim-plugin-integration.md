@@ -23,9 +23,9 @@ _Comprehensive reference for building a NeoVim plugin that orchestrates prompt-m
 
 ## 2. Build & Runtime Prerequisites
 
-- **Repository build**: from repo root run `npx nx build prompt-maker-cli --skip-nx-cache`. Artifacts land in `apps/prompt-maker-cli/dist`.
-- **Global install**: `npm uninstall -g @perceptron/prompt-maker-cli` (safe no-op) then `npm install -g apps/prompt-maker-cli/dist`. The binary name is `prompt-maker-cli` (aliasable to `pmc`).
-- **Direct execution**: during development you can run `node apps/prompt-maker-cli/dist/index.js ...` without reinstalling.
+- **Repository build**: from repo root run `npm ci` then `npm run build`. Artifacts land in `dist/`.
+- **Global install**: `npm install -g .` (or `npm link` for iterative local development). The binary name is `prompt-maker-cli` (aliasable to `pmc`).
+- **Direct execution**: during development you can run `node dist/index.js ...` (or `npm start -- ...`) without reinstalling.
 - **Node tooling**: plugin should locate the binary via `which prompt-maker-cli` or respect user-configured aliases.
 - **Config directory**: `$HOME/.config/prompt-maker-cli/` hosts `config.json`, `history.jsonl`, and the embeddings cache; the plugin must never write arbitrary files here unless mirroring CLI behavior (e.g., context templates, transport sockets under `/tmp`).
 - **Environment**: CLI relies on `OPENAI_API_KEY`, `GEMINI_API_KEY`, optional `*_BASE_URL` overrides, and `PROMPT_MAKER_*` vars. Plugin settings UI should surface these but avoid storing secrets in git.
@@ -60,7 +60,7 @@ _Comprehensive reference for building a NeoVim plugin that orchestrates prompt-m
 
 - **Trigger**: `--smart-context` optionally paired with `--smart-context-root <dir>`.
 - **Scan**: `fast-glob` searches `**/*.{ts,tsx,js,jsx,py,md,json}` excluding `node_modules`, build outputs, lockfiles, git metadata. Files >25 KB are skipped.
-- **Embeddings**: `apps/prompt-maker-cli/src/rag/vector-store.ts` stores SHA256 hashes + embeddings in `$HOME/.config/prompt-maker-cli/embeddings_cache.json` via `@prompt-maker/core#getEmbedding`.
+- **Embeddings**: `src/rag/vector-store.ts` stores SHA256 hashes + embeddings in `$HOME/.config/prompt-maker-cli/embeddings_cache.json` via `@prompt-maker/core#getEmbedding`.
 - **Workflow**: index (with caching) → top‑k search (default 5) against intent string → read + append unique files not already in the user-provided context list.
 - **Progress reporting**: `resolveSmartContextFiles` emits messages (“Scanning…”, “Indexed…”, “Smart context ready”) that surface through progress spinners and `--stream jsonl` events; the plugin should surface these as status lines.
 
