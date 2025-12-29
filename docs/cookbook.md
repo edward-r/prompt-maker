@@ -1,20 +1,20 @@
 # The prompt-maker-cli Cookbook
 
-**prompt-maker-cli** is a generate-only CLI that assembles rich prompt contracts from intent, file context, and optional media before handing them to your preferred LLM. Under the hood (`apps/prompt-maker-cli/src/generate-command.ts`) it resolves context, streams telemetry, optionally refines interactively, and can polish or template the final artifact. Use this cookbook to master prompting strategies, flag orchestration, and real-world recipes.
+**prompt-maker-cli** is a generate-focused CLI that assembles rich prompt contracts from intent, file context, and optional media before handing them to your preferred LLM. Under the hood (`src/generate-command.ts`) it resolves context, streams telemetry, optionally refines interactively, and can polish or template the final artifact. Use this cookbook to master prompting strategies, flag orchestration, and real-world recipes.
 
 ## Prompting Masterclass
 
 ### Mental Models that Travel Across Models
 
 - **Chain of Thought (CoT)**: Ask the model to reason step-by-step when tackling logic-heavy work (tracing bugs, drafting proofs). Combine CoT language in your intent with `--interactive` so you can append refinement instructions as fresh insights appear.
-- **Few-Shot Priming**: Embed curated exemplars via `-c examples/*.md` or `--context-template` to bias style and structure. Works best for deterministic models like GPT-4 Turbo or Claude 3 Opus—keep examples concise to avoid token bloat (monitor via the CLI’s token telemetry panel).
+- **Few-Shot Priming**: Embed curated exemplars via `-c examples/*.md` or `--context-template` to bias style and structure. Works best when the examples are short and sharply relevant—watch token bloat via the CLI’s token telemetry.
 - **Persona Adoption**: State the persona plus decision criteria directly in the intent (`"Adopt the voice of a staff engineer..."`) or maintain persona snippets in markdown files referenced through `-c personas/staff-engineer.md`. Personas pair well with the polish pass because the `POLISH_SYSTEM_PROMPT` preserves headings while tightening tone.
 - **Constraint Stacking**: The CLI’s default format enforces Context → Intent → Output Format; use bullet lists, acceptance criteria, and schema-like checklists to corral powerful models. When you need absolute structure, emit `--json` so downstream tools can parse the run artifact.
 
 ### Model-Specific Tactics
 
-- **OpenAI / Anthropic**: Favor detailed work orders with enumerated deliverables; use `--polish` to squeeze extra clarity after interactive refinement.
-- **Gemini**: Lean into multimodal runs—`--image` and `--video` feed attachments through `prompt-generator-service`, and when a video is present the CLI automatically swaps in a Gemini 1.5 model so you stay within supported modalities.
+- **OpenAI**: Favor detailed work orders with enumerated deliverables; use `--polish` to squeeze extra clarity after interactive refinement.
+- **Gemini**: Lean into multimodal runs—`--image` and `--video` feed attachments through `prompt-generator-service`. When a video is present and the requested model is not Gemini, the CLI automatically switches to the configured Gemini video model (default: `gemini-3-pro-preview`) so you stay within supported modalities.
 - **Smaller / Local Models**: Prune context aggressively. Combine targeted globs (`-c "src/core/**/*.ts"`) with `--smart-context` to fetch only the top-N embedding matches, keeping token counts within local limits.
 
 ### Automating Prompt Structure
@@ -853,7 +853,7 @@ Actions runners install dependencies once (`npm ci`). The workflow diffs against
 ### Recipe: CircleCI Prompt Gate
 
 **Problem**
-You need CircleCI to enforce that prompt-maker-cli succeeds whenever a PR touches specific directories (e.g., `apps/prompt-maker-cli`).
+You need CircleCI to enforce that prompt-maker-cli succeeds whenever a PR touches specific directories (e.g., `src/` or `packages/core/`).
 
 **Solution**
 

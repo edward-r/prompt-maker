@@ -14,24 +14,15 @@ Goal: small, focused changes that match existing patterns and keep tests green.
 
 ## Commands
 
-### Install
-
 - Install deps: `npm ci` (preferred)
 - Update deps/lockfile: `npm install`
-
-### Build / Run
-
 - Build: `npm run build` (esbuild via `scripts/build.mjs`)
   - Output: `dist/index.js` + `dist/meta.json`
   - Note: build aliases `@prompt-maker/core/*` to `packages/core/src/*`
-- Watch build only: `node scripts/build.mjs --watch`
+- Build (watch): `node scripts/build.mjs --watch`
 - Build (minify): `node scripts/build.mjs --minify`
 - Run (compiled): `npm start`
-- Run (dev, watch + restart): `npm run dev -- <cli args>`
-  - Example: `npm run dev -- --help`
-
-### Typecheck / Format
-
+- Run (dev, watch + restart): `npm run dev -- <cli args>` (ex: `npm run dev -- --help`)
 - Typecheck: `npm run typecheck`
 - Format (write): `npm run format`
 - Format (check, optional): `npx prettier -c .`
@@ -45,23 +36,10 @@ Goal: small, focused changes that match existing patterns and keep tests green.
 
 - All tests: `npm test`
 - Watch: `npm test -- --watch`
-
-Run a single test file:
-
-- `npm test -- src/__tests__/config.test.ts`
-- If the file is outside Jest `testMatch`, use:
-  - `npm test -- --runTestsByPath packages/core/src/__tests__/llm.test.ts`
-
-Run a single test by name:
-
-- `npm test -- -t "ThemeResolver"`
-- `npm test -- -t "loads config"`
-
-Debugging:
-
-- Serial: `npm test -- --runInBand`
-- Open handles: `npm test -- --detectOpenHandles`
-- List discovered tests: `npm test -- --listTests`
+- Single file: `npm test -- src/__tests__/config.test.ts`
+- File outside `testMatch`: `npm test -- --runTestsByPath packages/core/src/__tests__/llm.test.ts`
+- Single test by name: `npm test -- -t "ThemeResolver"`
+- Debug: `npm test -- --runInBand`, `npm test -- --detectOpenHandles`, `npm test -- --listTests`
 
 ## Repo Structure
 
@@ -81,8 +59,20 @@ Input routing is easy to regress; keep this priority order:
 2. Popup input (popups “own” the keyboard)
 3. Screen input
 4. AppContainer global keys (exit, etc.)
+   Avoid “fallthrough” where a single key is handled by both popup and screen.
 
-Avoid “fallthrough” where a single key is handled by both popup and screen.
+### TUI change checklist
+
+- Keep reducers pure (`*-reducer.ts`) and add/adjust reducer tests in `src/__tests__/tui/`.
+- If adding a popup: update popup types/state machine and ensure popups “own” input.
+- If adding async suggestion scans: guard against stale updates (scan id + popup type checks).
+
+### Strict TS gotchas
+
+- Don’t assume `array[index]` or `map.get(key)` is defined; handle `undefined`.
+- With `exactOptionalPropertyTypes`, prefer omitting optional fields (vs setting them to `undefined`).
+- Prefer `satisfies`/`as const` when you need literal unions.
+- When narrowing in `catch`, always handle non-`Error` values.
 
 ## Coding Conventions
 
@@ -91,20 +81,14 @@ Avoid “fallthrough” where a single key is handled by both popup and screen.
 - Do not use `any`.
 - Prefer `unknown` + type guards (or Zod) for external data.
 - Prefer functional composition over OO; keep functions small and pure.
-- Prefer `type` aliases; use `interface` only when you need declaration merging/extensibility.
-- With `noUncheckedIndexedAccess`, assume array/map indexing can be `undefined`.
+- Prefer `type` aliases; use `interface` only for declaration merging/extensibility.
+- With `noUncheckedIndexedAccess`, assume indexing can yield `undefined`.
 - With `exactOptionalPropertyTypes`, distinguish “missing” vs “present but undefined”.
-- For recoverable failures, prefer typed results:
-  - `{ ok: true, value } | { ok: false, error }`
+- For recoverable failures, prefer typed results: `{ ok: true, value } | { ok: false, error }`.
 
 ### Imports
 
-- Group imports:
-  1. Node built-ins first (`node:` specifiers)
-  2. blank line
-  3. third-party
-  4. blank line
-  5. local
+- Order: Node built-ins (`node:`) → blank line → third-party → blank line → local.
 - Use `import type { ... }` for type-only imports.
 - Prefer named exports/imports; avoid introducing new default exports.
 
@@ -119,14 +103,13 @@ Avoid “fallthrough” where a single key is handled by both popup and screen.
 ### Formatting
 
 - Prettier is the source of truth (`npm run format`).
-- Keep changes consistent with surrounding code.
-- Prefer early returns; avoid deep nesting.
+- Keep changes consistent with surrounding code; prefer early returns.
 
 ### Error Handling
 
 - Programmer/invariant errors: `throw new Error('...')`.
 - User/config/IO errors: return a typed error OR throw with actionable context.
-- When wrapping errors, preserve the original `error.message` and include paths/flags.
+- When wrapping errors, preserve `error.message` and include paths/flags.
 - In `catch (error)`, narrow with `error instanceof Error`.
 
 ### Validation
@@ -138,7 +121,7 @@ Avoid “fallthrough” where a single key is handled by both popup and screen.
 
 - Keep reducers pure and unit-testable; put effects in hooks.
 - Prefer stable callbacks; avoid re-render churn from new objects/arrays.
-- For stale closure issues, prefer refs + stable callbacks.
+- For stale closures, prefer refs + stable callbacks.
 
 ## Testing Conventions
 
@@ -147,8 +130,6 @@ Avoid “fallthrough” where a single key is handled by both popup and screen.
 - When mocking modules, follow `jest.config.cjs` `moduleNameMapper` patterns (see `tests/mocks/`).
 
 ## Environment Variables
-
-Some commands/features require provider keys:
 
 - `OPENAI_API_KEY`
 - `GEMINI_API_KEY`
