@@ -18,11 +18,17 @@ import {
 } from './tokenized-text'
 
 import { useTheme } from '../../theme/theme-provider'
-import { inkColorProps } from '../../theme/theme-types'
+import { inkColorProps, type InkColorValue } from '../../theme/theme-types'
 
 export type DebugKeyEvent = {
   input: string
   key: Key
+}
+
+export type MultilineTextInputGutter = {
+  glyph: string
+  color: InkColorValue
+  spacer?: number | undefined
 }
 
 export type MultilineTextInputProps = {
@@ -35,6 +41,7 @@ export type MultilineTextInputProps = {
   isPasteActive?: boolean
   tokenLabel?: TokenLabelLookup | undefined
   onDebugKeyEvent?: ((event: DebugKeyEvent) => void) | undefined
+  gutter?: MultilineTextInputGutter | undefined
 }
 
 const PROMPT = '› '
@@ -69,6 +76,7 @@ export const MultilineTextInput: React.FC<MultilineTextInputProps> = ({
   isPasteActive = false,
   tokenLabel,
   onDebugKeyEvent,
+  gutter,
 }) => {
   const { theme } = useTheme()
   const [cursor, setCursor] = useState<number>(value.length)
@@ -183,8 +191,18 @@ export const MultilineTextInput: React.FC<MultilineTextInputProps> = ({
         const prefix = lineIndex === 0 ? PROMPT : PROMPT_SPACER
         const lineColorProps = line.isPlaceholder ? inkColorProps(theme.mutedText) : {}
 
+        const gutterSpacer = gutter?.spacer ?? 0
+        const safeSpacer = Number.isFinite(gutterSpacer) ? Math.max(0, Math.floor(gutterSpacer)) : 0
+        const spacerText = safeSpacer > 0 ? ' '.repeat(safeSpacer) : ''
+
         return (
           <Box key={line.id}>
+            {gutter ? (
+              <>
+                <Text {...inkColorProps(gutter.color)}>{gutter.glyph}</Text>
+                {spacerText ? <Text>{spacerText}</Text> : null}
+              </>
+            ) : null}
             <Text {...inkColorProps(theme.accent)}>{prefix}</Text>
             {isCursorLine ? (
               <>
