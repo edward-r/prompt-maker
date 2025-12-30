@@ -17,6 +17,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "jest",
     "format": "prettier -w .",
+    "lint": "prettier -c \"{src,packages,scripts,tests}/**/*.{ts,tsx,js,jsx,cjs,mjs,json,md}\"",
+    "refresh": "npm run lint && npm run typecheck && npm test && npm run build && npm install -g .",
     "prepare": "npm run build",
     "prepublishOnly": "npm run build"
   },
