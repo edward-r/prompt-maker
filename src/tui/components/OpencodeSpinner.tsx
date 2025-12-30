@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Text } from 'ink'
 
+import { inkBackgroundColorProps, type InkColorValue } from '../theme/theme-types'
+
 const DEFAULT_LENGTH = 12
 const DEFAULT_INTERVAL_MS = 80
 const DEFAULT_TRAIL_LENGTH = 3
@@ -9,12 +11,14 @@ export type OpencodeSpinnerProps = {
   length?: number
   intervalMs?: number
   trailLength?: number
+  backgroundColor?: InkColorValue
 }
 
 export const OpencodeSpinner: React.FC<OpencodeSpinnerProps> = ({
   length = DEFAULT_LENGTH,
   intervalMs = DEFAULT_INTERVAL_MS,
   trailLength = DEFAULT_TRAIL_LENGTH,
+  backgroundColor,
 }) => {
   const [frame, setFrame] = useState(0)
 
@@ -27,6 +31,8 @@ export const OpencodeSpinner: React.FC<OpencodeSpinnerProps> = ({
       clearInterval(timer)
     }
   }, [intervalMs])
+
+  const backgroundProps = inkBackgroundColorProps(backgroundColor)
 
   const segments = useMemo(() => {
     const safeLength = Math.max(1, Math.floor(length))
@@ -44,7 +50,7 @@ export const OpencodeSpinner: React.FC<OpencodeSpinnerProps> = ({
 
       if (distanceBehind === 0) {
         return (
-          <Text key={index} color="#A78BFA">
+          <Text key={index} {...backgroundProps} color="#A78BFA">
             ▄
           </Text>
         )
@@ -52,7 +58,7 @@ export const OpencodeSpinner: React.FC<OpencodeSpinnerProps> = ({
 
       if (distanceBehind === 1 && safeTrail >= 1) {
         return (
-          <Text key={index} color="#7C3AED">
+          <Text key={index} {...backgroundProps} color="#7C3AED">
             ▄
           </Text>
         )
@@ -60,7 +66,7 @@ export const OpencodeSpinner: React.FC<OpencodeSpinnerProps> = ({
 
       if (distanceBehind === 2 && safeTrail >= 2) {
         return (
-          <Text key={index} color="#5B21B6">
+          <Text key={index} {...backgroundProps} color="#5B21B6">
             ▄
           </Text>
         )
@@ -68,19 +74,19 @@ export const OpencodeSpinner: React.FC<OpencodeSpinnerProps> = ({
 
       if (distanceBehind === 3 && safeTrail >= 3) {
         return (
-          <Text key={index} color="#3B0764">
+          <Text key={index} {...backgroundProps} color="#3B0764">
             ▄
           </Text>
         )
       }
 
       return (
-        <Text key={index} color="#333333">
+        <Text key={index} {...backgroundProps} color="#333333">
           _
         </Text>
       )
     })
-  }, [frame, length, trailLength])
+  }, [backgroundColor, frame, length, trailLength])
 
-  return <Text>{segments}</Text>
+  return <Text {...backgroundProps}>{segments}</Text>
 }
