@@ -2,20 +2,21 @@ import { useMemo } from 'react'
 import { Box, Text, useStdout } from 'ink'
 
 import { SingleLineTextInput } from '../core/SingleLineTextInput'
+import { PopupSheet } from './PopupSheet'
 
 import { MODEL_PROVIDER_LABELS } from '../../../model-providers'
 import { useTheme } from '../../theme/theme-provider'
-import {
-  inkBackgroundColorProps,
-  inkBorderColorProps,
-  inkColorProps,
-} from '../../theme/theme-types'
+import { inkBackgroundColorProps, inkColorProps } from '../../theme/theme-types'
 import type { InkColorValue } from '../../theme/theme-types'
 import { resolveWindowedList } from './list-window'
 import type { ModelOption, ProviderStatusMap } from '../../types'
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(value, max))
+
+const POPUP_PADDING_X = 2
+const POPUP_PADDING_Y = 2
+const POPUP_MIN_HEIGHT = 10
 
 const padRight = (value: string, width: number): string => {
   if (width <= 0) {
@@ -58,14 +59,11 @@ type ModelRow =
   | { type: 'spacer' }
   | { type: 'option'; option: ModelOption; optionIndex: number }
 
-const resolveListRows = (maxHeight: number | undefined): number => {
-  const fallbackHeight = 16
-  const resolvedHeight = maxHeight ?? fallbackHeight
-  const borderRows = 2
-  const contentHeight = Math.max(1, resolvedHeight - borderRows)
-
-  const fixedRows = 3
-  return Math.max(1, contentHeight - fixedRows)
+const resolveListRows = (popupHeight: number): number => {
+  const paddingRows = 2 * POPUP_PADDING_Y
+  const fixedRows = 6
+  const availableRows = Math.max(1, popupHeight - paddingRows - fixedRows)
+  return availableRows
 }
 
 const buildRows = (options: readonly ModelOption[], recentCount: number): ModelRow[] => {
@@ -147,9 +145,8 @@ export const ModelPopup = ({
   const terminalColumns = stdout?.columns ?? 80
   const popupWidth = clamp(terminalColumns - 10, 40, 72)
 
-  const borderColumns = 2
-  const paddingColumns = 2
-  const contentWidth = Math.max(0, popupWidth - borderColumns - paddingColumns)
+  const paddingColumns = 2 * POPUP_PADDING_X
+  const contentWidth = Math.max(0, popupWidth - paddingColumns)
 
   const backgroundProps = inkBackgroundColorProps(theme.popupBackground)
 
@@ -165,7 +162,11 @@ export const ModelPopup = ({
   }
 
   const selectedOption = options[selectedIndex]
-  const listRows = useMemo(() => resolveListRows(maxHeight), [maxHeight])
+
+  const fallbackHeight = 16
+  const popupHeight = Math.max(POPUP_MIN_HEIGHT, Math.floor(maxHeight ?? fallbackHeight))
+
+  const listRows = useMemo(() => resolveListRows(popupHeight), [popupHeight])
 
   const rows = useMemo(() => buildRows(options, recentCount), [options, recentCount])
 
@@ -220,14 +221,12 @@ export const ModelPopup = ({
   const headerGap = Math.max(0, contentWidth - headerLeft.length - headerRight.length)
 
   return (
-    <Box
-      flexDirection="column"
-      borderStyle="round"
-      paddingX={1}
-      paddingY={0}
+    <PopupSheet
       width={popupWidth}
-      {...inkBorderColorProps(theme.border)}
-      {...backgroundProps}
+      height={popupHeight}
+      paddingX={POPUP_PADDING_X}
+      paddingY={POPUP_PADDING_Y}
+      background={theme.popupBackground}
     >
       <Box flexDirection="row">
         <Text {...backgroundProps} {...inkColorProps(theme.accent)}>
@@ -239,7 +238,8 @@ export const ModelPopup = ({
         </Text>
       </Box>
 
-      <Box marginTop={1}>
+      <Text {...backgroundProps}>{padRight('', contentWidth)}</Text>
+      <Box>
         <SingleLineTextInput
           value={query}
           onChange={onQueryChange}
@@ -251,7 +251,8 @@ export const ModelPopup = ({
         />
       </Box>
 
-      <Box flexDirection="column" marginTop={1} height={listRows} overflow="hidden">
+      <Text {...backgroundProps}>{padRight('', contentWidth)}</Text>
+      <Box flexDirection="column" height={listRows} overflow="hidden">
         {rows.length === 0 ? (
           <>
             <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
@@ -303,11 +304,10 @@ export const ModelPopup = ({
         )}
       </Box>
 
-      <Box marginTop={1}>
-        <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
-          {padRight('Enter to select', contentWidth)}
-        </Text>
-      </Box>
-    </Box>
+      <Text {...backgroundProps}>{padRight('', contentWidth)}</Text>
+      <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+        {padRight('Enter to select', contentWidth)}
+      </Text>
+    </PopupSheet>
   )
 }

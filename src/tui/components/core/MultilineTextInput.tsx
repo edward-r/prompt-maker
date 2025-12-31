@@ -18,11 +18,17 @@ import {
 } from './tokenized-text'
 
 import { useTheme } from '../../theme/theme-provider'
-import { inkColorProps } from '../../theme/theme-types'
+import { inkBackgroundColorProps, inkColorProps, type InkColorValue } from '../../theme/theme-types'
 
 export type DebugKeyEvent = {
   input: string
   key: Key
+}
+
+export type MultilineTextInputGutter = {
+  glyph: string
+  color: InkColorValue
+  spacer?: number | undefined
 }
 
 export type MultilineTextInputProps = {
@@ -35,6 +41,11 @@ export type MultilineTextInputProps = {
   isPasteActive?: boolean
   tokenLabel?: TokenLabelLookup | undefined
   onDebugKeyEvent?: ((event: DebugKeyEvent) => void) | undefined
+  gutter?: MultilineTextInputGutter | undefined
+
+  // Optional rendering constraints (useful for input bars that must paint their full width).
+  width?: number | undefined
+  backgroundColor?: InkColorValue
 }
 
 const PROMPT = '› '
@@ -69,6 +80,9 @@ export const MultilineTextInput: React.FC<MultilineTextInputProps> = ({
   isPasteActive = false,
   tokenLabel,
   onDebugKeyEvent,
+  gutter,
+  width,
+  backgroundColor,
 }) => {
   const { theme } = useTheme()
   const [cursor, setCursor] = useState<number>(value.length)
@@ -166,6 +180,8 @@ export const MultilineTextInput: React.FC<MultilineTextInputProps> = ({
     [cursor, resolvedTokenLabel, value],
   )
 
+  const backgroundProps = inkBackgroundColorProps(backgroundColor)
+
   return (
     <Box flexDirection="column" height={lines.length}>
       {lines.map((line, lineIndex) => {
@@ -183,20 +199,50 @@ export const MultilineTextInput: React.FC<MultilineTextInputProps> = ({
         const prefix = lineIndex === 0 ? PROMPT : PROMPT_SPACER
         const lineColorProps = line.isPlaceholder ? inkColorProps(theme.mutedText) : {}
 
+        const gutterSpacer = gutter?.spacer ?? 0
+        const safeSpacer = Number.isFinite(gutterSpacer) ? Math.max(0, Math.floor(gutterSpacer)) : 0
+        const spacerText = safeSpacer > 0 ? ' '.repeat(safeSpacer) : ''
+
+        const gutterColumns = gutter ? gutter.glyph.length + safeSpacer : 0
+        const renderedColumns = isCursorLine
+          ? before.length + cursorCharacter.length + after.length
+          : before.length
+        const usedColumns = gutterColumns + prefix.length + renderedColumns
+        const fillerColumns =
+          typeof width === 'number' && width > usedColumns ? width - usedColumns : 0
+        const filler = fillerColumns > 0 ? ' '.repeat(fillerColumns) : ''
+
         return (
           <Box key={line.id}>
-            <Text {...inkColorProps(theme.accent)}>{prefix}</Text>
+            {gutter ? (
+              <>
+                <Text {...backgroundProps} {...inkColorProps(gutter.color)}>
+                  {gutter.glyph}
+                </Text>
+                {spacerText ? <Text {...backgroundProps}>{spacerText}</Text> : null}
+              </>
+            ) : null}
+            <Text {...backgroundProps} {...inkColorProps(theme.accent)}>
+              {prefix}
+            </Text>
             {isCursorLine ? (
               <>
-                <Text {...lineColorProps}>{before}</Text>
-                <Text inverse {...lineColorProps}>
+                <Text {...backgroundProps} {...lineColorProps}>
+                  {before}
+                </Text>
+                <Text inverse {...backgroundProps} {...lineColorProps}>
                   {cursorCharacter}
                 </Text>
-                <Text {...lineColorProps}>{after}</Text>
+                <Text {...backgroundProps} {...lineColorProps}>
+                  {after}
+                </Text>
               </>
             ) : (
-              <Text {...lineColorProps}>{before}</Text>
+              <Text {...backgroundProps} {...lineColorProps}>
+                {before}
+              </Text>
             )}
+            {filler ? <Text {...backgroundProps}>{filler}</Text> : null}
           </Box>
         )
       })}

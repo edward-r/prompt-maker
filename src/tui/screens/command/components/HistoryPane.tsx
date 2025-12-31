@@ -42,14 +42,14 @@ export const HistoryPane = ({ lines, visibleRows, scrollOffset }: HistoryPanePro
       flexShrink={0}
       overflow="hidden"
       marginBottom={1}
-      {...inkBackgroundColorProps(theme.panelBackground)}
+      {...inkBackgroundColorProps(theme.background)}
     >
       <ScrollableOutput
         lines={lines}
         visibleRows={visibleRows}
         scrollOffset={scrollOffset}
         contentWidth={contentWidth}
-        backgroundColor={theme.panelBackground}
+        backgroundColor={theme.background}
       />
     </Box>
   )

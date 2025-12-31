@@ -3,15 +3,15 @@ import { Box, Text, useStdout } from 'ink'
 
 import { SingleLineTextInput } from '../core/SingleLineTextInput'
 import { useTheme } from '../../theme/theme-provider'
-import {
-  inkBackgroundColorProps,
-  inkBorderColorProps,
-  inkColorProps,
-} from '../../theme/theme-types'
+import { inkBackgroundColorProps, inkColorProps } from '../../theme/theme-types'
 import { resolveWindowedList } from './list-window'
+import { PopupSheet } from './PopupSheet'
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(value, max))
+
+const POPUP_PADDING_X = 2
+const POPUP_PADDING_Y = 2
 
 const padRight = (value: string, width: number): string => {
   if (width <= 0) {
@@ -80,9 +80,8 @@ export const SmartPopup = ({
   const terminalColumns = stdout?.columns ?? 80
   const popupWidth = clamp(terminalColumns - 10, 40, 72)
 
-  const borderColumns = 2
-  const paddingColumns = 2
-  const contentWidth = Math.max(0, popupWidth - borderColumns - paddingColumns)
+  const paddingColumns = 2 * POPUP_PADDING_X
+  const contentWidth = Math.max(0, popupWidth - paddingColumns)
 
   const backgroundProps = inkBackgroundColorProps(theme.popupBackground)
 
@@ -93,14 +92,15 @@ export const SmartPopup = ({
   )
   const effectiveSuggestedFocused = hasSuggestions && suggestedFocused
 
+  const popupHeight = Math.max(9, Math.floor(maxHeight ?? 9))
+
   const suggestionRows = useMemo(() => {
-    const borderRows = 2
-    const resolvedHeight = maxHeight ?? 9
-    const contentRows = Math.max(1, resolvedHeight - borderRows)
+    const paddingRows = 2 * POPUP_PADDING_Y
+    const contentRows = Math.max(1, popupHeight - paddingRows)
 
     const fixedRows = 5
     return Math.max(0, contentRows - fixedRows)
-  }, [maxHeight])
+  }, [popupHeight])
 
   const visibleSuggestions = useMemo(
     () => resolveSuggestionWindow(suggestedItems, safeSuggestedSelection, suggestionRows),
@@ -183,16 +183,12 @@ export const SmartPopup = ({
   const inputWidth = Math.max(1, contentWidth - rootLabel.length)
 
   return (
-    <Box
-      flexDirection="column"
-      borderStyle="round"
-      paddingX={1}
-      paddingY={0}
+    <PopupSheet
       width={popupWidth}
-      {...inkBorderColorProps(theme.border)}
-      {...backgroundProps}
-      {...(typeof maxHeight === 'number' ? { height: maxHeight } : {})}
-      overflow="hidden"
+      height={popupHeight}
+      paddingX={POPUP_PADDING_X}
+      paddingY={POPUP_PADDING_Y}
+      background={theme.popupBackground}
     >
       <Text {...backgroundProps} {...inkColorProps(theme.accent)}>
         {padRight('Smart Context Root', contentWidth)}
@@ -233,6 +229,6 @@ export const SmartPopup = ({
           ))}
         </Box>
       ) : null}
-    </Box>
+    </PopupSheet>
   )
 }

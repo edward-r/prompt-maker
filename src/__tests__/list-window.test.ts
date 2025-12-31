@@ -65,14 +65,14 @@ describe('resolveWindowedList', () => {
 describe('resolveListPopupHeights', () => {
   it('allocates rows for file popup height 16', () => {
     expect(resolveListPopupHeights({ maxHeight: 16, hasSuggestions: true })).toEqual({
-      selectedRows: 5,
+      selectedRows: 3,
       suggestionRows: 4,
     })
   })
 
   it('prefers selected rows on small heights', () => {
     expect(resolveListPopupHeights({ maxHeight: 10, hasSuggestions: true })).toEqual({
-      selectedRows: 3,
+      selectedRows: 1,
       suggestionRows: 0,
     })
   })

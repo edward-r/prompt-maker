@@ -91,7 +91,7 @@ export const CommandScreen = memo(
                 <BackgroundFill
                   rows={terminalRows}
                   columns={backdropColumns}
-                  background={theme.panelBackground}
+                  background={theme.background}
                 />
               </Box>
               <Box

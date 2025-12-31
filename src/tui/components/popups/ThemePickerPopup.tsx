@@ -2,12 +2,9 @@ import { useMemo } from 'react'
 import { Box, Text, useStdout } from 'ink'
 
 import { useTheme } from '../../theme/theme-provider'
-import {
-  inkBackgroundColorProps,
-  inkBorderColorProps,
-  inkColorProps,
-} from '../../theme/theme-types'
+import { inkBackgroundColorProps, inkColorProps } from '../../theme/theme-types'
 import { resolveWindowedList } from './list-window'
+import { PopupSheet } from './PopupSheet'
 
 export type ThemePickerPopupProps = {
   selectionIndex: number
@@ -15,11 +12,12 @@ export type ThemePickerPopupProps = {
   maxHeight?: number
 }
 
-const resolveListRows = (maxHeight: number | undefined, hasError: boolean): number => {
-  const fallbackHeight = 16
-  const resolvedHeight = maxHeight ?? fallbackHeight
-  const borderRows = 2
-  const contentHeight = Math.max(1, resolvedHeight - borderRows)
+const POPUP_PADDING_X = 2
+const POPUP_PADDING_Y = 2
+
+const resolveListRows = (popupHeight: number, hasError: boolean): number => {
+  const paddingRows = 2 * POPUP_PADDING_Y
+  const contentHeight = Math.max(1, popupHeight - paddingRows)
 
   const fixedRows = 4 + (hasError ? 1 : 0)
   return Math.max(1, contentHeight - fixedRows)
@@ -53,9 +51,14 @@ export const ThemePickerPopup = ({
 
   // Keep the popup reasonably sized and deterministic.
   const popupWidth = clamp(terminalColumns - 10, 40, 72)
-  const contentWidth = Math.max(10, popupWidth - 2)
 
-  const listRows = useMemo(() => resolveListRows(maxHeight, Boolean(error)), [error, maxHeight])
+  const paddingColumns = 2 * POPUP_PADDING_X
+  const contentWidth = Math.max(10, popupWidth - paddingColumns)
+
+  const fallbackHeight = 16
+  const popupHeight = Math.max(10, Math.floor(maxHeight ?? fallbackHeight))
+
+  const listRows = useMemo(() => resolveListRows(popupHeight, Boolean(error)), [error, popupHeight])
 
   const names = useMemo(() => themes.map((descriptor) => descriptor.name), [themes])
   const labelsByName = useMemo(() => {
@@ -142,13 +145,12 @@ export const ThemePickerPopup = ({
   const footer = '↑/↓ preview · Enter confirm · Esc cancel'
 
   return (
-    <Box
-      flexDirection="column"
-      borderStyle="round"
-      paddingX={0}
-      paddingY={0}
+    <PopupSheet
       width={popupWidth}
-      {...inkBorderColorProps(theme.border)}
+      height={popupHeight}
+      paddingX={POPUP_PADDING_X}
+      paddingY={POPUP_PADDING_Y}
+      background={theme.popupBackground}
     >
       <Box flexDirection="row">
         <Text {...backgroundProps} {...inkColorProps(theme.accent)}>
@@ -164,7 +166,8 @@ export const ThemePickerPopup = ({
         {padRight(currentLabel, contentWidth)}
       </Text>
 
-      <Box flexDirection="column" marginTop={1}>
+      <Text {...backgroundProps}>{padRight('', contentWidth)}</Text>
+      <Box flexDirection="column">
         {listLines.map((line) => (
           <Text
             key={line.key}
@@ -183,11 +186,10 @@ export const ThemePickerPopup = ({
         </Text>
       ) : null}
 
-      <Box marginTop={1}>
-        <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
-          {padRight(footer, contentWidth)}
-        </Text>
-      </Box>
-    </Box>
+      <Text {...backgroundProps}>{padRight('', contentWidth)}</Text>
+      <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+        {padRight(footer, contentWidth)}
+      </Text>
+    </PopupSheet>
   )
 }

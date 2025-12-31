@@ -21,8 +21,8 @@ export const resolveListPopupHeights = ({
 
   const fallbackHeight = 16
   const resolvedHeight = maxHeight ?? fallbackHeight
-  const borderRows = 2
-  const contentHeight = Math.max(1, resolvedHeight - borderRows)
+  const paddingRows = 4
+  const contentHeight = Math.max(1, resolvedHeight - paddingRows)
 
   const fixedRows = 5
   const availableRows = Math.max(contentHeight - fixedRows, 1)
