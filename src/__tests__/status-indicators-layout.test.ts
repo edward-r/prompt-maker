@@ -11,7 +11,7 @@ describe('status indicator layout', () => {
     '[target:gpt-4o]',
     '[openai:ok]',
     '[tokens:1.2k]',
-    '[polish:on]',
+    '[polish:gpt-4o-mini]',
     '[copy:off]',
     '[chatgpt:off]',
     '[json:on]',
@@ -38,7 +38,11 @@ describe('status indicator layout', () => {
     const text = flattenLine(firstLine)
     expect(text).toContain('Status: Idle')
     expect(text).toContain('Model: gpt-4o-mini')
+    expect(text).toContain('Polish: gpt-4o-mini')
     expect(text).toContain('Target: gpt-4o')
+
+    expect(text.indexOf('Model: gpt-4o-mini')).toBeLessThan(text.indexOf('Polish: gpt-4o-mini'))
+    expect(text.indexOf('Polish: gpt-4o-mini')).toBeLessThan(text.indexOf('Target: gpt-4o'))
     expect(text).toContain('OpenAI: ok')
     expect(text).toContain('Tokens: 1.2k')
   })
@@ -53,7 +57,7 @@ describe('status indicator layout', () => {
     }
   })
 
-  it('marks enabled toggles as primary and disabled toggles as muted', () => {
+  it('marks toggles and model selections with correct styles', () => {
     const segments = resolveIndicatorSegments(chips)
 
     const polish = segments.find((segment) => segment.label === 'Polish')

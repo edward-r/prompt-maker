@@ -27,7 +27,9 @@ export const useCommandScreenBindings = (
 
   const popupManager = useCommandScreenPopupManager({
     currentModel: generation.currentModel,
+    polishModelId: generation.polishModelId,
     currentTargetModel: generation.currentTargetModel,
+
     modelOptions: generation.modelOptions,
     smartContextEnabled: context.smartContextEnabled,
     smartContextRoot: context.smartContextRoot,
@@ -51,7 +53,7 @@ export const useCommandScreenBindings = (
     runTestsFromCommandProxy: history.runTestsFromCommandProxy,
     setCurrentModel: generation.selectModel,
     setCurrentTargetModel: generation.selectTargetModel,
-    setPolishEnabled: input.setPolishEnabled,
+    setPolishModelId: generation.selectPolishModel,
     setCopyEnabled: input.setCopyEnabled,
     setChatGptEnabled: input.setChatGptEnabled,
     setJsonOutputEnabled: input.setJsonOutputEnabled,
@@ -59,8 +61,8 @@ export const useCommandScreenBindings = (
     setIntentFilePath: input.setIntentFilePath,
     metaInstructions: context.metaInstructions,
     setMetaInstructions: context.setMetaInstructions,
-    polishEnabled: input.polishEnabled,
     copyEnabled: input.copyEnabled,
+
     chatGptEnabled: input.chatGptEnabled,
     jsonOutputEnabled: input.jsonOutputEnabled,
   })

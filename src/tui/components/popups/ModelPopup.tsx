@@ -51,7 +51,7 @@ export type ModelPopupProps = {
   maxHeight?: number
   providerStatuses: ProviderStatusMap
   onQueryChange: (value: string) => void
-  onSubmit: (option?: ModelOption) => void
+  onSubmit: (option: ModelOption | null | undefined) => void
 }
 
 type ModelRow =

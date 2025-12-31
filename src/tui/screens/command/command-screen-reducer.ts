@@ -30,7 +30,6 @@ export type CommandScreenState = {
 
   // Command screen UI options (single source of truth).
   intentFilePath: string
-  polishEnabled: boolean
   copyEnabled: boolean
   chatGptEnabled: boolean
   jsonOutputEnabled: boolean
@@ -43,7 +42,6 @@ export type CommandScreenAction =
   | { type: 'set-command-selection'; next: SetStateAction<number> }
   | { type: 'set-debug-line'; line: string | null }
   | { type: 'set-intent-file-path'; next: SetStateAction<string> }
-  | { type: 'set-polish-enabled'; next: SetStateAction<boolean> }
   | { type: 'set-copy-enabled'; next: SetStateAction<boolean> }
   | { type: 'set-chatgpt-enabled'; next: SetStateAction<boolean> }
   | { type: 'set-json-output-enabled'; next: SetStateAction<boolean> }
@@ -59,7 +57,6 @@ export const createInitialCommandScreenState = (options: {
   commandSelectionIndex: 0,
   debugKeyLine: null,
   intentFilePath: '',
-  polishEnabled: false,
   copyEnabled: true,
   chatGptEnabled: false,
   jsonOutputEnabled: false,
@@ -104,12 +101,6 @@ export const commandScreenReducer = (
       const nextValue =
         typeof action.next === 'function' ? action.next(state.intentFilePath) : action.next
       return nextValue === state.intentFilePath ? state : { ...state, intentFilePath: nextValue }
-    }
-
-    case 'set-polish-enabled': {
-      const nextValue =
-        typeof action.next === 'function' ? action.next(state.polishEnabled) : action.next
-      return nextValue === state.polishEnabled ? state : { ...state, polishEnabled: nextValue }
     }
 
     case 'set-copy-enabled': {

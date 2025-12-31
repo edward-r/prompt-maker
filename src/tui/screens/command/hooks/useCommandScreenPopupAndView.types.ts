@@ -57,8 +57,6 @@ export type CommandInputOptions = {
   // input local
   intentFilePath: string
   setIntentFilePath: (value: string) => void
-  polishEnabled: boolean
-  setPolishEnabled: (value: boolean) => void
   copyEnabled: boolean
   setCopyEnabled: (value: boolean) => void
   chatGptEnabled: boolean
@@ -108,10 +106,12 @@ export type CommandHistoryOptions = {
 export type CommandGenerationOptions = {
   // model/generation
   currentModel: ModelOption['id']
+  polishModelId: ModelOption['id'] | null
   currentTargetModel: ModelOption['id']
   modelOptions: ModelOption[]
   providerStatuses: ProviderStatusMap
   selectModel: (nextId: ModelOption['id']) => void
+  selectPolishModel: (nextId: ModelOption['id'] | null) => void
   selectTargetModel: (nextId: ModelOption['id']) => void
   isGenerating: boolean
   runGeneration: (payload: { intent?: string; intentFile?: string }) => Promise<void>

@@ -24,7 +24,7 @@ export type UseCommandGenerationPipelineOptions = {
   interactiveTransportPath?: string | undefined
   terminalColumns: number
 
-  polishEnabled: boolean
+  polishModelId: string | null
   jsonOutputEnabled: boolean
   copyEnabled: boolean
   chatGptEnabled: boolean
@@ -63,7 +63,7 @@ export const useCommandGenerationPipeline = ({
   targetModel,
   interactiveTransportPath,
   terminalColumns,
-  polishEnabled,
+  polishModelId,
   jsonOutputEnabled,
   copyEnabled,
   chatGptEnabled,
@@ -93,8 +93,9 @@ export const useCommandGenerationPipeline = ({
     ...(interactiveTransportPath ? { interactiveTransportPath } : {}),
     terminalColumns,
     metaInstructions: trimmedMetaInstructions,
-    polishEnabled,
+    polishModelId,
     jsonOutputEnabled,
+
     copyEnabled,
     chatGptEnabled,
     isTestCommandRunning,

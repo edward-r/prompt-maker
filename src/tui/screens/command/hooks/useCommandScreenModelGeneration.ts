@@ -25,7 +25,6 @@ export type UseCommandScreenModelGenerationOptions = {
   interactiveTransportPath?: string | undefined
   terminalColumns: number
 
-  polishEnabled: boolean
   copyEnabled: boolean
   chatGptEnabled: boolean
   jsonOutputEnabled: boolean
@@ -40,6 +39,8 @@ export type UseCommandScreenModelGenerationResult = {
   modelOptions: ReturnType<typeof useModelProviderState>['modelOptions']
   currentModel: ReturnType<typeof useModelProviderState>['currentModel']
   selectModel: ReturnType<typeof useModelProviderState>['selectModel']
+  polishModelId: ModelOption['id'] | null
+  selectPolishModel: (nextId: ModelOption['id'] | null) => void
   currentTargetModel: ModelOption['id']
   selectTargetModel: (nextId: ModelOption['id']) => void
   providerStatuses: ReturnType<typeof useModelProviderState>['providerStatuses']
@@ -59,7 +60,6 @@ export const useCommandScreenModelGeneration = ({
   metaInstructions,
   interactiveTransportPath,
   terminalColumns,
-  polishEnabled,
   copyEnabled,
   chatGptEnabled,
   jsonOutputEnabled,
@@ -70,8 +70,15 @@ export const useCommandScreenModelGeneration = ({
   const { modelOptions, currentModel, selectModel, providerStatuses, updateProviderStatus } =
     useModelProviderState({ pushHistory: pushHistoryProxy })
 
+  const [polishModelId, setPolishModelIdState] = useState<ModelOption['id'] | null>(null)
+
+  const selectPolishModel = useCallback((nextId: ModelOption['id'] | null) => {
+    setPolishModelIdState((prev) => (prev === nextId ? prev : nextId))
+  }, [])
+
   const [currentTargetModel, setCurrentTargetModelState] =
     useState<ModelOption['id']>(DEFAULT_MODEL_ID)
+
   const userSelectedTargetModelRef = useRef(false)
 
   const selectTargetModel = useCallback((nextId: ModelOption['id']) => {
@@ -117,8 +124,9 @@ export const useCommandScreenModelGeneration = ({
     targetModel: currentTargetModel,
     interactiveTransportPath,
     terminalColumns,
-    polishEnabled,
+    polishModelId,
     jsonOutputEnabled,
+
     copyEnabled,
     chatGptEnabled,
     isTestCommandRunning,
@@ -131,8 +139,11 @@ export const useCommandScreenModelGeneration = ({
     modelOptions,
     currentModel,
     selectModel,
+    polishModelId,
+    selectPolishModel,
     currentTargetModel,
     selectTargetModel,
+
     providerStatuses,
     updateProviderStatus,
     pipeline,

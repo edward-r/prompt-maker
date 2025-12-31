@@ -85,7 +85,7 @@ describe('useGenerationPipeline', () => {
     metaInstructions: '',
     interactiveTransportPath: undefined as string | undefined,
     terminalColumns: 80,
-    polishEnabled: false,
+    polishModelId: null,
     jsonOutputEnabled: false,
     copyEnabled: false,
     chatGptEnabled: false,
@@ -173,6 +173,33 @@ describe('useGenerationPipeline', () => {
     expect(generateCommandModule.runGeneratePipeline).toHaveBeenCalled()
     expect(pushHistory).toHaveBeenCalledWith('Prompt', 'system')
     expect(onLastGeneratedPromptUpdate).toHaveBeenCalledWith('Prompt')
+  })
+
+  it('passes selected polish model into generation args', async () => {
+    providerStatusModule.checkModelProviderStatus.mockResolvedValue({
+      provider: 'openai',
+      status: 'ok',
+      message: 'ready',
+    })
+
+    const pushHistory = jest.fn()
+
+    const { result } = renderHook(() =>
+      useGenerationPipeline({
+        ...baseOptions,
+        pushHistory,
+        currentModel: 'gpt-4o-mini',
+        polishModelId: 'gpt-4o',
+      }),
+    )
+
+    await act(async () => {
+      await result.current.runGeneration({ intent: 'Ship it' })
+    })
+
+    const args = generateCommandModule.runGeneratePipeline.mock.calls[0]?.[0] as unknown
+    expect(args).toEqual(expect.objectContaining({ polish: true, polishModel: 'gpt-4o' }))
+    expect(result.current.statusChips).toEqual(expect.arrayContaining(['[polish:gpt-4o]']))
   })
 
   it('updates status chips with token telemetry', async () => {

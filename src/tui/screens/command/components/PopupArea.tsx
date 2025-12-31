@@ -36,7 +36,7 @@ export type PopupAreaProps = {
   modelPopupRecentCount: number
   providerStatuses: ProviderStatusMap
   onModelPopupQueryChange: (next: string) => void
-  onModelPopupSubmit: (option?: ModelOption) => void
+  onModelPopupSubmit: (option: ModelOption | null | undefined) => void
 
   // Toggle popup
   // (toggle popup is self-contained; selection is stored in `popupState`)
@@ -183,7 +183,13 @@ export const PopupArea = ({
 
   return popupState.type === 'model' ? (
     <ModelPopup
-      title={popupState.kind === 'target' ? 'Select target model' : 'Select model'}
+      title={
+        popupState.kind === 'target'
+          ? 'Select target model'
+          : popupState.kind === 'polish'
+            ? 'Select polish model'
+            : 'Select model'
+      }
       query={popupState.query}
       options={modelPopupOptions}
       selectedIndex={modelPopupSelection}

@@ -37,7 +37,7 @@ type UseCommandScreenPopupManagerOptions = {
 
   setCurrentModel: (value: ModelOption['id']) => void
   setCurrentTargetModel: (value: ModelOption['id']) => void
-  setPolishEnabled: (value: boolean) => void
+  setPolishModelId: (value: ModelOption['id'] | null) => void
   setCopyEnabled: (value: boolean) => void
   setChatGptEnabled: (value: boolean) => void
   setJsonOutputEnabled: (value: boolean) => void
@@ -48,7 +48,7 @@ type UseCommandScreenPopupManagerOptions = {
   metaInstructions: string
   setMetaInstructions: (value: string) => void
 
-  polishEnabled: boolean
+  polishModelId: ModelOption['id'] | null
   copyEnabled: boolean
   chatGptEnabled: boolean
   jsonOutputEnabled: boolean
@@ -86,7 +86,7 @@ export const useCommandScreenPopupManager = ({
 
   setCurrentModel,
   setCurrentTargetModel,
-  setPolishEnabled,
+  setPolishModelId,
 
   setCopyEnabled,
   setChatGptEnabled,
@@ -95,7 +95,7 @@ export const useCommandScreenPopupManager = ({
   setIntentFilePath,
   metaInstructions,
   setMetaInstructions,
-  polishEnabled,
+  polishModelId,
   copyEnabled,
   chatGptEnabled,
   jsonOutputEnabled,
@@ -152,7 +152,7 @@ export const useCommandScreenPopupManager = ({
     exitApp: exit,
     setCurrentModel,
     setCurrentTargetModel,
-    setPolishEnabled,
+    setPolishModelId,
     setCopyEnabled,
     setChatGptEnabled,
     setJsonOutputEnabled,
@@ -160,7 +160,7 @@ export const useCommandScreenPopupManager = ({
     intentFilePath,
     metaInstructions,
     setMetaInstructions,
-    polishEnabled,
+    polishModelId,
     copyEnabled,
     chatGptEnabled,
     jsonOutputEnabled,

@@ -76,16 +76,18 @@ const createOptions = (overrides: Partial<UsePopupManagerOptions> = {}): UsePopu
     exitApp: jest.fn(),
     setCurrentModel: jest.fn(),
     setCurrentTargetModel: jest.fn(),
-    setPolishEnabled: jest.fn(),
+    setPolishModelId: jest.fn(),
     setCopyEnabled: jest.fn(),
+
     setChatGptEnabled: jest.fn(),
     setJsonOutputEnabled: jest.fn(),
     setIntentFilePath: jest.fn(),
     intentFilePath: '',
     metaInstructions: '',
     setMetaInstructions: jest.fn(),
-    polishEnabled: false,
+    polishModelId: null,
     copyEnabled: false,
+
     chatGptEnabled: false,
     jsonOutputEnabled: false,
     getLatestTypedIntent: jest.fn(() => null),
@@ -719,17 +721,60 @@ describe('usePopupManager test command', () => {
 })
 
 describe('usePopupManager quick toggles', () => {
-  it('toggles polish without arguments', () => {
-    const options = createOptions({ polishEnabled: false })
+  it('opens polish model picker without arguments', () => {
+    const options = createOptions({ polishModelId: null })
     const { result } = renderHook(() => usePopupManager(options))
 
     act(() => {
       result.current.actions.handleCommandSelection('polish')
     })
 
-    expect(options.setPolishEnabled).toHaveBeenCalledWith(true)
-    expect(options.pushHistory).toHaveBeenCalledWith('Polish enabled')
+    expect(result.current.popupState).toEqual({
+      type: 'model',
+      kind: 'polish',
+      query: '',
+      selectionIndex: 0,
+    })
+  })
+
+  it('sets polish model when submitting selection', () => {
+    const options = createOptions({ polishModelId: null })
+    const { result } = renderHook(() => usePopupManager(options))
+
+    const option = defaultModelOptions[0]
+    if (!option) {
+      throw new Error('Expected a default model option')
+    }
+
+    act(() => {
+      result.current.actions.handleCommandSelection('polish')
+    })
+
+    act(() => {
+      result.current.actions.handleModelPopupSubmit(option)
+    })
+
+    expect(options.setPolishModelId).toHaveBeenCalledWith('gpt-4o-mini')
+    expect(options.notify).toHaveBeenCalledWith(
+      'Selected polish model: gpt-4o-mini (gpt-4o-mini)',
+      { kind: 'info' },
+    )
     expect(options.setInputValue).toHaveBeenCalledWith('')
+  })
+
+  it('clears polish model when submitting null', () => {
+    const options = createOptions({ polishModelId: 'gpt-4o-mini' })
+    const { result } = renderHook(() => usePopupManager(options))
+
+    act(() => {
+      result.current.actions.handleCommandSelection('polish')
+    })
+
+    act(() => {
+      result.current.actions.handleModelPopupSubmit(null)
+    })
+
+    expect(options.setPolishModelId).toHaveBeenCalledWith(null)
   })
 
   it('accepts explicit on/off arguments for copy', () => {

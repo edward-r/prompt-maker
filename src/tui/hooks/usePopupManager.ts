@@ -32,6 +32,7 @@ import type {
 
 export type PopupManagerActions = {
   openModelPopup: () => void
+  openPolishModelPopup: () => void
   openTargetModelPopup: () => void
   openTogglePopup: (field: ToggleField) => void
   openFilePopup: () => void
@@ -51,7 +52,7 @@ export type PopupManagerActions = {
   openSeriesPopup: (initialDraft?: string, hintOverride?: string) => void
   closePopup: () => void
   handleCommandSelection: (commandId: CommandDescriptor['id'], argsRaw?: string) => void
-  handleModelPopupSubmit: (option?: ModelOption) => void
+  handleModelPopupSubmit: (option: ModelOption | null | undefined) => void
   applyToggleSelection: (field: ToggleField, value: boolean) => void
   handleIntentFileSubmit: (value: string) => void
   handleInstructionsSubmit: (value: string) => void
@@ -92,7 +93,7 @@ export type UsePopupManagerOptions = {
   exitApp: () => void
   setCurrentModel: (value: ModelOption['id']) => void
   setCurrentTargetModel: (value: ModelOption['id']) => void
-  setPolishEnabled: (value: boolean) => void
+  setPolishModelId: (value: ModelOption['id'] | null) => void
   setCopyEnabled: (value: boolean) => void
   setChatGptEnabled: (value: boolean) => void
   setJsonOutputEnabled: (value: boolean) => void
@@ -100,7 +101,7 @@ export type UsePopupManagerOptions = {
   intentFilePath: string
   metaInstructions: string
   setMetaInstructions: (value: string) => void
-  polishEnabled: boolean
+  polishModelId: ModelOption['id'] | null
   copyEnabled: boolean
   chatGptEnabled: boolean
   jsonOutputEnabled: boolean
@@ -149,7 +150,7 @@ export const usePopupManager = ({
   exitApp,
   setCurrentModel,
   setCurrentTargetModel,
-  setPolishEnabled,
+  setPolishModelId,
   setCopyEnabled,
   setChatGptEnabled,
   setJsonOutputEnabled,
@@ -157,7 +158,7 @@ export const usePopupManager = ({
   intentFilePath,
   metaInstructions,
   setMetaInstructions,
-  polishEnabled,
+  polishModelId,
   copyEnabled,
   chatGptEnabled,
   jsonOutputEnabled,
@@ -200,6 +201,19 @@ export const usePopupManager = ({
     dispatch({ type: 'open-model', kind: 'generation', query: '', selectionIndex: defaultIndex })
   }, [currentModel, modelOptions])
 
+  const openPolishModelPopup = useCallback(() => {
+    const recentModelIds = getRecentSessionModels()
+    const { options } = buildModelPopupOptions({ query: '', modelOptions, recentModelIds })
+
+    const selectedId = polishModelId ?? currentModel
+    const defaultIndex = Math.max(
+      0,
+      options.findIndex((option) => option.id === selectedId),
+    )
+
+    dispatch({ type: 'open-model', kind: 'polish', query: '', selectionIndex: defaultIndex })
+  }, [currentModel, modelOptions, polishModelId])
+
   const openTargetModelPopup = useCallback(() => {
     const recentModelIds = getRecentSessionModels()
     const { options } = buildModelPopupOptions({ query: '', modelOptions, recentModelIds })
@@ -214,13 +228,7 @@ export const usePopupManager = ({
   const openTogglePopup = useCallback(
     (field: ToggleField) => {
       const currentValue =
-        field === 'polish'
-          ? polishEnabled
-          : field === 'copy'
-            ? copyEnabled
-            : field === 'chatgpt'
-              ? chatGptEnabled
-              : jsonOutputEnabled
+        field === 'copy' ? copyEnabled : field === 'chatgpt' ? chatGptEnabled : jsonOutputEnabled
 
       dispatch({
         type: 'open-toggle',
@@ -228,7 +236,7 @@ export const usePopupManager = ({
         selectionIndex: currentValue ? 0 : 1,
       })
     },
-    [polishEnabled, copyEnabled, chatGptEnabled, jsonOutputEnabled],
+    [copyEnabled, chatGptEnabled, jsonOutputEnabled],
   )
 
   type RunSuggestionScanOptions = {
@@ -391,15 +399,45 @@ export const usePopupManager = ({
     [closePopup, notify, setCurrentTargetModel, setInputValue],
   )
 
-  const handleModelPopupSubmit = useCallback(
-    (option?: ModelOption) => {
-      if (popupState?.type === 'model' && popupState.kind === 'target') {
-        applyTargetModelSelection(option)
+  const applyPolishModelSelection = useCallback(
+    (option: ModelOption | null | undefined) => {
+      if (option === null) {
+        setPolishModelId(null)
+        notify('Polish disabled', { kind: 'warning' })
+        setInputValue('')
+        closePopup()
         return
       }
-      applyModelSelection(option)
+
+      if (!option) {
+        return
+      }
+
+      recordRecentSessionModel(option.id)
+      setPolishModelId(option.id)
+      notify(`Selected polish model: ${option.label} (${option.id})`, { kind: 'info' })
+      setInputValue('')
+      closePopup()
     },
-    [applyModelSelection, applyTargetModelSelection, popupState],
+    [closePopup, notify, setInputValue, setPolishModelId],
+  )
+
+  const handleModelPopupSubmit = useCallback(
+    (option: ModelOption | null | undefined) => {
+      if (popupState?.type === 'model') {
+        if (popupState.kind === 'target') {
+          applyTargetModelSelection(option ?? undefined)
+          return
+        }
+        if (popupState.kind === 'polish') {
+          applyPolishModelSelection(option)
+          return
+        }
+      }
+
+      applyModelSelection(option ?? undefined)
+    },
+    [applyModelSelection, applyPolishModelSelection, applyTargetModelSelection, popupState],
   )
 
   const applyToggleSelection = useCallback(
@@ -427,9 +465,7 @@ export const usePopupManager = ({
 
       const message = `${TOGGLE_LABELS[field]} ${value ? 'enabled' : 'disabled'}`
 
-      if (field === 'polish') {
-        setPolishEnabled(value)
-      } else if (field === 'copy') {
+      if (field === 'copy') {
         setCopyEnabled(value)
       } else {
         setChatGptEnabled(value)
@@ -448,7 +484,6 @@ export const usePopupManager = ({
       setCopyEnabled,
       setInputValue,
       setJsonOutputEnabled,
-      setPolishEnabled,
     ],
   )
 
@@ -512,15 +547,16 @@ export const usePopupManager = ({
           openTargetModelPopup()
           return
         case 'polish': {
-          if (!trimmedArgs) {
-            applyToggleSelection('polish', !polishEnabled)
+          if (
+            normalizedToggleArgs === 'off' ||
+            normalizedToggleArgs === 'clear' ||
+            normalizedToggleArgs === '--clear'
+          ) {
+            applyPolishModelSelection(null)
             return
           }
-          if (normalizedToggleArgs === 'on' || normalizedToggleArgs === 'off') {
-            applyToggleSelection('polish', normalizedToggleArgs === 'on')
-            return
-          }
-          openTogglePopup('polish')
+
+          openPolishModelPopup()
           return
         }
         case 'copy': {
@@ -790,6 +826,7 @@ export const usePopupManager = ({
     [
       addImage,
       addVideo,
+      applyPolishModelSelection,
       applyToggleSelection,
       chatGptEnabled,
       clearScreen,
@@ -812,11 +849,12 @@ export const usePopupManager = ({
       openInstructionsPopup,
       openIntentPopup,
       openModelPopup,
-      openTargetModelPopup,
+      openPolishModelPopup,
       openReasoningPopup,
       openSeriesPopup,
       openSettingsPopup,
       openSmartRootPopup,
+      openTargetModelPopup,
       openTestPopup,
       openThemeModePopup,
       openThemePopup,
@@ -824,12 +862,15 @@ export const usePopupManager = ({
       openTokensPopup,
       openUrlPopup,
       openVideoPopup,
-      polishEnabled,
       pushHistory,
       runSeriesGeneration,
       runTestsFromCommand,
       setInputValue,
+      setSmartRoot,
+      smartContextEnabled,
+      smartContextRoot,
       syncTypedIntentRef,
+      toggleSmartContext,
       videos,
     ],
   )
@@ -839,6 +880,7 @@ export const usePopupManager = ({
   const actions = useMemo<PopupManagerActions>(
     () => ({
       openModelPopup,
+      openPolishModelPopup,
       openTargetModelPopup,
       openTogglePopup,
       openFilePopup,
@@ -878,11 +920,12 @@ export const usePopupManager = ({
       openInstructionsPopup,
       openIntentPopup,
       openModelPopup,
-      openTargetModelPopup,
+      openPolishModelPopup,
       openReasoningPopup,
       openSeriesPopup,
       openSettingsPopup,
       openSmartRootPopup,
+      openTargetModelPopup,
       openTestPopup,
       openThemePopup,
       openThemeModePopup,
