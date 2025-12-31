@@ -84,7 +84,7 @@ export const ToastOverlay = memo(() => {
       height="100%"
       flexDirection="column"
       justifyContent="flex-start"
-      alignItems="flex-end"
+      alignItems="flex-start"
       paddingX={TOAST_HORIZONTAL_INSET_COLUMNS}
       paddingTop={TOAST_TOP_OFFSET_ROWS}
     >
