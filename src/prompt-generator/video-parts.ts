@@ -7,13 +7,17 @@ import type { UploadStateChange } from './types'
 export const resolveVideoParts = async (
   videoPaths: string[],
   onUploadStateChange?: UploadStateChange,
+  apiKey?: string,
 ): Promise<VideoPart[]> => {
   const parts: VideoPart[] = []
 
   for (const videoPath of videoPaths) {
     onUploadStateChange?.('start', { kind: 'video', filePath: videoPath })
     try {
-      const fileUri = await uploadFileForGemini(videoPath)
+      const fileUri =
+        apiKey === undefined
+          ? await uploadFileForGemini(videoPath)
+          : await uploadFileForGemini(videoPath, apiKey)
       const mimeType = inferVideoMimeType(videoPath)
       parts.push({ type: 'video_uri', fileUri, mimeType })
     } catch (error) {

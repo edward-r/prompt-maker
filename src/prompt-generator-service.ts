@@ -11,7 +11,7 @@ import {
   buildRefinementMessage,
   buildSeriesUserMessage,
 } from './prompt-generator/message-builders'
-import { ensureModelCredentials } from './prompt-generator/model-credentials'
+import { ensureModelCredentials, isGemini } from './prompt-generator/model-credentials'
 import { parseLLMJson } from './prompt-generator/parse-llm-json'
 import {
   buildSeriesRepairUserMessage,
@@ -65,6 +65,8 @@ export class PromptGeneratorService {
     const isRefinement = Boolean(request.previousPrompt && request.refinementInstruction)
     const systemContent = isRefinement ? REFINE_SYSTEM_PROMPT : GEN_SYSTEM_PROMPT
 
+    const geminiApiKey = isGemini(request.model) ? process.env.GEMINI_API_KEY?.trim() : undefined
+
     let userContent: MessageContent
     if (isRefinement) {
       const previousPrompt = request.previousPrompt
@@ -82,6 +84,7 @@ export class PromptGeneratorService {
         request.videos,
         request.metaInstructions,
         request.onUploadStateChange,
+        geminiApiKey,
       )
     } else {
       userContent = await buildInitialUserMessage(
@@ -91,6 +94,7 @@ export class PromptGeneratorService {
         request.videos,
         request.metaInstructions,
         request.onUploadStateChange,
+        geminiApiKey,
       )
     }
 
@@ -142,6 +146,8 @@ export class PromptGeneratorService {
   async generatePromptSeries(request: PromptGenerationRequest): Promise<SeriesResponse> {
     await ensureModelCredentials(request.model)
 
+    const geminiApiKey = isGemini(request.model) ? process.env.GEMINI_API_KEY?.trim() : undefined
+
     const userContent = await buildSeriesUserMessage(
       request.intent,
       request.fileContext,
@@ -149,6 +155,7 @@ export class PromptGeneratorService {
       request.videos,
       request.metaInstructions,
       request.onUploadStateChange,
+      geminiApiKey,
     )
 
     const targetGuidance = buildTargetRuntimeModelGuidance(request.targetModel)

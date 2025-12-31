@@ -21,11 +21,11 @@ type GeminiFile = Awaited<ReturnType<GoogleAIFileManager['getFile']>>
 
 type FileState = 'STATE_UNSPECIFIED' | 'PROCESSING' | 'ACTIVE' | 'FAILED'
 
-export const uploadFileForGemini = async (filePath: string): Promise<string> => {
+export const uploadFileForGemini = async (filePath: string, apiKey?: string): Promise<string> => {
   await assertReadableFile(filePath)
 
   const mimeType = inferVideoMimeType(filePath)
-  const manager = createFileManager()
+  const manager = createFileManager(apiKey)
 
   const uploadResponse = await manager.uploadFile(filePath, {
     mimeType,
@@ -62,13 +62,15 @@ export const inferVideoMimeType = (filePath: string): string => {
   return mimeType
 }
 
-const createFileManager = (): GoogleAIFileManager => {
-  const apiKey = process.env.GEMINI_API_KEY?.trim()
-  if (!apiKey) {
-    throw new Error('GEMINI_API_KEY is required to upload media files.')
+const createFileManager = (apiKey?: string): GoogleAIFileManager => {
+  const resolvedApiKey = apiKey?.trim() || process.env.GEMINI_API_KEY?.trim()
+  if (!resolvedApiKey) {
+    throw new Error(
+      'Gemini API key is required to upload media files. Pass apiKey or set GEMINI_API_KEY.',
+    )
   }
 
-  return new GoogleAIFileManager(apiKey)
+  return new GoogleAIFileManager(resolvedApiKey)
 }
 
 const waitForActiveFile = async (

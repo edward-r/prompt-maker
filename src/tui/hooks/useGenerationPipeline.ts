@@ -23,6 +23,7 @@ import {
   type InteractiveDelegate,
   type StreamEventInput,
 } from '../../generate-command'
+import { resolveGeminiVideoModel } from '../../generate/models'
 import { generatePromptSeries, isGemini } from '../../prompt-generator-service'
 import type { PromptGenerationRequest, SeriesResponse } from '../../prompt-generator-service'
 import { resolveFileContext } from '../../file-context'
@@ -486,16 +487,29 @@ export const useGenerationPipeline = ({
         return
       }
       const normalizedModel = currentModel.trim() || 'gpt-4o-mini'
-      const normalizedTargetModel = (targetModel ?? '').trim() || normalizedModel
+
+      const generationModel =
+        videos.length > 0 && !isGemini(normalizedModel)
+          ? await resolveGeminiVideoModel()
+          : normalizedModel
+
+      if (generationModel !== normalizedModel) {
+        pushHistoryRef.current(
+          `Switching to ${generationModel} to support video input.`,
+          'progress',
+        )
+      }
+
+      const normalizedTargetModel = (targetModel ?? '').trim() || generationModel
       const normalizedPolishModel = (polishModelId ?? '').trim()
       const polishEnabled = normalizedPolishModel.length > 0
 
-      const providerReady = await ensureProviderReady(normalizedModel)
+      const providerReady = await ensureProviderReady(generationModel)
       if (!providerReady) {
         return
       }
 
-      if (polishEnabled && normalizedPolishModel !== normalizedModel) {
+      if (polishEnabled && normalizedPolishModel !== generationModel) {
         const polishProviderReady = await ensureProviderReady(normalizedPolishModel)
         if (!polishProviderReady) {
           return
@@ -503,7 +517,7 @@ export const useGenerationPipeline = ({
       }
 
       activeRunIdRef.current = tokenUsageStoreRef.current
-        ? tokenUsageStoreRef.current.startRun(normalizedModel)
+        ? tokenUsageStoreRef.current.startRun(generationModel)
         : null
       setLatestTelemetry(null)
       onReasoningUpdate?.(null)
@@ -537,7 +551,7 @@ export const useGenerationPipeline = ({
           images: [...images],
           video: [...videos],
           smartContext: smartContextEnabled,
-          model: normalizedModel,
+          model: generationModel,
           target: normalizedTargetModel,
         }
         if (normalizedMetaInstructions) {
@@ -653,9 +667,9 @@ export const useGenerationPipeline = ({
     async (intent: string) => {
       let generationModel = currentModel.trim() || 'gpt-4o-mini'
       if (videos.length > 0 && !isGemini(generationModel)) {
-        generationModel = 'gemini-3-pro-preview'
+        generationModel = await resolveGeminiVideoModel()
         pushHistoryRef.current(
-          '[series] Switching to gemini-3-pro-preview for video support.',
+          `[series] Switching to ${generationModel} to support video input.`,
           'progress',
         )
       }

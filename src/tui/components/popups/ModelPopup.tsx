@@ -287,7 +287,11 @@ export const ModelPopup = ({
             }
 
             const isSelected = row.optionIndex === selectedIndex
-            const providerLabel = MODEL_PROVIDER_LABELS[row.option.provider]
+            const baseProviderLabel = MODEL_PROVIDER_LABELS[row.option.provider]
+            const providerLabel =
+              row.option.provider === 'gemini' && row.option.capabilities.includes('video')
+                ? `${baseProviderLabel} video`
+                : baseProviderLabel
 
             const rowTextProps = isSelected
               ? selectedTextProps
