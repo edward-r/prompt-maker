@@ -28,7 +28,6 @@ export type UseCommandScreenResult = {
   setDebugKeyLine: (line: string | null) => void
 
   setIntentFilePath: (next: SetStateAction<string>) => void
-  setPolishEnabled: (next: SetStateAction<boolean>) => void
   setCopyEnabled: (next: SetStateAction<boolean>) => void
   setChatGptEnabled: (next: SetStateAction<boolean>) => void
   setJsonOutputEnabled: (next: SetStateAction<boolean>) => void
@@ -72,10 +71,6 @@ export const useCommandScreen = (): UseCommandScreenResult => {
     dispatch({ type: 'set-intent-file-path', next })
   }, [])
 
-  const setPolishEnabled = useCallback((next: SetStateAction<boolean>) => {
-    dispatch({ type: 'set-polish-enabled', next })
-  }, [])
-
   const setCopyEnabled = useCallback((next: SetStateAction<boolean>) => {
     dispatch({ type: 'set-copy-enabled', next })
   }, [])
@@ -96,7 +91,6 @@ export const useCommandScreen = (): UseCommandScreenResult => {
     setCommandSelectionIndex,
     setDebugKeyLine,
     setIntentFilePath,
-    setPolishEnabled,
     setCopyEnabled,
     setChatGptEnabled,
     setJsonOutputEnabled,

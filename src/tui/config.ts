@@ -37,7 +37,7 @@ export const COMMAND_DESCRIPTORS = [
   },
   { id: 'image', label: 'Image', description: 'Attach reference images' },
   { id: 'video', label: 'Video', description: 'Attach reference videos' },
-  { id: 'polish', label: 'Polish', description: 'Enable prompt polishing' },
+  { id: 'polish', label: 'Polish', description: 'Select a model for prompt polishing' },
   {
     id: 'series',
     label: 'Series',
@@ -67,7 +67,6 @@ export const COMMAND_DESCRIPTORS = [
 ] as const
 
 export const TOGGLE_LABELS = {
-  polish: 'Polish',
   copy: 'Copy',
   chatgpt: 'ChatGPT',
   json: 'JSON',

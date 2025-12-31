@@ -117,7 +117,7 @@ export type UseGenerationPipelineOptions = {
   targetModel?: string
   interactiveTransportPath?: string | undefined
   terminalColumns: number
-  polishEnabled: boolean
+  polishModelId: string | null
   jsonOutputEnabled: boolean
   copyEnabled: boolean
   chatGptEnabled: boolean
@@ -142,7 +142,7 @@ export const useGenerationPipeline = ({
   targetModel,
   interactiveTransportPath,
   terminalColumns,
-  polishEnabled,
+  polishModelId,
   jsonOutputEnabled,
   copyEnabled,
   chatGptEnabled,
@@ -487,9 +487,19 @@ export const useGenerationPipeline = ({
       }
       const normalizedModel = currentModel.trim() || 'gpt-4o-mini'
       const normalizedTargetModel = (targetModel ?? '').trim() || normalizedModel
+      const normalizedPolishModel = (polishModelId ?? '').trim()
+      const polishEnabled = normalizedPolishModel.length > 0
+
       const providerReady = await ensureProviderReady(normalizedModel)
       if (!providerReady) {
         return
+      }
+
+      if (polishEnabled && normalizedPolishModel !== normalizedModel) {
+        const polishProviderReady = await ensureProviderReady(normalizedPolishModel)
+        if (!polishProviderReady) {
+          return
+        }
       }
 
       activeRunIdRef.current = tokenUsageStoreRef.current
@@ -539,8 +549,9 @@ export const useGenerationPipeline = ({
           args.intent = trimmedIntent
         }
         if (polishEnabled) {
-          args.polishModel = normalizedModel
+          args.polishModel = normalizedPolishModel
         }
+
         if (smartContextEnabled && smartContextRoot) {
           args.smartContextRoot = smartContextRoot
         }
@@ -617,7 +628,8 @@ export const useGenerationPipeline = ({
       urls,
       images,
       videos,
-      polishEnabled,
+      polishModelId,
+
       jsonOutputEnabled,
       smartContextEnabled,
       smartContextRoot,
@@ -876,7 +888,11 @@ export const useGenerationPipeline = ({
     if (latestTelemetry) {
       chips.push(`[tokens:${formatCompactTokens(latestTelemetry.totalTokens)}]`)
     }
-    chips.push(`[polish:${polishEnabled ? 'on' : 'off'}]`)
+    const normalizedPolishModel = (polishModelId ?? '').trim()
+    if (normalizedPolishModel) {
+      chips.push(`[polish:${normalizedPolishModel}]`)
+    }
+
     chips.push(`[copy:${copyEnabled ? 'on' : 'off'}]`)
     chips.push(`[chatgpt:${chatGptEnabled ? 'on' : 'off'}]`)
     chips.push(`[json:${jsonOutputEnabled ? 'on' : 'off'}]`)
@@ -896,8 +912,9 @@ export const useGenerationPipeline = ({
     targetModel,
     latestTelemetry,
 
-    polishEnabled,
+    polishModelId,
     copyEnabled,
+
     chatGptEnabled,
     jsonOutputEnabled,
     files.length,

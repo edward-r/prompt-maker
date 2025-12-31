@@ -43,8 +43,8 @@ export type UseCommandScreenPopupBindingsOptions = {
     commandId: import('../../../types').CommandDescriptor['id'],
     argsRaw?: string,
   ) => void
-  handleModelPopupSubmit: (option?: ModelOption) => void
-  applyToggleSelection: (field: 'polish' | 'copy' | 'chatgpt' | 'json', value: boolean) => void
+  handleModelPopupSubmit: (option: ModelOption | null | undefined) => void
+  applyToggleSelection: (field: 'copy' | 'chatgpt' | 'json', value: boolean) => void
   handleIntentFileSubmit: (value: string) => void
   handleSeriesIntentSubmit: (value: string) => void
 

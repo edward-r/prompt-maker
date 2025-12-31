@@ -32,7 +32,7 @@ export type UseCommandScreenViewModelOptions = {
       modelPopupRecentCount: number
       providerStatuses: ProviderStatusMap
       onModelPopupQueryChange: (next: string) => void
-      onModelPopupSubmit: (option?: ModelOption) => void
+      onModelPopupSubmit: (option: ModelOption | null | undefined) => void
     }
 
     context: {

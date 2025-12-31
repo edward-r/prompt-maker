@@ -16,10 +16,10 @@ export type UsePopupKeyboardShortcutsOptions = {
 
   // model
   modelPopupOptions: ModelOption[]
-  onModelPopupSubmit: (option?: ModelOption) => void
+  onModelPopupSubmit: (option: ModelOption | null | undefined) => void
 
   // toggle
-  applyToggleSelection: (field: 'polish' | 'copy' | 'chatgpt' | 'json', value: boolean) => void
+  applyToggleSelection: (field: 'copy' | 'chatgpt' | 'json', value: boolean) => void
 
   // theme
   themeCount: number
@@ -138,6 +138,16 @@ export const usePopupKeyboardShortcuts = ({
         )
         return
       }
+      const draftIsEmpty = popupState.query.trim().length === 0
+
+      if (
+        popupState.kind === 'polish' &&
+        (key.delete || (draftIsEmpty && isBackspaceKey(input, key)))
+      ) {
+        onModelPopupSubmit(null)
+        return
+      }
+
       if (key.escape) {
         closePopup()
         return

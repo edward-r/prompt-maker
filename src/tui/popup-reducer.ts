@@ -32,7 +32,12 @@ export type PopupManagerState = {
 export type PopupAction =
   | { type: 'set'; next: SetStateAction<PopupState> }
   | { type: 'close' }
-  | { type: 'open-model'; kind: 'generation' | 'target'; query: string; selectionIndex: number }
+  | {
+      type: 'open-model'
+      kind: 'generation' | 'polish' | 'target'
+      query: string
+      selectionIndex: number
+    }
   | { type: 'open-toggle'; field: ToggleField; selectionIndex: number }
   | { type: 'open-file'; scanId: number }
   | { type: 'open-url' }

@@ -68,8 +68,9 @@ export const InputBar: React.FC<InputBarProps> = ({
     const segments = resolveIndicatorSegments(statusChips)
     const status = segments.find((segment) => segment.label === 'Status')
     const model = segments.find((segment) => segment.label === 'Model')
+    const polish = segments.find((segment) => segment.label === 'Polish')
     const target = segments.find((segment) => segment.label === 'Target')
-    return { status, model, target }
+    return { status, model, polish, target }
   }, [statusChips])
 
   const borderColor = presentation.borderTone === 'warning' ? theme.warning : theme.border
@@ -105,12 +106,22 @@ export const InputBar: React.FC<InputBarProps> = ({
       addPart(`Model: ${summary.model.value}`)
     }
 
+    if (summary.polish) {
+      addPart(`Polish: ${summary.polish.value}`)
+    }
+
     if (summary.target) {
       addPart(`Target: ${summary.target.value}`)
     }
 
     return columns
-  }, [isBusy, summary.model?.value, summary.status?.value, summary.target?.value])
+  }, [
+    isBusy,
+    summary.model?.value,
+    summary.polish?.value,
+    summary.status?.value,
+    summary.target?.value,
+  ])
 
   const BORDER_GLYPH = '▌'
 
@@ -179,7 +190,7 @@ export const InputBar: React.FC<InputBarProps> = ({
         backgroundColor={theme.panelBackground}
       />
 
-      {summary.status || summary.model || summary.target ? (
+      {summary.status || summary.model || summary.polish || summary.target ? (
         <Box flexDirection="row" width="100%">
           {renderBorderPrefix()}
 
@@ -202,7 +213,7 @@ export const InputBar: React.FC<InputBarProps> = ({
             </>
           ) : null}
 
-          {summary.status && (summary.model || summary.target) ? (
+          {summary.status && (summary.model || summary.polish || summary.target) ? (
             <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
               {' · '}
             </Text>
@@ -219,7 +230,30 @@ export const InputBar: React.FC<InputBarProps> = ({
             </>
           ) : null}
 
-          {summary.model && summary.target ? (
+          {summary.model && (summary.polish || summary.target) ? (
+            <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+              {' · '}
+            </Text>
+          ) : null}
+
+          {summary.model && (summary.polish || summary.target) ? (
+            <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+              {' · '}
+            </Text>
+          ) : null}
+
+          {summary.polish ? (
+            <>
+              <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+                Polish:{' '}
+              </Text>
+              <Text {...backgroundProps} {...inkColorProps(theme.text)}>
+                {summary.polish.value}
+              </Text>
+            </>
+          ) : null}
+
+          {summary.polish && summary.target ? (
             <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
               {' · '}
             </Text>

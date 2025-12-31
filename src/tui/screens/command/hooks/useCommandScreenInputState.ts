@@ -33,8 +33,6 @@ export type UseCommandScreenInputStateResult = {
   // Local toggles/state
   intentFilePath: string
   setIntentFilePath: (value: string) => void
-  polishEnabled: boolean
-  setPolishEnabled: (value: boolean) => void
   copyEnabled: boolean
   setCopyEnabled: (value: boolean) => void
   chatGptEnabled: boolean
@@ -69,7 +67,6 @@ export const useCommandScreenInputState = ({
     setCommandSelectionIndex,
     setDebugKeyLine,
     setIntentFilePath: setIntentFilePathState,
-    setPolishEnabled: setPolishEnabledState,
     setCopyEnabled: setCopyEnabledState,
     setChatGptEnabled: setChatGptEnabledState,
     setJsonOutputEnabled: setJsonOutputEnabledState,
@@ -105,7 +102,6 @@ export const useCommandScreenInputState = ({
   )
 
   const intentFilePath = screenState.intentFilePath
-  const polishEnabled = screenState.polishEnabled
   const copyEnabled = screenState.copyEnabled
   const chatGptEnabled = screenState.chatGptEnabled
   const jsonOutputEnabled = screenState.jsonOutputEnabled
@@ -115,13 +111,6 @@ export const useCommandScreenInputState = ({
       setIntentFilePathState(value)
     },
     [setIntentFilePathState],
-  )
-
-  const setPolishEnabled = useCallback(
-    (value: boolean) => {
-      setPolishEnabledState(value)
-    },
-    [setPolishEnabledState],
   )
 
   const setCopyEnabled = useCallback(
@@ -180,8 +169,6 @@ export const useCommandScreenInputState = ({
     setDebugKeyLine,
     intentFilePath,
     setIntentFilePath,
-    polishEnabled,
-    setPolishEnabled,
     copyEnabled,
     setCopyEnabled,
     chatGptEnabled,
