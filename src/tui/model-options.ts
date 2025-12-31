@@ -1,7 +1,7 @@
 import { loadCliConfig, resolveGeminiCredentials, resolveOpenAiCredentials } from '../config'
 import type { ModelDefinition } from '../model-providers'
 import { inferProviderFromModelId } from '../model-providers'
-import { getAvailableModels } from '../utils/model-manager'
+import { getAvailableModels, getVideoCapableGeminiModels } from '../utils/model-manager'
 import type { ModelOption } from './types'
 
 const DEFAULT_MODEL_FALLBACK = 'gpt-4o-mini'
@@ -150,12 +150,24 @@ export const loadModelOptions = async (
     )
 
     let discoveredOptions: ModelOption[] = []
+    let videoCapableGeminiIds: Set<string> | null = null
     if (includeDiscovered) {
       try {
         const [openAiCredentials, geminiCredentials] = await Promise.all([
           resolveOpenAiCredentials().catch(() => null),
           resolveGeminiCredentials().catch(() => null),
         ])
+
+        if (geminiCredentials?.apiKey) {
+          try {
+            const videoIds = await getVideoCapableGeminiModels(geminiCredentials.apiKey, {
+              ...(geminiCredentials.baseUrl ? { baseUrl: geminiCredentials.baseUrl } : {}),
+            })
+            videoCapableGeminiIds = new Set(videoIds)
+          } catch {
+            videoCapableGeminiIds = null
+          }
+        }
 
         const discovered = await getAvailableModels(
           openAiCredentials?.apiKey,
@@ -184,10 +196,26 @@ export const loadModelOptions = async (
       }
     }
 
-    const merged = mergeModelOptions(BUILT_IN_MODEL_OPTIONS, [
+    const mergedBase = mergeModelOptions(BUILT_IN_MODEL_OPTIONS, [
       ...normalizedExtras,
       ...discoveredOptions,
     ])
+
+    const merged =
+      videoCapableGeminiIds && videoCapableGeminiIds.size > 0
+        ? mergedBase.map((option) => {
+            if (option.provider !== 'gemini') {
+              return option
+            }
+            if (!videoCapableGeminiIds.has(option.id)) {
+              return option
+            }
+            if (option.capabilities.includes('video')) {
+              return option
+            }
+            return { ...option, capabilities: [...option.capabilities, 'video'] }
+          })
+        : mergedBase
 
     if (includeDiscovered) {
       cachedModelOptions = merged

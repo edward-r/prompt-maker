@@ -113,4 +113,77 @@ describe('model-manager', () => {
     expect(mockFetch).not.toHaveBeenCalled()
     expect(mockWriteFile).not.toHaveBeenCalled()
   })
+
+  it('filters video-capable Gemini models by token limit and fileData support', async () => {
+    const mockFetch = jest.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const href = typeof url === 'string' ? url : url.toString()
+
+      if (href.includes('/v1beta/models?')) {
+        return {
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          json: async () => ({
+            models: [
+              {
+                name: 'models/gemini-3-pro-preview',
+                supportedGenerationMethods: ['generateContent'],
+                inputTokenLimit: 1_000_000,
+              },
+              {
+                name: 'models/gemini-2.5-pro',
+                supportedGenerationMethods: ['generateContent'],
+                inputTokenLimit: 1_000_000,
+              },
+              {
+                name: 'models/gemini-2.0-flash',
+                supportedGenerationMethods: ['generateContent'],
+                inputTokenLimit: 32_000,
+              },
+            ],
+          }),
+        } as unknown as Response
+      }
+
+      if (href.includes('gemini-3-pro-preview:generateContent')) {
+        return {
+          ok: false,
+          status: 404,
+          statusText: 'Not Found',
+          text: async () =>
+            JSON.stringify({
+              error: { code: 404, message: 'Requested entity was not found.', status: 'NOT_FOUND' },
+            }),
+        } as unknown as Response
+      }
+
+      if (href.includes('gemini-2.5-pro:generateContent')) {
+        const parsed = init?.body ? (JSON.parse(String(init.body)) as any) : null
+        const fileUri = parsed?.contents?.[0]?.parts?.[0]?.fileData?.fileUri
+        if (fileUri !== 'INVALID_FILE_URI') {
+          throw new Error('Expected probe to include INVALID_FILE_URI.')
+        }
+
+        return {
+          ok: false,
+          status: 400,
+          statusText: 'Bad Request',
+          text: async () =>
+            JSON.stringify({
+              error: { code: 400, message: 'Invalid file uri.', status: 'INVALID_ARGUMENT' },
+            }),
+        } as unknown as Response
+      }
+
+      throw new Error(`Unexpected fetch url: ${href}`)
+    })
+
+    const { getVideoCapableGeminiModels } = await import('../utils/model-manager')
+
+    const result = await getVideoCapableGeminiModels('gemini-key', {
+      fetchImpl: mockFetch as unknown as typeof fetch,
+    })
+
+    expect(result).toEqual(['gemini-2.5-pro'])
+  })
 })

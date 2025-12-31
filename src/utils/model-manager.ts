@@ -45,6 +45,7 @@ type GeminiModelListResponse = {
   models: Array<{
     name: string
     supportedGenerationMethods?: string[]
+    inputTokenLimit?: number
   }>
 }
 
@@ -77,14 +78,25 @@ const isGeminiModelListResponse = (value: unknown): value is GeminiModelListResp
   if (!Array.isArray(models)) {
     return false
   }
-  return models.every(
-    (entry) =>
-      isRecord(entry) &&
-      typeof entry.name === 'string' &&
-      (entry.supportedGenerationMethods === undefined ||
-        (Array.isArray(entry.supportedGenerationMethods) &&
-          entry.supportedGenerationMethods.every((method) => typeof method === 'string'))),
-  )
+  return models.every((entry) => {
+    if (!isRecord(entry) || typeof entry.name !== 'string') {
+      return false
+    }
+
+    if (
+      entry.supportedGenerationMethods !== undefined &&
+      (!Array.isArray(entry.supportedGenerationMethods) ||
+        !entry.supportedGenerationMethods.every((method) => typeof method === 'string'))
+    ) {
+      return false
+    }
+
+    if (entry.inputTokenLimit !== undefined && typeof entry.inputTokenLimit !== 'number') {
+      return false
+    }
+
+    return true
+  })
 }
 
 const buildOpenAiModelsUrl = (baseUrl?: string): string => {
@@ -98,9 +110,20 @@ const buildOpenAiModelsUrl = (baseUrl?: string): string => {
   return `${normalized}/v1/models`
 }
 
+const normalizeGeminiBaseUrl = (value?: string): string => {
+  const normalized = value?.trim().replace(/\/$/, '')
+  if (!normalized) {
+    return 'https://generativelanguage.googleapis.com'
+  }
+
+  const suffixes = ['/v1beta/models', '/v1/models', '/v1beta', '/v1']
+  return suffixes.reduce((current, suffix) => {
+    return current.endsWith(suffix) ? current.slice(0, -suffix.length) : current
+  }, normalized)
+}
+
 const buildGeminiModelsUrl = (baseUrl?: string, apiKey?: string): string => {
-  const normalized = baseUrl?.trim().replace(/\/$/, '')
-  const root = normalized || 'https://generativelanguage.googleapis.com'
+  const root = normalizeGeminiBaseUrl(baseUrl)
   const key = apiKey?.trim() || ''
   return `${root}/v1beta/models?key=${encodeURIComponent(key)}`
 }
@@ -160,6 +183,14 @@ const fetchOpenAiModels = async (
     })
 }
 
+export type GeminiModelDescriptor = {
+  id: string
+  supportedGenerationMethods: string[]
+  inputTokenLimit?: number
+}
+
+export const MIN_VIDEO_INPUT_TOKEN_LIMIT = 128_000
+
 const fetchGeminiModels = async (
   apiKey: string | null | undefined,
   options: {
@@ -182,6 +213,172 @@ const fetchGeminiModels = async (
   return data.models
     .filter((entry) => entry.supportedGenerationMethods?.includes('generateContent'))
     .map((entry) => entry.name.replace(/^models\//, ''))
+}
+
+const fetchGeminiModelDescriptors = async (
+  apiKey: string | null | undefined,
+  options: {
+    fetchImpl: typeof fetch
+    baseUrl?: string
+  },
+): Promise<GeminiModelDescriptor[]> => {
+  const trimmedKey = apiKey?.trim()
+  if (!trimmedKey) {
+    return []
+  }
+
+  const url = buildGeminiModelsUrl(options.baseUrl, trimmedKey)
+  const data = await fetchJson(options.fetchImpl, url)
+
+  if (!isGeminiModelListResponse(data)) {
+    throw new Error('Gemini models response had unexpected shape.')
+  }
+
+  return data.models
+    .filter((entry) => entry.supportedGenerationMethods?.includes('generateContent'))
+    .map((entry) => ({
+      id: entry.name.replace(/^models\//, ''),
+      supportedGenerationMethods: entry.supportedGenerationMethods ?? [],
+      ...(typeof entry.inputTokenLimit === 'number'
+        ? { inputTokenLimit: entry.inputTokenLimit }
+        : {}),
+    }))
+}
+
+const buildGeminiGenerateContentUrl = (
+  baseUrl: string,
+  apiKey: string,
+  modelId: string,
+): string => {
+  const normalized = normalizeGeminiBaseUrl(baseUrl)
+  return `${normalized}/v1beta/models/${encodeURIComponent(modelId)}:generateContent?key=${encodeURIComponent(apiKey)}`
+}
+
+type GeminiProbeOutcome =
+  | { ok: true }
+  | {
+      ok: false
+      reason: 'model-not-found' | 'filedata-unsupported' | 'unknown'
+      details: string
+    }
+
+export const probeGeminiModelSupportsFileData = async (
+  fetchImpl: typeof fetch,
+  modelId: string,
+  apiKey: string,
+  baseUrl?: string,
+): Promise<GeminiProbeOutcome> => {
+  const trimmedKey = apiKey.trim()
+  if (!trimmedKey) {
+    return { ok: false, reason: 'unknown', details: 'Missing Gemini API key.' }
+  }
+
+  const url = buildGeminiGenerateContentUrl(
+    baseUrl ?? 'https://generativelanguage.googleapis.com',
+    trimmedKey,
+    modelId,
+  )
+
+  // Important: we purposely use a bogus fileUri to test schema support without actually uploading.
+  // If the model supports fileData, the request should fail for a different reason (e.g. bad file uri),
+  // not "Unknown name fileData".
+  const body = {
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          {
+            fileData: {
+              mimeType: 'video/mp4',
+              // Intentionally invalid to avoid ambiguous 404s.
+              fileUri: 'INVALID_FILE_URI',
+            },
+          },
+          { text: 'Describe the video.' },
+        ],
+      },
+    ],
+    generationConfig: { temperature: 0.2 },
+  }
+
+  const response = await fetchImpl(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+
+  if (response.ok) {
+    return { ok: true }
+  }
+
+  const details = await response.text()
+
+  if (response.status === 404) {
+    return { ok: false, reason: 'model-not-found', details }
+  }
+
+  if (response.status === 400 && details.includes('Unknown name') && details.includes('fileData')) {
+    return { ok: false, reason: 'filedata-unsupported', details }
+  }
+
+  // If it fails for any other reason, we assume the schema was accepted.
+  return { ok: true }
+}
+
+export const getVideoCapableGeminiModels = async (
+  apiKey: string | null | undefined,
+  options: {
+    fetchImpl?: typeof fetch
+    baseUrl?: string
+  } = {},
+): Promise<string[]> => {
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch
+  if (!fetchImpl) {
+    return []
+  }
+
+  const trimmedKey = apiKey?.trim()
+  if (!trimmedKey) {
+    return []
+  }
+
+  const descriptors = await fetchGeminiModelDescriptors(trimmedKey, {
+    fetchImpl,
+    ...(options.baseUrl ? { baseUrl: options.baseUrl } : {}),
+  })
+
+  const candidates = descriptors
+    .filter((model) => {
+      const normalizedId = model.id.toLowerCase()
+      const isGemini = normalizedId.includes('gemini')
+      const tokenLimit = model.inputTokenLimit ?? 0
+      return isGemini && tokenLimit >= MIN_VIDEO_INPUT_TOKEN_LIMIT
+    })
+    .sort((a, b) => {
+      const aLimit = a.inputTokenLimit ?? 0
+      const bLimit = b.inputTokenLimit ?? 0
+      if (bLimit !== aLimit) {
+        return bLimit - aLimit
+      }
+      return a.id.localeCompare(b.id)
+    })
+
+  const supported: string[] = []
+
+  for (const model of candidates) {
+    const probe = await probeGeminiModelSupportsFileData(
+      fetchImpl,
+      model.id,
+      trimmedKey,
+      options.baseUrl,
+    )
+
+    if (probe.ok) {
+      supported.push(model.id)
+    }
+  }
+
+  return supported
 }
 
 const readCacheFile = async (cacheFilePath: string): Promise<ModelCache | null> => {

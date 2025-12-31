@@ -128,7 +128,7 @@ describe('prompt-maker-core llm wrapper', () => {
     const result = await callLLM([{ role: 'user', content: 'Hi' }], 'gemini-1.5-pro')
     expect(result).toBe('gemini result')
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining('gemini-1.5-pro:generateContent'),
+      expect.stringContaining('/v1/models/gemini-1.5-pro:generateContent'),
       expect.objectContaining({ method: 'POST' }),
     )
   })

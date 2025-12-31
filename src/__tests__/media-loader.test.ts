@@ -39,12 +39,19 @@ describe('media-loader', () => {
   })
 
   it('uploads file and waits for active state', async () => {
-    const uri = await uploadFileForGemini('clip.mp4')
-    expect(googleModule.GoogleAIFileManager).toHaveBeenCalledWith('gem-key')
+    process.env.GEMINI_API_KEY = 'env-key'
+    const uri = await uploadFileForGemini('clip.mp4', 'injected-key')
+    expect(googleModule.GoogleAIFileManager).toHaveBeenCalledWith('injected-key')
     expect(manager.uploadFile).toHaveBeenCalledWith('clip.mp4', {
       mimeType: 'video/mp4',
       displayName: 'clip.mp4',
     })
+    expect(uri).toBe('gs://files/123')
+  })
+
+  it('falls back to GEMINI_API_KEY when no key is provided', async () => {
+    const uri = await uploadFileForGemini('clip.mp4')
+    expect(googleModule.GoogleAIFileManager).toHaveBeenCalledWith('gem-key')
     expect(uri).toBe('gs://files/123')
   })
 
@@ -60,6 +67,6 @@ describe('media-loader', () => {
 
   it('requires GEMINI_API_KEY to be present', async () => {
     process.env.GEMINI_API_KEY = ''
-    await expect(uploadFileForGemini('clip.mp4')).rejects.toThrow('GEMINI_API_KEY')
+    await expect(uploadFileForGemini('clip.mp4')).rejects.toThrow('Gemini API key')
   })
 })

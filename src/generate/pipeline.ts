@@ -125,8 +125,12 @@ export const runGeneratePipeline = async (
     })
 
     if (args.video.length > 0 && !isGemini(model)) {
+      const previousModel = model
       model = await resolveGeminiVideoModel()
-      console.warn('Switching to Gemini 3 Pro (Preview) to support video input.')
+
+      if (model !== previousModel) {
+        console.warn(`Switching to ${model} to support video input.`)
+      }
     }
 
     const contextTemplateDefinition = contextTemplateName

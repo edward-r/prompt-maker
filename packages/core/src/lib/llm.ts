@@ -28,15 +28,29 @@ type ChatCompletionResponse = {
   choices: ChatCompletionChoice[]
 }
 
-type GeminiContentPart =
+type GeminiApiVersion = 'v1' | 'v1beta'
+
+type GeminiV1BetaContentPart =
   | { text: string }
   | { inlineData: { mimeType: string; data: string } }
   | { fileData: { mimeType: string; fileUri: string } }
 
-type GeminiContent = {
+type GeminiV1BetaContent = {
   role: 'user' | 'model' | 'system'
-  parts: GeminiContentPart[]
+  parts: GeminiV1BetaContentPart[]
 }
+
+type GeminiV1ContentPart =
+  | { text: string }
+  | { inline_data: { mime_type: string; data: string } }
+  | { file_data: { mime_type: string; file_uri: string } }
+
+type GeminiV1Content = {
+  role: 'user' | 'model' | 'system'
+  parts: GeminiV1ContentPart[]
+}
+
+type GeminiContentPart = GeminiV1BetaContentPart | GeminiV1ContentPart
 
 type GeminiResponse = {
   candidates?: Array<{ content?: { parts?: GeminiContentPart[] } }>
@@ -93,7 +107,28 @@ const OPENAI_CHAT_ENDPOINT = `${OPENAI_BASE_URL.replace(/\/chat\/completions$/, 
 const OPENAI_RESPONSES_ENDPOINT = `${OPENAI_BASE_URL.replace(/\/chat\/completions$/, '')}/responses`
 const OPENAI_EMBEDDING_ENDPOINT = `${OPENAI_BASE_URL.replace(/\/chat\/completions$/, '')}/embeddings`
 
-const GEMINI_BASE_URL = process.env.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com'
+const DEFAULT_GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com'
+
+const normalizeGeminiBaseUrl = (value: string | undefined): string => {
+  const trimmed = value?.trim()
+  const candidate = trimmed && trimmed.length > 0 ? trimmed : DEFAULT_GEMINI_BASE_URL
+  const withoutTrailingSlash = candidate.replace(/\/$/, '')
+
+  const suffixes = ['/v1beta/models', '/v1/models', '/v1beta', '/v1']
+  const stripped = suffixes.reduce((current, suffix) => {
+    return current.endsWith(suffix) ? current.slice(0, -suffix.length) : current
+  }, withoutTrailingSlash)
+
+  return stripped || DEFAULT_GEMINI_BASE_URL
+}
+
+const GEMINI_BASE_URL = normalizeGeminiBaseUrl(process.env.GEMINI_BASE_URL)
+const GEMINI_API_VERSION = process.env.GEMINI_API_VERSION?.trim() || 'v1'
+
+const normalizeGeminiApiVersion = (value: string): GeminiApiVersion => {
+  const trimmed = value.trim().toLowerCase()
+  return trimmed === 'v1beta' ? 'v1beta' : 'v1'
+}
 
 export const callLLM = async (
   messages: Message[],
@@ -304,6 +339,125 @@ const extractOpenAIResponsesText = (response: OpenAIResponsesResponse): string |
   return text.length > 0 ? text : null
 }
 
+type GeminiFieldCasing = 'camel' | 'snake'
+
+type GeminiCallFailure = {
+  ok: false
+  status: number
+  details: string
+  apiVersion: GeminiApiVersion
+  casing: GeminiFieldCasing
+}
+
+type GeminiCallResult = { ok: true; content: string } | GeminiCallFailure
+
+const resolveGeminiRetryCasing = (status: number, details: string): GeminiFieldCasing | null => {
+  if (status !== 400) return null
+
+  const hasUnknownName = details.includes('Unknown name')
+  if (!hasUnknownName) return null
+
+  const snakeHints = ['file_data', 'system_instruction', 'inline_data', 'generation_config']
+  if (snakeHints.some((hint) => details.includes(`"${hint}"`) || details.includes(hint))) {
+    return 'camel'
+  }
+
+  const camelHints = ['fileData', 'systemInstruction', 'inlineData', 'generationConfig']
+  if (camelHints.some((hint) => details.includes(`"${hint}"`) || details.includes(hint))) {
+    return 'snake'
+  }
+
+  return null
+}
+
+const callGeminiOnce = async (
+  messages: Message[],
+  model: string,
+  apiKey: string,
+  apiVersion: string,
+): Promise<GeminiCallResult> => {
+  const endpointBase = GEMINI_BASE_URL
+  const normalizedVersion = normalizeGeminiApiVersion(apiVersion)
+  const url = `${endpointBase}/${normalizedVersion}/models/${model}:generateContent?key=${apiKey}`
+
+  const send = async (casing: GeminiFieldCasing): Promise<GeminiCallResult> => {
+    const body = buildGeminiRequestBody(messages, casing)
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+
+    if (!response.ok) {
+      const details = await response.text()
+      return { ok: false, status: response.status, details, apiVersion: normalizedVersion, casing }
+    }
+
+    const data = (await response.json()) as GeminiResponse
+    const content = extractGeminiText(data)
+
+    if (!content) {
+      throw new Error('Gemini response did not include text content.')
+    }
+
+    return { ok: true, content }
+  }
+
+  const primary = await send('camel')
+  if (primary.ok) {
+    return primary
+  }
+
+  const retryCasing = resolveGeminiRetryCasing(primary.status, primary.details)
+  if (retryCasing && retryCasing !== 'camel') {
+    const fallback = await send(retryCasing)
+    if (fallback.ok) {
+      return fallback
+    }
+
+    return {
+      ok: false,
+      status: fallback.status,
+      details:
+        `Retry (${fallback.apiVersion}, ${fallback.casing}) failed: ${fallback.details}\n` +
+        `Initial (${primary.apiVersion}, ${primary.casing}) failed: ${primary.details}`,
+      apiVersion: fallback.apiVersion,
+      casing: fallback.casing,
+    }
+  }
+
+  return primary
+}
+
+const messageHasGeminiFileParts = (content: MessageContent): boolean => {
+  return typeof content !== 'string' && content.some((part) => 'fileUri' in part)
+}
+
+const requestHasGeminiFileParts = (messages: Message[]): boolean => {
+  return messages.some((message) => messageHasGeminiFileParts(message.content))
+}
+
+const shouldRetryGeminiApiVersion = (status: number, details: string): boolean => {
+  if (status === 404) return true
+
+  if (status !== 400) return false
+
+  // If the API rejects known Gemini fields, try the other version once.
+  const retryHints = [
+    'fileData',
+    'file_data',
+    'systemInstruction',
+    'system_instruction',
+    'inlineData',
+    'inline_data',
+  ]
+
+  return retryHints.some((hint) => details.includes(hint))
+}
+
 const callGemini = async (messages: Message[], model: string): Promise<string> => {
   const apiKey = process.env.GEMINI_API_KEY
 
@@ -311,47 +465,91 @@ const callGemini = async (messages: Message[], model: string): Promise<string> =
     throw new Error('GEMINI_API_KEY env var is not set.')
   }
 
-  const endpointBase = GEMINI_BASE_URL.replace(/\/$/, '')
-  const url = `${endpointBase}/v1beta/models/${model}:generateContent?key=${apiKey}`
-  const body = buildGeminiRequestBody(messages)
+  const wantsFileParts = requestHasGeminiFileParts(messages)
+  const envVersion = normalizeGeminiApiVersion(GEMINI_API_VERSION)
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  })
+  // `fileData`/`file_data` parts are only supported on some Gemini API versions.
+  const primaryVersion: GeminiApiVersion = wantsFileParts ? 'v1beta' : envVersion
 
-  if (!response.ok) {
-    const details = await response.text()
-    throw new Error(`Gemini request failed with status ${response.status}: ${details}`)
+  const primary = await callGeminiOnce(messages, model, apiKey, primaryVersion)
+  if (primary.ok) {
+    return primary.content
   }
 
-  const data = (await response.json()) as GeminiResponse
-  const content = extractGeminiText(data)
+  if (shouldRetryGeminiApiVersion(primary.status, primary.details)) {
+    const fallbackVersion: GeminiApiVersion = primaryVersion === 'v1beta' ? 'v1' : 'v1beta'
+    const fallback = await callGeminiOnce(messages, model, apiKey, fallbackVersion)
+    if (fallback.ok) {
+      return fallback.content
+    }
 
-  if (!content) {
-    throw new Error('Gemini response did not include text content.')
+    const looksLikeUnsupportedFileParts =
+      fallback.status === 400 &&
+      (fallback.details.includes('fileData') ||
+        fallback.details.includes('file_data') ||
+        fallback.details.includes('systemInstruction') ||
+        fallback.details.includes('system_instruction'))
+
+    if (
+      wantsFileParts &&
+      primary.apiVersion === 'v1beta' &&
+      primary.status === 404 &&
+      looksLikeUnsupportedFileParts
+    ) {
+      throw new Error(
+        [
+          `Gemini model "${model}" was not found on ${primary.apiVersion}, which is required for video/file inputs ("fileData").`,
+          `The ${fallback.apiVersion} API call succeeded in finding the model, but that API version rejected video/file parts.`,
+          'Pick a Gemini model that supports video inputs on v1beta (or set a different --model).',
+          '',
+          `Details from ${primary.apiVersion} (model lookup): ${primary.details}`,
+          `Details from ${fallback.apiVersion} (payload): ${fallback.details}`,
+        ].join('\n'),
+      )
+    }
+
+    throw new Error(
+      `Gemini (${fallback.apiVersion}, ${fallback.casing}) request failed with status ${fallback.status}: ${fallback.details}\n` +
+        `Tried ${primary.apiVersion} first: ${primary.details}`,
+    )
   }
 
-  return content
+  throw new Error(
+    `Gemini (${primary.apiVersion}, ${primary.casing}) request failed with status ${primary.status}: ${primary.details}`,
+  )
 }
+
+type GeminiRequestBodyCamel = {
+  contents: GeminiV1BetaContent[]
+  systemInstruction?: GeminiV1BetaContent
+  generationConfig: { temperature: number }
+}
+
+type GeminiRequestBodySnake = {
+  contents: GeminiV1Content[]
+  system_instruction?: GeminiV1Content
+  generation_config: { temperature: number }
+}
+
+type GeminiRequestBody = GeminiRequestBodyCamel | GeminiRequestBodySnake
 
 const buildGeminiRequestBody = (
   messages: Message[],
-): {
-  contents: GeminiContent[]
-  systemInstruction?: GeminiContent
-  generationConfig: { temperature: number }
-} => {
+  casing: GeminiFieldCasing,
+): GeminiRequestBody => {
+  return casing === 'snake'
+    ? buildGeminiRequestBodySnake(messages)
+    : buildGeminiRequestBodyCamel(messages)
+}
+
+const buildGeminiRequestBodyCamel = (messages: Message[]): GeminiRequestBodyCamel => {
   const systemMessages = messages.filter((message) => message.role === 'system')
 
-  const contents: GeminiContent[] = messages
+  const contents: GeminiV1BetaContent[] = messages
     .filter((message) => message.role !== 'system')
     .map((message) => {
       const role = message.role === 'user' ? 'user' : 'model'
-      const parts = toGeminiParts(message.content)
+      const parts = toGeminiPartsV1Beta(message.content)
       if (parts.length === 0) {
         parts.push({ text: '' })
       }
@@ -365,19 +563,53 @@ const buildGeminiRequestBody = (
     throw new Error('Gemini requests require at least one user message.')
   }
 
-  const payload: {
-    contents: GeminiContent[]
-    systemInstruction?: GeminiContent
-    generationConfig: { temperature: number }
-  } = {
+  const payload: GeminiRequestBodyCamel = {
     contents,
     generationConfig: { temperature: 0.2 },
   }
 
-  const systemParts = systemMessages.flatMap((message) => toGeminiParts(message.content))
+  const systemParts = systemMessages.flatMap((message) => toGeminiPartsV1Beta(message.content))
 
   if (systemParts.length > 0) {
     payload.systemInstruction = {
+      role: 'system',
+      parts: systemParts,
+    }
+  }
+
+  return payload
+}
+
+const buildGeminiRequestBodySnake = (messages: Message[]): GeminiRequestBodySnake => {
+  const systemMessages = messages.filter((message) => message.role === 'system')
+
+  const contents: GeminiV1Content[] = messages
+    .filter((message) => message.role !== 'system')
+    .map((message) => {
+      const role = message.role === 'user' ? 'user' : 'model'
+      const parts = toGeminiPartsV1(message.content)
+      if (parts.length === 0) {
+        parts.push({ text: '' })
+      }
+      return {
+        role,
+        parts,
+      }
+    })
+
+  if (contents.length === 0) {
+    throw new Error('Gemini requests require at least one user message.')
+  }
+
+  const payload: GeminiRequestBodySnake = {
+    contents,
+    generation_config: { temperature: 0.2 },
+  }
+
+  const systemParts = systemMessages.flatMap((message) => toGeminiPartsV1(message.content))
+
+  if (systemParts.length > 0) {
+    payload.system_instruction = {
       role: 'system',
       parts: systemParts,
     }
@@ -435,8 +667,8 @@ const callGeminiEmbedding = async (text: string, model: string): Promise<number[
     throw new Error('GEMINI_API_KEY env var is not set.')
   }
 
-  const endpointBase = GEMINI_BASE_URL.replace(/\/$/, '')
-  const url = `${endpointBase}/v1beta/models/${model}:embedContent?key=${apiKey}`
+  const endpointBase = GEMINI_BASE_URL
+  const url = `${endpointBase}/${GEMINI_API_VERSION}/models/${model}:embedContent?key=${apiKey}`
   const body = {
     content: {
       parts: [{ text }],
@@ -538,7 +770,7 @@ const toOpenAIResponsesContent = (content: MessageContent): OpenAIResponsesInput
   })
 }
 
-const toGeminiParts = (content: MessageContent): GeminiContentPart[] => {
+const toGeminiPartsV1Beta = (content: MessageContent): GeminiV1BetaContentPart[] => {
   if (typeof content === 'string') {
     return content ? [{ text: content }] : []
   }
@@ -556,6 +788,30 @@ const toGeminiParts = (content: MessageContent): GeminiContentPart[] => {
     if ('fileUri' in part) {
       const videoPart = part as VideoPart
       return { fileData: { mimeType: videoPart.mimeType, fileUri: videoPart.fileUri } }
+    }
+
+    return { text: '' }
+  })
+}
+
+const toGeminiPartsV1 = (content: MessageContent): GeminiV1ContentPart[] => {
+  if (typeof content === 'string') {
+    return content ? [{ text: content }] : []
+  }
+
+  return content.map((part) => {
+    if ('text' in part) {
+      return { text: part.text }
+    }
+
+    if ('data' in part) {
+      const imagePart = part as ImagePart
+      return { inline_data: { mime_type: imagePart.mimeType, data: imagePart.data } }
+    }
+
+    if ('fileUri' in part) {
+      const videoPart = part as VideoPart
+      return { file_data: { mime_type: videoPart.mimeType, file_uri: videoPart.fileUri } }
     }
 
     return { text: '' }

@@ -13,6 +13,7 @@ export const buildInitialUserMessage = async (
   videoPaths: string[],
   metaInstructions?: string,
   onUploadStateChange?: UploadStateChange,
+  apiKey?: string,
 ): Promise<MessageContent> => {
   const sections: string[] = []
 
@@ -35,7 +36,7 @@ export const buildInitialUserMessage = async (
   )
 
   const text = sections.join('\n\n')
-  return await mergeMediaWithText(text, imagePaths, videoPaths, onUploadStateChange)
+  return await mergeMediaWithText(text, imagePaths, videoPaths, onUploadStateChange, apiKey)
 }
 
 export const buildRefinementMessage = async (
@@ -47,6 +48,7 @@ export const buildRefinementMessage = async (
   videoPaths: string[],
   metaInstructions?: string,
   onUploadStateChange?: UploadStateChange,
+  apiKey?: string,
 ): Promise<MessageContent> => {
   const sections: string[] = []
 
@@ -71,7 +73,7 @@ export const buildRefinementMessage = async (
   )
 
   const text = sections.join('\n\n')
-  return await mergeMediaWithText(text, imagePaths, videoPaths, onUploadStateChange)
+  return await mergeMediaWithText(text, imagePaths, videoPaths, onUploadStateChange, apiKey)
 }
 
 export const buildSeriesUserMessage = async (
@@ -81,6 +83,7 @@ export const buildSeriesUserMessage = async (
   videoPaths: string[],
   metaInstructions?: string,
   onUploadStateChange?: UploadStateChange,
+  apiKey?: string,
 ): Promise<MessageContent> => {
   const sections: string[] = []
 
@@ -112,7 +115,7 @@ export const buildSeriesUserMessage = async (
   )
 
   const text = sections.join('\n\n')
-  return await mergeMediaWithText(text, imagePaths, videoPaths, onUploadStateChange)
+  return await mergeMediaWithText(text, imagePaths, videoPaths, onUploadStateChange, apiKey)
 }
 
 const mergeMediaWithText = async (
@@ -120,10 +123,11 @@ const mergeMediaWithText = async (
   imagePaths: string[],
   videoPaths: string[],
   onUploadStateChange?: UploadStateChange,
+  apiKey?: string,
 ): Promise<MessageContent> => {
   const [imageParts, videoParts] = await Promise.all([
     resolveImageParts(imagePaths, onUploadStateChange),
-    resolveVideoParts(videoPaths, onUploadStateChange),
+    resolveVideoParts(videoPaths, onUploadStateChange, apiKey),
   ])
 
   if (imageParts.length === 0 && videoParts.length === 0) {
