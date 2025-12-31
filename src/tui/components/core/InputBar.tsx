@@ -236,12 +236,6 @@ export const InputBar: React.FC<InputBarProps> = ({
             </Text>
           ) : null}
 
-          {summary.model && (summary.polish || summary.target) ? (
-            <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
-              {' · '}
-            </Text>
-          ) : null}
-
           {summary.polish ? (
             <>
               <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
