@@ -30,30 +30,24 @@ type ChatCompletionResponse = {
 
 type GeminiApiVersion = 'v1' | 'v1beta'
 
-type GeminiV1BetaContentPart =
+type GeminiContentPart =
   | { text: string }
   | { inlineData: { mimeType: string; data: string } }
   | { fileData: { mimeType: string; fileUri: string } }
 
-type GeminiV1BetaContent = {
+type GeminiContent = {
   role: 'user' | 'model' | 'system'
-  parts: GeminiV1BetaContentPart[]
+  parts: GeminiContentPart[]
 }
-
-type GeminiV1ContentPart =
-  | { text: string }
-  | { inline_data: { mime_type: string; data: string } }
-  | { file_data: { mime_type: string; file_uri: string } }
-
-type GeminiV1Content = {
-  role: 'user' | 'model' | 'system'
-  parts: GeminiV1ContentPart[]
-}
-
-type GeminiContentPart = GeminiV1BetaContentPart | GeminiV1ContentPart
 
 type GeminiResponse = {
   candidates?: Array<{ content?: { parts?: GeminiContentPart[] } }>
+}
+
+type GeminiRequestBody = {
+  contents: GeminiContent[]
+  systemInstruction?: GeminiContent
+  generationConfig: { temperature: number }
 }
 
 type OpenAIEmbeddingResponse = {
@@ -123,7 +117,7 @@ const normalizeGeminiBaseUrl = (value: string | undefined): string => {
 }
 
 const GEMINI_BASE_URL = normalizeGeminiBaseUrl(process.env.GEMINI_BASE_URL)
-const GEMINI_API_VERSION = process.env.GEMINI_API_VERSION?.trim() || 'v1'
+const GEMINI_API_VERSION = process.env.GEMINI_API_VERSION?.trim() || 'v1beta'
 
 const normalizeGeminiApiVersion = (value: string): GeminiApiVersion => {
   const trimmed = value.trim().toLowerCase()
@@ -339,97 +333,47 @@ const extractOpenAIResponsesText = (response: OpenAIResponsesResponse): string |
   return text.length > 0 ? text : null
 }
 
-type GeminiFieldCasing = 'camel' | 'snake'
-
 type GeminiCallFailure = {
   ok: false
   status: number
   details: string
   apiVersion: GeminiApiVersion
-  casing: GeminiFieldCasing
 }
 
 type GeminiCallResult = { ok: true; content: string } | GeminiCallFailure
-
-const resolveGeminiRetryCasing = (status: number, details: string): GeminiFieldCasing | null => {
-  if (status !== 400) return null
-
-  const hasUnknownName = details.includes('Unknown name')
-  if (!hasUnknownName) return null
-
-  const snakeHints = ['file_data', 'system_instruction', 'inline_data', 'generation_config']
-  if (snakeHints.some((hint) => details.includes(`"${hint}"`) || details.includes(hint))) {
-    return 'camel'
-  }
-
-  const camelHints = ['fileData', 'systemInstruction', 'inlineData', 'generationConfig']
-  if (camelHints.some((hint) => details.includes(`"${hint}"`) || details.includes(hint))) {
-    return 'snake'
-  }
-
-  return null
-}
 
 const callGeminiOnce = async (
   messages: Message[],
   model: string,
   apiKey: string,
-  apiVersion: string,
+  apiVersion: GeminiApiVersion,
 ): Promise<GeminiCallResult> => {
   const endpointBase = GEMINI_BASE_URL
   const normalizedVersion = normalizeGeminiApiVersion(apiVersion)
   const url = `${endpointBase}/${normalizedVersion}/models/${model}:generateContent?key=${apiKey}`
+  const body = buildGeminiRequestBody(messages)
 
-  const send = async (casing: GeminiFieldCasing): Promise<GeminiCallResult> => {
-    const body = buildGeminiRequestBody(messages, casing)
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    })
-
-    if (!response.ok) {
-      const details = await response.text()
-      return { ok: false, status: response.status, details, apiVersion: normalizedVersion, casing }
-    }
-
-    const data = (await response.json()) as GeminiResponse
-    const content = extractGeminiText(data)
-
-    if (!content) {
-      throw new Error('Gemini response did not include text content.')
-    }
-
-    return { ok: true, content }
+  if (!response.ok) {
+    const details = await response.text()
+    return { ok: false, status: response.status, details, apiVersion: normalizedVersion }
   }
 
-  const primary = await send('camel')
-  if (primary.ok) {
-    return primary
+  const data = (await response.json()) as GeminiResponse
+  const content = extractGeminiText(data)
+
+  if (!content) {
+    throw new Error('Gemini response did not include text content.')
   }
 
-  const retryCasing = resolveGeminiRetryCasing(primary.status, primary.details)
-  if (retryCasing && retryCasing !== 'camel') {
-    const fallback = await send(retryCasing)
-    if (fallback.ok) {
-      return fallback
-    }
-
-    return {
-      ok: false,
-      status: fallback.status,
-      details:
-        `Retry (${fallback.apiVersion}, ${fallback.casing}) failed: ${fallback.details}\n` +
-        `Initial (${primary.apiVersion}, ${primary.casing}) failed: ${primary.details}`,
-      apiVersion: fallback.apiVersion,
-      casing: fallback.casing,
-    }
-  }
-
-  return primary
+  return { ok: true, content }
 }
 
 const messageHasGeminiFileParts = (content: MessageContent): boolean => {
@@ -440,22 +384,9 @@ const requestHasGeminiFileParts = (messages: Message[]): boolean => {
   return messages.some((message) => messageHasGeminiFileParts(message.content))
 }
 
-const shouldRetryGeminiApiVersion = (status: number, details: string): boolean => {
-  if (status === 404) return true
-
-  if (status !== 400) return false
-
-  // If the API rejects known Gemini fields, try the other version once.
-  const retryHints = [
-    'fileData',
-    'file_data',
-    'systemInstruction',
-    'system_instruction',
-    'inlineData',
-    'inline_data',
-  ]
-
-  return retryHints.some((hint) => details.includes(hint))
+const shouldRetryGeminiApiVersion = (status: number): boolean => {
+  // Gemini models sometimes move between API versions.
+  return status === 404
 }
 
 const callGemini = async (messages: Message[], model: string): Promise<string> => {
@@ -476,80 +407,32 @@ const callGemini = async (messages: Message[], model: string): Promise<string> =
     return primary.content
   }
 
-  if (shouldRetryGeminiApiVersion(primary.status, primary.details)) {
+  if (shouldRetryGeminiApiVersion(primary.status)) {
     const fallbackVersion: GeminiApiVersion = primaryVersion === 'v1beta' ? 'v1' : 'v1beta'
     const fallback = await callGeminiOnce(messages, model, apiKey, fallbackVersion)
     if (fallback.ok) {
       return fallback.content
     }
 
-    const looksLikeUnsupportedFileParts =
-      fallback.status === 400 &&
-      (fallback.details.includes('fileData') ||
-        fallback.details.includes('file_data') ||
-        fallback.details.includes('systemInstruction') ||
-        fallback.details.includes('system_instruction'))
-
-    if (
-      wantsFileParts &&
-      primary.apiVersion === 'v1beta' &&
-      primary.status === 404 &&
-      looksLikeUnsupportedFileParts
-    ) {
-      throw new Error(
-        [
-          `Gemini model "${model}" was not found on ${primary.apiVersion}, which is required for video/file inputs ("fileData").`,
-          `The ${fallback.apiVersion} API call succeeded in finding the model, but that API version rejected video/file parts.`,
-          'Pick a Gemini model that supports video inputs on v1beta (or set a different --model).',
-          '',
-          `Details from ${primary.apiVersion} (model lookup): ${primary.details}`,
-          `Details from ${fallback.apiVersion} (payload): ${fallback.details}`,
-        ].join('\n'),
-      )
-    }
-
     throw new Error(
-      `Gemini (${fallback.apiVersion}, ${fallback.casing}) request failed with status ${fallback.status}: ${fallback.details}\n` +
+      `Gemini (${fallback.apiVersion}) request failed with status ${fallback.status}: ${fallback.details}\n` +
         `Tried ${primary.apiVersion} first: ${primary.details}`,
     )
   }
 
   throw new Error(
-    `Gemini (${primary.apiVersion}, ${primary.casing}) request failed with status ${primary.status}: ${primary.details}`,
+    `Gemini (${primary.apiVersion}) request failed with status ${primary.status}: ${primary.details}`,
   )
 }
 
-type GeminiRequestBodyCamel = {
-  contents: GeminiV1BetaContent[]
-  systemInstruction?: GeminiV1BetaContent
-  generationConfig: { temperature: number }
-}
-
-type GeminiRequestBodySnake = {
-  contents: GeminiV1Content[]
-  system_instruction?: GeminiV1Content
-  generation_config: { temperature: number }
-}
-
-type GeminiRequestBody = GeminiRequestBodyCamel | GeminiRequestBodySnake
-
-const buildGeminiRequestBody = (
-  messages: Message[],
-  casing: GeminiFieldCasing,
-): GeminiRequestBody => {
-  return casing === 'snake'
-    ? buildGeminiRequestBodySnake(messages)
-    : buildGeminiRequestBodyCamel(messages)
-}
-
-const buildGeminiRequestBodyCamel = (messages: Message[]): GeminiRequestBodyCamel => {
+const buildGeminiRequestBody = (messages: Message[]): GeminiRequestBody => {
   const systemMessages = messages.filter((message) => message.role === 'system')
 
-  const contents: GeminiV1BetaContent[] = messages
+  const contents: GeminiContent[] = messages
     .filter((message) => message.role !== 'system')
     .map((message) => {
       const role = message.role === 'user' ? 'user' : 'model'
-      const parts = toGeminiPartsV1Beta(message.content)
+      const parts = toGeminiParts(message.content)
       if (parts.length === 0) {
         parts.push({ text: '' })
       }
@@ -563,53 +446,15 @@ const buildGeminiRequestBodyCamel = (messages: Message[]): GeminiRequestBodyCame
     throw new Error('Gemini requests require at least one user message.')
   }
 
-  const payload: GeminiRequestBodyCamel = {
+  const payload: GeminiRequestBody = {
     contents,
     generationConfig: { temperature: 0.2 },
   }
 
-  const systemParts = systemMessages.flatMap((message) => toGeminiPartsV1Beta(message.content))
+  const systemParts = systemMessages.flatMap((message) => toGeminiParts(message.content))
 
   if (systemParts.length > 0) {
     payload.systemInstruction = {
-      role: 'system',
-      parts: systemParts,
-    }
-  }
-
-  return payload
-}
-
-const buildGeminiRequestBodySnake = (messages: Message[]): GeminiRequestBodySnake => {
-  const systemMessages = messages.filter((message) => message.role === 'system')
-
-  const contents: GeminiV1Content[] = messages
-    .filter((message) => message.role !== 'system')
-    .map((message) => {
-      const role = message.role === 'user' ? 'user' : 'model'
-      const parts = toGeminiPartsV1(message.content)
-      if (parts.length === 0) {
-        parts.push({ text: '' })
-      }
-      return {
-        role,
-        parts,
-      }
-    })
-
-  if (contents.length === 0) {
-    throw new Error('Gemini requests require at least one user message.')
-  }
-
-  const payload: GeminiRequestBodySnake = {
-    contents,
-    generation_config: { temperature: 0.2 },
-  }
-
-  const systemParts = systemMessages.flatMap((message) => toGeminiPartsV1(message.content))
-
-  if (systemParts.length > 0) {
-    payload.system_instruction = {
       role: 'system',
       parts: systemParts,
     }
@@ -770,7 +615,7 @@ const toOpenAIResponsesContent = (content: MessageContent): OpenAIResponsesInput
   })
 }
 
-const toGeminiPartsV1Beta = (content: MessageContent): GeminiV1BetaContentPart[] => {
+const toGeminiParts = (content: MessageContent): GeminiContentPart[] => {
   if (typeof content === 'string') {
     return content ? [{ text: content }] : []
   }
@@ -788,30 +633,6 @@ const toGeminiPartsV1Beta = (content: MessageContent): GeminiV1BetaContentPart[]
     if ('fileUri' in part) {
       const videoPart = part as VideoPart
       return { fileData: { mimeType: videoPart.mimeType, fileUri: videoPart.fileUri } }
-    }
-
-    return { text: '' }
-  })
-}
-
-const toGeminiPartsV1 = (content: MessageContent): GeminiV1ContentPart[] => {
-  if (typeof content === 'string') {
-    return content ? [{ text: content }] : []
-  }
-
-  return content.map((part) => {
-    if ('text' in part) {
-      return { text: part.text }
-    }
-
-    if ('data' in part) {
-      const imagePart = part as ImagePart
-      return { inline_data: { mime_type: imagePart.mimeType, data: imagePart.data } }
-    }
-
-    if ('fileUri' in part) {
-      const videoPart = part as VideoPart
-      return { file_data: { mime_type: videoPart.mimeType, file_uri: videoPart.fileUri } }
     }
 
     return { text: '' }
