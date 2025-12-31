@@ -1,15 +1,13 @@
 import { Box, Text, useStdout } from 'ink'
 
 import type { ToastKind } from '../../notifier'
-import { TOAST_HEIGHT, TOAST_HORIZONTAL_INSET_COLUMNS } from '../../toast-constants'
+import { TOAST_HEIGHT } from '../../toast-constants'
 import { useTheme } from '../../theme/theme-provider'
 import {
   inkBackgroundColorProps,
   inkBorderColorProps,
   inkColorProps,
 } from '../../theme/theme-types'
-
-const APP_CONTAINER_PADDING_X = 2
 
 const padRight = (value: string, width: number): string => {
   if (width <= 0) {
@@ -61,10 +59,7 @@ export const Toast = ({ message, kind }: ToastProps) => {
   // To keep the toast opaque, we explicitly pad each content line to the
   // available inner width so it prints background-colored spaces.
   const terminalColumns = stdout?.columns ?? 80
-  const toastWidth = Math.max(
-    20,
-    terminalColumns - 2 * (APP_CONTAINER_PADDING_X + TOAST_HORIZONTAL_INSET_COLUMNS),
-  )
+  const toastWidth = terminalColumns
 
   const borderColumns = 2
   const paddingColumns = 2
