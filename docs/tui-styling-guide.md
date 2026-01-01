@@ -281,10 +281,10 @@ When mode is `system`, `ThemeProvider` resolves it using `detectTerminalAppearan
 
 ### 4.3 Screens
 
-| Screen               | Entry                                                   | Implementation directory        |
-| -------------------- | ------------------------------------------------------- | ------------------------------- |
-| Generate (“Command”) | `src/tui/screens/command/CommandScreen.tsx` (re-export) | `src/tui/screens/command/*`     |
-| Test Runner          | `src/tui/screens/test-runner/TestRunnerScreen.tsx`      | `src/tui/screens/test-runner/*` |
+| Screen               | Entry                          | Implementation directory        |
+| -------------------- | ------------------------------ | ------------------------------- |
+| Generate (“Command”) | `src/tui/CommandScreen.tsx`    | `src/tui/screens/command/*`     |
+| Test Runner          | `src/tui/TestRunnerScreen.tsx` | `src/tui/screens/test-runner/*` |
 
 ### 4.4 Shared components
 
@@ -326,19 +326,21 @@ Related invariants:
 
 ### 5.2 Generate screen (“CommandScreen”)
 
-**Entry:** `src/tui/screens/command/CommandScreen.tsx`
+**Entry:** `src/tui/CommandScreen.tsx`
 
 **Main implementation:** `src/tui/screens/command/CommandScreenImpl.tsx`
+
+(There is also a local re-export at `src/tui/screens/command/CommandScreen.tsx`; the TUI shell imports the screen via `src/tui/CommandScreen.tsx`.)
 
 Styled regions:
 
 1. **Main background**: `theme.background`.
-2. **History panel**: `HistoryPane` uses `theme.panelBackground`.
-3. **Command palette panel**: `CommandMenuPane` → `CommandMenu` uses `theme.panelBackground`, selection tokens.
-4. **Input bar**: `CommandInput` → `InputBar` uses `theme.panelBackground`, border uses either `theme.border` or `theme.warning`.
+2. **History area**: `HistoryPane` paints `theme.background` and passes `backgroundColor={theme.background}` into `ScrollableOutput`.
+3. **Command palette**: `CommandMenuPane` → `CommandMenu` uses `theme.panelBackground` + `theme.border`, with selection via `selectionBackground`/`selectionText`.
+4. **Input bar**: `CommandInput` → `InputBar` uses `theme.panelBackground`; the left gutter uses `theme.border` or `theme.warning` depending on mode.
 5. **Popup overlay**:
-   - A full-screen translucent-ish panel fill using `BackgroundFill` with `theme.panelBackground`.
-   - A centered popup (one of `components/popups/*`).
+   - A full-screen background paint using `BackgroundFill` with `theme.background` (prevents “holes”/bleed-through in absolute overlays).
+   - A centered popup (one of `src/tui/components/popups/*`), typically built on `PopupSheet` with `theme.popupBackground`.
 
 Key files (styling focus):
 
@@ -349,9 +351,9 @@ Key files (styling focus):
 
 Safe modifications:
 
-- To change the _history panel background_: use `panelBackground` token.
-- To change selection styling in command palette: use `selectionBackground`/`selectionText`.
-- To change the popup “dim” overlay, adjust `panelBackground` (used by `BackgroundFill` overlay).
+- To change the history “panel” look: there isn’t a dedicated token; it currently uses `background` (adjust tokens or edit `src/tui/components/core/ScrollableOutput.tsx`).
+- To change selection styling in command palette/popups: use `selectionBackground`/`selectionText`.
+- To change the popup overlay backdrop: today it uses `background`; for a dim overlay, add a dedicated theme slot and use it in `src/tui/screens/command/CommandScreenImpl.tsx`.
 
 Terminal-width pitfalls (from `CommandScreenImpl.tsx`):
 
@@ -359,7 +361,9 @@ Terminal-width pitfalls (from `CommandScreenImpl.tsx`):
 
 ### 5.3 Test Runner screen
 
-**Entry:** `src/tui/screens/test-runner/TestRunnerScreen.tsx`
+**Entry:** `src/tui/TestRunnerScreen.tsx`
+
+**Implementation:** `src/tui/screens/test-runner/TestRunnerScreen.tsx`
 
 Styled regions:
 
@@ -370,7 +374,7 @@ Styled regions:
 
 Key styled files:
 
-- Screen orchestration: `src/tui/screens/test-runner/TestRunnerScreen.tsx`
+- Screen orchestration: `src/tui/screens/test-runner/TestRunnerScreen.tsx` (re-exported by `src/tui/TestRunnerScreen.tsx`)
 - File input: `src/tui/screens/test-runner/components/TestRunnerFileInput.tsx`
 - Summary: `src/tui/screens/test-runner/components/TestRunnerSummary.tsx`
 - Logs: `src/tui/screens/test-runner/components/TestRunnerLogs.tsx`
@@ -405,7 +409,7 @@ Tip: this component uses NBSP padding to force Ink to paint background cells.
 - Purpose: windowed rendering of history/log lines.
 - Styling:
   - Colors are chosen by entry kind (`user` → `accent`, `progress` → `warning`, default → `text`).
-  - Uses `backgroundColor` prop (often `panelBackground` or `popupBackground`).
+  - Uses `backgroundColor` prop (often `background`, `panelBackground`, or `popupBackground`).
 
 Safe changes:
 
@@ -476,67 +480,56 @@ Because it’s a key input layer, be careful making it too transparent or visual
 
 Important pattern: `Toast` pads each line to `contentWidth` so Ink paints background cells in absolute overlays.
 
-#### `StatusIndicators`
+#### Status indicator segments
 
-- File: `src/tui/components/core/StatusIndicators.tsx`
-- Purpose: status chip formatting.
+- File: `src/tui/components/core/status-indicators-layout.ts`
+- Purpose: parse `statusChips` into display segments (used by `InputBar` and `SettingsPopup`).
 - Styling:
-  - Label uses `mutedText`.
-  - Segment value uses a style mapping to tokens (`success`, `warning`, `danger` → `error`, etc.).
+  - Segments are mapped to theme tokens (`success`, `warning`, `danger` → `error`, etc.).
 
-#### `PastedSnippetCard`
+Note: the old `StatusIndicators.tsx` and `PastedSnippetCard.tsx` components were removed during cleanup; status/paste UI now lives in the screen + popup components that need it.
 
-- File: `src/tui/components/core/PastedSnippetCard.tsx`
-- Purpose: display a captured paste snippet in a popup-like card.
-- Styling:
-  - Background: `popupBackground`
-  - Border: `border`
-  - Label: `warning` (acts like a “title”)
+### 6.2 Top-level entrypoints (`src/tui/*.tsx`)
 
-### 6.2 Panels (`src/tui/*.tsx`)
+After the screen/component cleanup, `src/tui/*.tsx` is mostly entrypoints and glue (`AppContainer`, `CommandScreen`, `TestRunnerScreen`, `index`, `context`). Most styling work now lives under:
 
-These are “sidebar/panel” style components (not currently categorized under `components/core/*`). They follow the same token conventions.
-
-#### `MediaPanel`
-
-- File: `src/tui/MediaPanel.tsx`
-- Styling:
-  - Card background: `panelBackground`
-  - Border: `border`
-  - Focused section header: `accent`
-  - Highlighted list entries: `warning`
-  - Empty/instructions text: `mutedText`
+- `src/tui/screens/*` (screen layouts)
+- `src/tui/components/*` (reusable building blocks)
 
 ### 6.3 Popups (`src/tui/components/popups/*`)
 
-Popups share a consistent “card” style:
+Popups share a consistent “sheet” style:
 
-- `borderStyle="round"`
-- `width` derived from terminal columns using `clamp(terminalColumns - 10, 40, 72)`
-- A `contentWidth` computed by subtracting border + padding
-- `backgroundProps = inkBackgroundColorProps(theme.popupBackground)`
-- Header in `theme.accent`, footer in `theme.mutedText`
-- Selection uses `selectionText` + `selectionBackground`
+- Most popups render inside `PopupSheet` (`src/tui/components/popups/PopupSheet.tsx`).
+- `PopupSheet` uses `BackgroundFill` to paint a solid `popupBackground` rectangle (no bleed-through).
+- `width` is derived from terminal columns using `clamp(terminalColumns - 10, 40, 72)`.
+- `contentWidth` is computed by subtracting **padding only** (there is no popup border anymore).
+- `backgroundProps = inkBackgroundColorProps(theme.popupBackground)` is applied to each `<Text>` line.
+- Header uses `theme.accent`, footer uses `theme.mutedText`.
+- Selection uses `selectionText` + `selectionBackground`.
+- Suggestion/unfocused selection styling uses `chipBackground` + `chipText`.
+
+Note: popups are intentionally borderless after the cleanup; the `border` token is still used by bordered UI like `HelpOverlay`, `CommandMenu`, and `Toast`.
 
 Popups are selected/rendered in `src/tui/screens/command/components/PopupArea.tsx`.
 
 Below is a quick inventory with styling notes.
 
-| Popup                      | File                                              | Main tokens                                                                                                  |
-| -------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Model selection            | `src/tui/components/popups/ModelPopup.tsx`        | `popupBackground`, `border`, `accent`, `mutedText`, `selection*`, plus `warning`/`error` for provider status |
-| Generic list + suggestions | `src/tui/components/popups/ListPopup.tsx`         | `popupBackground`, `border`, `mutedText`, `text`, `selection*`, `chip*` for “unfocused selection”            |
-| Intent file chooser        | `src/tui/components/popups/IntentFilePopup.tsx`   | `popupBackground`, `border`, `mutedText`, `selection*`, `chip*`                                              |
-| Instructions               | `src/tui/components/popups/InstructionsPopup.tsx` | `popupBackground`, `border`, `accent`, `mutedText`                                                           |
-| Toggle on/off              | `src/tui/components/popups/TogglePopup.tsx`       | `popupBackground`, `border`, `accent`, `mutedText`, `selection*`                                             |
-| Series intent              | `src/tui/components/popups/SeriesIntentPopup.tsx` | `popupBackground`, `border`, `accent`, `mutedText`                                                           |
-| Prompt test run            | `src/tui/components/popups/TestPopup.tsx`         | `popupBackground`, `border`, `accent`, `mutedText`                                                           |
-| Token usage                | `src/tui/components/popups/TokenUsagePopup.tsx`   | `popupBackground`, `border`, `accent`, `text`, `mutedText`                                                   |
-| Settings display           | `src/tui/components/popups/SettingsPopup.tsx`     | `popupBackground`, `border`, `accent`, `mutedText`, `success`/`warning`/`error`                              |
-| Theme picker               | `src/tui/components/popups/ThemePickerPopup.tsx`  | `popupBackground`, `border`, `accent`, `mutedText`, `selection*`, `error`                                    |
-| Theme mode picker          | `src/tui/components/popups/ThemeModePopup.tsx`    | `popupBackground`, `border`, `accent`, `mutedText`, `selection*`, `error`                                    |
-| Reasoning view             | `src/tui/components/popups/ReasoningPopup.tsx`    | `popupBackground`, `border`, `accent`, `mutedText`, and `ScrollableOutput`                                   |
-| Smart root chooser         | `src/tui/components/popups/SmartPopup.tsx`        | `popupBackground`, `border`, `accent`, `mutedText`, `selection*`, `chip*`                                    |
+| Popup                      | File                                              | Main tokens                                                                                        |
+| -------------------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Model selection            | `src/tui/components/popups/ModelPopup.tsx`        | `popupBackground`, `accent`, `mutedText`, `selection*`, plus `warning`/`error` for provider status |
+| Generic list + suggestions | `src/tui/components/popups/ListPopup.tsx`         | `popupBackground`, `mutedText`, `text`, `selection*`, `chip*` for “unfocused selection”            |
+| Intent file chooser        | `src/tui/components/popups/IntentFilePopup.tsx`   | `popupBackground`, `mutedText`, `selection*`, `chip*`                                              |
+| Instructions               | `src/tui/components/popups/InstructionsPopup.tsx` | `popupBackground`, `accent`, `mutedText`                                                           |
+| Toggle on/off              | `src/tui/components/popups/TogglePopup.tsx`       | `popupBackground`, `accent`, `mutedText`, `selection*`                                             |
+| Series intent              | `src/tui/components/popups/SeriesIntentPopup.tsx` | `popupBackground`, `accent`, `mutedText`                                                           |
+| Prompt test run            | `src/tui/components/popups/TestPopup.tsx`         | `popupBackground`, `accent`, `mutedText`                                                           |
+| Token usage                | `src/tui/components/popups/TokenUsagePopup.tsx`   | `popupBackground`, `accent`, `text`, `mutedText`                                                   |
+| Settings display           | `src/tui/components/popups/SettingsPopup.tsx`     | `popupBackground`, `accent`, `mutedText`, `success`/`warning`/`error`                              |
+| Theme picker               | `src/tui/components/popups/ThemePickerPopup.tsx`  | `popupBackground`, `accent`, `mutedText`, `selection*`, `error`                                    |
+| Theme mode picker          | `src/tui/components/popups/ThemeModePopup.tsx`    | `popupBackground`, `accent`, `mutedText`, `selection*`, `error`                                    |
+| Reasoning view             | `src/tui/components/popups/ReasoningPopup.tsx`    | `popupBackground`, `accent`, `mutedText`, and `ScrollableOutput`                                   |
+| Smart root chooser         | `src/tui/components/popups/SmartPopup.tsx`        | `popupBackground`, `accent`, `mutedText`, `selection*`, `chip*`                                    |
 
 ---
 
@@ -563,31 +556,26 @@ Why:
 ### 7.2 Correct content width accounting
 
 ```ts
-const borderColumns = 2
-const paddingColumns = 2
-const contentWidth = Math.max(0, popupWidth - borderColumns - paddingColumns)
+const paddingColumns = 2 * POPUP_PADDING_X
+const contentWidth = Math.max(0, popupWidth - paddingColumns)
 ```
 
 Why:
 
-- Terminal borders consume columns.
-- Padding consumes columns.
-- Without subtracting, your padded lines will overflow and Ink may truncate.
+- These popups are borderless; padding is the main width cost.
+- Without subtracting padding, your padded lines will overflow and Ink may truncate.
 
 ### 7.3 “Opaque background” pattern
 
-The popup computes:
+Most popups render inside `PopupSheet` (`src/tui/components/popups/PopupSheet.tsx`), which uses `BackgroundFill` to paint an opaque rectangle behind the content.
+
+Inside the popup, we still compute:
 
 ```ts
 const backgroundProps = inkBackgroundColorProps(theme.popupBackground)
 ```
 
-Then spreads `backgroundProps` onto both `<Box>` and _each_ `<Text>` line.
-
-This matters because:
-
-- In overlay situations (`position="absolute"`), Ink won’t necessarily repaint underlying cells unless you print background-colored spaces.
-- This repo ensures the popup looks like a solid rectangle by **padding** each line:
+…and apply `backgroundProps` to each `<Text>` line, padding to `contentWidth`:
 
 ```ts
 {
@@ -595,11 +583,13 @@ This matters because:
 }
 ```
 
+This keeps the popup fully opaque even when rendered in an absolute overlay.
+
 ### 7.4 Theme helpers vs direct props
 
 The popup uses:
 
-- `inkBorderColorProps(theme.border)`
+- `inkBackgroundColorProps(theme.popupBackground)`
 - `inkColorProps(theme.accent)`
 - `inkColorProps(theme.mutedText)`
 
@@ -607,11 +597,11 @@ This is the preferred approach.
 
 ### 7.5 Example changes (documentation-only)
 
-#### Change popup background and border
+#### Change popup background
 
 You usually do this by changing theme tokens, not the component.
 
-Example: create a custom theme JSON that changes popup background and border:
+Example: create a custom theme JSON that changes popup background (and the shared `border` token used by bordered UI):
 
 ```json
 {
@@ -660,19 +650,20 @@ Then select it via the theme popup (see `ThemePickerPopup`).
 
 ## 8) Common Customizations (Recipes)
 
-### 8.1 Change popup background/border colors
+### 8.1 Change popup background
 
-Goal: all popups use a new background/border.
+Goal: all popups use a new background.
 
 Best practice: change tokens, not components.
 
 - Background: `popupBackground`
-- Border: `border`
 
 Where to do it:
 
 - Built-ins: `src/tui/theme/builtins/pm-dark.ts` / `src/tui/theme/builtins/pm-light.ts`
 - Or create a custom theme JSON in the user/project theme directories.
+
+Note: popups are borderless after the cleanup. The `border` token still controls bordered UI like `src/tui/components/core/HelpOverlay.tsx`, `src/tui/components/core/Toast.tsx`, and `src/tui/components/core/CommandMenu.tsx`.
 
 ### 8.2 Change “accent” and “muted” text styling
 
@@ -686,14 +677,16 @@ Common places:
 
 - Headings across screens/panels: `theme.accent`
   - `src/tui/AppContainer.tsx`
-  - `src/tui/screens/test-runner/TestRunnerScreen.tsx`
+  - `src/tui/screens/test-runner/TestRunnerScreen.tsx` (re-exported by `src/tui/TestRunnerScreen.tsx`)
 - Instructional/help text: `theme.mutedText`
   - `src/tui/components/core/HelpOverlay.tsx`
   - most popup footers
 
 ### 8.3 Adjust widths responsively based on terminal columns
 
-Pattern (used in many components):
+This repo now has two common width-math patterns.
+
+**Borderless sheets (most popups via `PopupSheet`)**
 
 ```ts
 const { stdout } = useStdout()
@@ -701,22 +694,29 @@ const terminalColumns = stdout?.columns ?? 80
 
 const popupWidth = clamp(terminalColumns - 10, 40, 72)
 
+const paddingColumns = 2 * POPUP_PADDING_X
+const contentWidth = Math.max(0, popupWidth - paddingColumns)
+```
+
+**Bordered boxes (help overlay, command menu, toasts)**
+
+```ts
 const borderColumns = 2
 const paddingColumns = 2
-const contentWidth = Math.max(0, popupWidth - borderColumns - paddingColumns)
+const contentWidth = Math.max(0, boxWidth - borderColumns - paddingColumns)
 ```
 
 Guidelines:
 
-- Always subtract **both** border and padding.
+- Subtract padding for `PopupSheet` popups; subtract **border + padding** for bordered boxes.
 - Clamp widths to keep UX stable.
-- Prefer padding/truncation to uncontrolled wrapping for popups.
+- Prefer manual padding/truncation (stable layout) over uncontrolled wrapping in overlays.
 
 ### 8.4 Add a new theme token (slot)
 
 You only need this when you want a new semantic role that cannot be expressed with existing tokens.
 
-Example goal: introduce a dedicated `dimOverlayBackground` token (instead of reusing `panelBackground`).
+Example goal: introduce a dedicated `dimOverlayBackground` token (instead of reusing `background`).
 
 Steps (repo-accurate locations):
 
@@ -829,7 +829,7 @@ Most of the TUI uses `useTheme()` and theme tokens. One exception:
 
 - `src/tui/components/OpencodeSpinner.tsx` uses hard-coded hex colors.
 
-If you want fully themeable visuals, consider migrating this to theme tokens (and optionally track it via `src/tui/theme/color-audit.ts`).
+If you want fully themeable visuals, consider migrating this to theme tokens.
 
 ---
 
@@ -840,7 +840,7 @@ Before you submit a styling change:
 - Confirm you’re changing **tokens** (theme JSON / built-ins) rather than sprinkling hard-coded colors.
 - If you touched popups or overlays:
   - Verify full opacity: backgrounds paint correctly (no “holes”).
-  - Verify width math: `contentWidth` subtracts border + padding.
+  - Verify width math: `contentWidth` subtracts padding (and border columns when the component draws a border).
 - If you touched layout/padding:
   - Re-check any components that assume `AppContainer` padding when computing widths.
 - Verify input routing cues still make sense:
@@ -854,7 +854,7 @@ Before you submit a styling change:
 ### Appendix: Quick “where do I change…” index
 
 - Global app background: `background` token (themes) → used in `src/tui/AppContainer.tsx` and `src/tui/screens/command/CommandScreenImpl.tsx`
-- Panel background (history, command menu, side panels): `panelBackground` token
+- Panel background (command menu + input bar): `panelBackground` token (history uses `background`)
 - Popup background: `popupBackground` token
 - Border colors: `border` token (or `warning`/`error` for state)
 - Selected row styling: `selectionBackground` + `selectionText`
