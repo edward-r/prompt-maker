@@ -497,16 +497,6 @@ Important pattern: `Toast` pads each line to `contentWidth` so Ink paints backgr
 
 These are “sidebar/panel” style components (not currently categorized under `components/core/*`). They follow the same token conventions.
 
-#### `ContextPanel`
-
-- File: `src/tui/ContextPanel.tsx`
-- Styling:
-  - Card background: `panelBackground`
-  - Border: `border`
-  - Focused section header: `accent`
-  - Highlighted list entries: `warning`
-  - Empty/instructions text: `mutedText`
-
 #### `MediaPanel`
 
 - File: `src/tui/MediaPanel.tsx`
