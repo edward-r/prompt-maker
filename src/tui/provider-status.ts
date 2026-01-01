@@ -54,9 +54,6 @@ export const checkModelProviderStatus = async (modelId: string): Promise<Provide
   return await checkProviderStatus(provider)
 }
 
-export const getCachedProviderStatus = (provider: ModelProvider): ProviderStatus | undefined =>
-  statusCache.get(provider)
-
 export const invalidateProviderStatus = (provider?: ModelProvider): void => {
   if (provider) {
     statusCache.delete(provider)
