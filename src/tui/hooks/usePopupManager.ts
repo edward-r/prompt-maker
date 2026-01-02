@@ -125,6 +125,8 @@ const JSON_INTERACTIVE_ERROR = 'JSON output is unavailable while interactive tra
  * without a TTY and keeps this hook focused on effects (async scans, commands).
  */
 
+const POPUP_SUGGESTION_SCAN_LIMIT = 5000
+
 export const usePopupManager = ({
   currentModel,
   currentTargetModel,
@@ -280,7 +282,7 @@ export const usePopupManager = ({
     runSuggestionScan({
       kind: 'file',
       open: (scanId) => ({ type: 'open-file', scanId }),
-      scan: () => scanFileSuggestions({ cwd: process.cwd(), limit: 200 }),
+      scan: () => scanFileSuggestions({ cwd: process.cwd(), limit: POPUP_SUGGESTION_SCAN_LIMIT }),
     })
   }, [runSuggestionScan])
 
@@ -292,7 +294,7 @@ export const usePopupManager = ({
     runSuggestionScan({
       kind: 'image',
       open: (scanId) => ({ type: 'open-image', scanId }),
-      scan: () => scanImageSuggestions({ cwd: process.cwd(), limit: 200 }),
+      scan: () => scanImageSuggestions({ cwd: process.cwd(), limit: POPUP_SUGGESTION_SCAN_LIMIT }),
     })
   }, [runSuggestionScan])
 
@@ -300,7 +302,7 @@ export const usePopupManager = ({
     runSuggestionScan({
       kind: 'video',
       open: (scanId) => ({ type: 'open-video', scanId }),
-      scan: () => scanVideoSuggestions({ cwd: process.cwd(), limit: 200 }),
+      scan: () => scanVideoSuggestions({ cwd: process.cwd(), limit: POPUP_SUGGESTION_SCAN_LIMIT }),
     })
   }, [runSuggestionScan])
 
@@ -314,7 +316,7 @@ export const usePopupManager = ({
     runSuggestionScan({
       kind: 'smart',
       open: (scanId) => ({ type: 'open-smart', scanId, draft }),
-      scan: () => scanSmartSuggestions({ cwd: process.cwd(), limit: 200 }),
+      scan: () => scanSmartSuggestions({ cwd: process.cwd(), limit: POPUP_SUGGESTION_SCAN_LIMIT }),
     })
   }, [runSuggestionScan, smartContextRoot])
 
@@ -353,7 +355,7 @@ export const usePopupManager = ({
     runSuggestionScan({
       kind: 'intent',
       open: (scanId) => ({ type: 'open-intent', scanId, draft: intentFilePath }),
-      scan: () => scanIntentSuggestions({ cwd: process.cwd(), limit: 200 }),
+      scan: () => scanIntentSuggestions({ cwd: process.cwd(), limit: POPUP_SUGGESTION_SCAN_LIMIT }),
     })
   }, [intentFilePath, runSuggestionScan])
 

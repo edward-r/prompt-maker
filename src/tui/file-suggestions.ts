@@ -12,7 +12,7 @@
 import path from 'node:path'
 
 import fg from 'fast-glob'
-import { Fzf, extendedMatch } from 'fzf'
+import { byLengthAsc, byStartAsc, Fzf, extendedMatch } from 'fzf'
 
 const FILE_SUGGESTION_PATTERNS = ['**/*']
 
@@ -177,18 +177,39 @@ export type FilterFileSuggestionsOptions = {
   limit?: number
 }
 
-const fuzzyFilterStrings = (items: readonly string[], query: string, limit: number): string[] => {
+const normalizeQueryForFzf = (query: string): string => {
   const trimmed = query.trim()
+  if (!trimmed) {
+    return trimmed
+  }
+
+  if (!path.isAbsolute(trimmed)) {
+    return normalizeToPosix(trimmed)
+  }
+
+  const relative = path.relative(process.cwd(), trimmed)
+
+  if (relative && !relative.startsWith('..')) {
+    return normalizeToPosix(relative)
+  }
+
+  return normalizeToPosix(path.basename(trimmed))
+}
+
+const fuzzyFilterStrings = (items: readonly string[], query: string, limit: number): string[] => {
+  const trimmed = normalizeQueryForFzf(query)
   if (!trimmed) {
     return items.slice(0, limit)
   }
 
   const fzf = new Fzf(items, {
-    casing: 'case-insensitive',
+    casing: 'smart-case',
     normalize: true,
+    fuzzy: 'v2',
     // Prefer matches near the end of paths (filenames).
     forward: false,
     match: extendedMatch,
+    tiebreakers: [byStartAsc, byLengthAsc],
     limit,
   })
 

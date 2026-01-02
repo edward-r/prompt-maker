@@ -188,6 +188,10 @@ describe('usePopupManager file popup', () => {
       result.current.actions.openFilePopup()
     })
 
+    expect(fileSuggestions.discoverFileSuggestions).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 5000 }),
+    )
+
     expect(result.current.popupState).toEqual({
       type: 'file',
       draft: '',
@@ -209,6 +213,10 @@ describe('usePopupManager file popup', () => {
     act(() => {
       result.current.actions.openFilePopup()
     })
+
+    expect(fileSuggestions.discoverFileSuggestions).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 5000 }),
+    )
 
     await act(async () => {
       deferred.resolve(['src/index.ts', 'README.md'])
