@@ -244,37 +244,73 @@ export const useCommandScreenPopupBindings = (
     helpOpen: options.helpOpen,
     setPopupState: options.setPopupState,
     closePopup: options.closePopup,
-    modelPopupOptions,
-    onModelPopupSubmit: options.handleModelPopupSubmit,
-    applyToggleSelection: options.applyToggleSelection,
-    themeCount: themePopup.themeCount,
-    onThemeConfirm: themePopup.onThemeConfirm,
-    onThemeCancel: themePopup.onThemeCancel,
-    themeModeCount: themeModePopup.optionCount,
-    onThemeModeConfirm: themeModePopup.onConfirm,
-    onThemeModeCancel: themeModePopup.onCancel,
-    files: options.files,
-    filePopupSuggestions: context.filePopupSuggestions,
-    onAddFile: context.onAddFile,
-    onRemoveFile: context.onRemoveFile,
-    urls: options.urls,
-    onRemoveUrl: context.onRemoveUrl,
-    images: options.images,
-    imagePopupSuggestions: context.imagePopupSuggestions,
-    onAddImage: context.onAddImage,
-    onRemoveImage: context.onRemoveImage,
-    videos: options.videos,
-    videoPopupSuggestions: context.videoPopupSuggestions,
-    onAddVideo: context.onAddVideo,
-    onRemoveVideo: context.onRemoveVideo,
-    historyPopupItems: historyAndIntent.history.historyPopupItems,
-    smartPopupSuggestions: context.smartPopupSuggestions,
-    smartContextRoot: options.smartContextRoot,
-    onSmartRootSubmit: context.onSmartRootSubmit,
-    intentPopupSuggestions: historyAndIntent.intent.intentPopupSuggestions,
-    onIntentFileSubmit: options.handleIntentFileSubmit,
-    reasoningPopupLines,
-    reasoningPopupVisibleRows,
+
+    model: {
+      options: modelPopupOptions,
+      onSubmit: options.handleModelPopupSubmit,
+    },
+
+    toggle: {
+      applySelection: options.applyToggleSelection,
+    },
+
+    theme: {
+      count: themePopup.themeCount,
+      onConfirm: themePopup.onThemeConfirm,
+      onCancel: themePopup.onThemeCancel,
+    },
+
+    themeMode: {
+      count: themeModePopup.optionCount,
+      onConfirm: themeModePopup.onConfirm,
+      onCancel: themeModePopup.onCancel,
+    },
+
+    file: {
+      items: options.files,
+      suggestions: context.filePopupSuggestions,
+      onAdd: context.onAddFile,
+      onRemove: context.onRemoveFile,
+    },
+
+    url: {
+      items: options.urls,
+      onRemove: context.onRemoveUrl,
+    },
+
+    image: {
+      items: options.images,
+      suggestions: context.imagePopupSuggestions,
+      onAdd: context.onAddImage,
+      onRemove: context.onRemoveImage,
+    },
+
+    video: {
+      items: options.videos,
+      suggestions: context.videoPopupSuggestions,
+      onAdd: context.onAddVideo,
+      onRemove: context.onRemoveVideo,
+    },
+
+    history: {
+      items: historyAndIntent.history.historyPopupItems,
+    },
+
+    smart: {
+      suggestions: context.smartPopupSuggestions,
+      contextRoot: options.smartContextRoot,
+      onRootSubmit: context.onSmartRootSubmit,
+    },
+
+    intent: {
+      suggestions: historyAndIntent.intent.intentPopupSuggestions,
+      onFileSubmit: options.handleIntentFileSubmit,
+    },
+
+    reasoning: {
+      lines: reasoningPopupLines,
+      visibleRows: reasoningPopupVisibleRows,
+    },
   })
 
   const submit = useCommandScreenSubmitBindings({
