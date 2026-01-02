@@ -9,11 +9,13 @@ export type ListPopupHeights = {
 type ResolveListPopupHeightsOptions = {
   maxHeight: number | undefined
   hasSuggestions: boolean
+  instructionRows?: number
 }
 
 export const resolveListPopupHeights = ({
   maxHeight,
   hasSuggestions,
+  instructionRows = 1,
 }: ResolveListPopupHeightsOptions): ListPopupHeights => {
   if (!hasSuggestions) {
     return { selectedRows: DEFAULT_MAX_VISIBLE_LIST_ITEMS, suggestionRows: 0 }
@@ -24,7 +26,8 @@ export const resolveListPopupHeights = ({
   const paddingRows = 4
   const contentHeight = Math.max(1, resolvedHeight - paddingRows)
 
-  const fixedRows = 5
+  const safeInstructionRows = Math.max(1, Math.floor(instructionRows))
+  const fixedRows = 4 + safeInstructionRows
   const availableRows = Math.max(contentHeight - fixedRows, 1)
 
   const selectedMin = Math.min(3, availableRows)

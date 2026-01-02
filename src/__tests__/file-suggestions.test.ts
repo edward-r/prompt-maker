@@ -83,6 +83,73 @@ describe('file-suggestions', () => {
     expect(results).toEqual(['src/utils/helpers.ts'])
   })
 
+  it('normalizes absolute-path queries to workspace-relative matches', () => {
+    const cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue('/repo')
+
+    try {
+      const results = filterFileSuggestions({
+        suggestions: ['src/tui/theme/terminal-appearance.ts'],
+        query: '/repo/src/tui/theme/terminal-appearance.ts',
+      })
+
+      expect(results).toEqual(['src/tui/theme/terminal-appearance.ts'])
+    } finally {
+      cwdSpy.mockRestore()
+    }
+  })
+
+  it('uses smart-case matching like fzf', () => {
+    const lowerResults = filterFileSuggestions({
+      suggestions: ['README.md', 'readme.md'],
+      query: 'read',
+    })
+
+    expect(lowerResults).toEqual(['README.md', 'readme.md'])
+
+    const upperResults = filterFileSuggestions({
+      suggestions: ['README.md', 'readme.md'],
+      query: 'README',
+    })
+
+    expect(upperResults).toEqual(['README.md'])
+  })
+
+  it('prefers forward matching for path-shaped queries', () => {
+    const results = filterFileSuggestions({
+      suggestions: ['src/theme/terminal-appearance.ts', 'src/tui/theme/terminal-appearance.ts'],
+      query: 'src/tui',
+    })
+
+    expect(results[0]).toBe('src/tui/theme/terminal-appearance.ts')
+  })
+
+  it('supports fzf prefix/suffix operators', () => {
+    const results = filterFileSuggestions({
+      suggestions: [
+        'src/tui/theme/terminal-appearance.ts',
+        'xsrc/tui/theme/terminal-appearance.ts',
+      ],
+      query: '^src/tui/theme/terminal-appearance.ts$',
+    })
+
+    expect(results).toEqual(['src/tui/theme/terminal-appearance.ts'])
+  })
+
+  it('supports fzf exact match operator with absolute paths', () => {
+    const cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue('/repo')
+
+    try {
+      const results = filterFileSuggestions({
+        suggestions: ['src/tui/theme/terminal-appearance.ts'],
+        query: "'/repo/src/tui/theme/terminal-appearance.ts",
+      })
+
+      expect(results).toEqual(['src/tui/theme/terminal-appearance.ts'])
+    } finally {
+      cwdSpy.mockRestore()
+    }
+  })
+
   it('discovers intent file suggestions by scanning markdown/text files', async () => {
     globMock.mockResolvedValue(['/repo/intents/a.md', '/repo/intents/b.txt'])
 

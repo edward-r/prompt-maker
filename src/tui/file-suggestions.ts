@@ -12,7 +12,7 @@
 import path from 'node:path'
 
 import fg from 'fast-glob'
-import { Fzf, extendedMatch } from 'fzf'
+import { byLengthAsc, byStartAsc, Fzf, extendedMatch } from 'fzf'
 
 const FILE_SUGGESTION_PATTERNS = ['**/*']
 
@@ -177,18 +177,80 @@ export type FilterFileSuggestionsOptions = {
   limit?: number
 }
 
-const fuzzyFilterStrings = (items: readonly string[], query: string, limit: number): string[] => {
+const normalizeFzfToken = (token: string): string => {
+  if (!token) {
+    return token
+  }
+
+  // Preserve fzf query operators while normalizing slashes / absolute paths.
+  let rest = token
+  let prefix = ''
+  let suffix = ''
+
+  while (
+    rest.startsWith('!') ||
+    rest.startsWith('^') ||
+    rest.startsWith("'") ||
+    rest.startsWith('"')
+  ) {
+    prefix += rest.slice(0, 1)
+    rest = rest.slice(1)
+  }
+
+  if (rest.endsWith('$')) {
+    suffix = '$'
+    rest = rest.slice(0, -1)
+  }
+
+  if (!rest) {
+    return `${prefix}${suffix}`
+  }
+
+  // Normalize absolute paths to a workspace-relative form so matching can work
+  // against `discoverFileSuggestions()` results.
+  if (!path.isAbsolute(rest)) {
+    return `${prefix}${normalizeToPosix(rest)}${suffix}`
+  }
+
+  const relative = path.relative(process.cwd(), rest)
+
+  if (relative && !relative.startsWith('..')) {
+    return `${prefix}${normalizeToPosix(relative)}${suffix}`
+  }
+
+  return `${prefix}${normalizeToPosix(path.basename(rest))}${suffix}`
+}
+
+const normalizeQueryForFzf = (query: string): string => {
   const trimmed = query.trim()
+  if (!trimmed) {
+    return trimmed
+  }
+
+  return trimmed
+    .split(/\s+/)
+    .map((token) => normalizeFzfToken(token))
+    .join(' ')
+}
+
+const fuzzyFilterStrings = (items: readonly string[], query: string, limit: number): string[] => {
+  const trimmed = normalizeQueryForFzf(query)
   if (!trimmed) {
     return items.slice(0, limit)
   }
 
+  // Heuristic: if the query contains path separators, treat it as a path search
+  // and use forward matching (fzf's default). Otherwise prefer matching from the
+  // end to bias toward filenames.
+  const isPathQuery = trimmed.includes('/')
+
   const fzf = new Fzf(items, {
-    casing: 'case-insensitive',
+    casing: 'smart-case',
     normalize: true,
-    // Prefer matches near the end of paths (filenames).
-    forward: false,
+    fuzzy: 'v2',
+    forward: isPathQuery,
     match: extendedMatch,
+    tiebreakers: [byStartAsc, byLengthAsc],
     limit,
   })
 
