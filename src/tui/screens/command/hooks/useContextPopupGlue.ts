@@ -217,6 +217,7 @@ export const useContextPopupGlue = ({
               ...prev,
               draft: '',
               selectionIndex: Math.max(files.length, 0),
+              selectedFocused: false,
               suggestedFocused: false,
               suggestedSelectionIndex: 0,
             }
@@ -297,6 +298,7 @@ export const useContextPopupGlue = ({
               ...prev,
               draft: '',
               selectionIndex: Math.max(images.length, 0),
+              selectedFocused: false,
               suggestedFocused: false,
               suggestedSelectionIndex: 0,
             }
@@ -348,6 +350,7 @@ export const useContextPopupGlue = ({
               ...prev,
               draft: '',
               selectionIndex: Math.max(videos.length, 0),
+              selectedFocused: false,
               suggestedFocused: false,
               suggestedSelectionIndex: 0,
             }
@@ -478,6 +481,11 @@ export const useContextPopupGlue = ({
     if (!filePopupSuggestedItems.length) {
       return []
     }
+
+    if (!filePopupDraft.trim()) {
+      return []
+    }
+
     return filterFileSuggestions({
       suggestions: filePopupSuggestedItems,
       query: filePopupDraft,
@@ -521,6 +529,11 @@ export const useContextPopupGlue = ({
     if (!imagePopupSuggestedItems.length) {
       return []
     }
+
+    if (!imagePopupDraft.trim()) {
+      return []
+    }
+
     return filterFileSuggestions({
       suggestions: imagePopupSuggestedItems,
       query: imagePopupDraft,
@@ -565,6 +578,11 @@ export const useContextPopupGlue = ({
     if (!videoPopupSuggestedItems.length) {
       return []
     }
+
+    if (!videoPopupDraft.trim()) {
+      return []
+    }
+
     return filterFileSuggestions({
       suggestions: videoPopupSuggestedItems,
       query: videoPopupDraft,
@@ -607,6 +625,10 @@ export const useContextPopupGlue = ({
 
   const smartPopupSuggestions = useMemo(() => {
     if (!smartPopupSuggestedItems.length) {
+      return []
+    }
+
+    if (!smartPopupDraft.trim()) {
       return []
     }
 
@@ -657,6 +679,7 @@ export const useContextPopupGlue = ({
           ? {
               ...prev,
               draft: sanitized,
+              selectedFocused: false,
               suggestedSelectionIndex: 0,
               suggestedFocused: false,
             }
@@ -679,6 +702,7 @@ export const useContextPopupGlue = ({
           ? {
               ...prev,
               draft: sanitized,
+              selectedFocused: false,
               suggestedSelectionIndex: 0,
               suggestedFocused: false,
             }
@@ -701,6 +725,7 @@ export const useContextPopupGlue = ({
           ? {
               ...prev,
               draft: sanitized,
+              selectedFocused: false,
               suggestedSelectionIndex: 0,
               suggestedFocused: false,
             }

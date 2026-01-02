@@ -51,6 +51,7 @@ describe('popupReducer', () => {
       type: 'image',
       draft: '',
       selectionIndex: 0,
+      selectedFocused: false,
       suggestedItems: [],
       suggestedSelectionIndex: 0,
       suggestedFocused: false,
@@ -62,6 +63,7 @@ describe('popupReducer', () => {
       type: 'video',
       draft: '',
       selectionIndex: 0,
+      selectedFocused: false,
       suggestedItems: [],
       suggestedSelectionIndex: 0,
       suggestedFocused: false,
@@ -75,6 +77,7 @@ describe('popupReducer', () => {
       type: 'image',
       draft: '',
       selectionIndex: 0,
+      selectedFocused: false,
       suggestedItems: [],
       suggestedSelectionIndex: 0,
       suggestedFocused: false,
@@ -86,6 +89,7 @@ describe('popupReducer', () => {
       type: 'video',
       draft: '',
       selectionIndex: 0,
+      selectedFocused: false,
       suggestedItems: [],
       suggestedSelectionIndex: 0,
       suggestedFocused: false,
@@ -95,7 +99,15 @@ describe('popupReducer', () => {
 
   it('switching popups clears scan state', () => {
     const afterFile = reduce(initialState(), { type: 'open-file', scanId: 1 })
-    expect(afterFile.popupState?.type).toBe('file')
+    expect(afterFile.popupState).toEqual({
+      type: 'file',
+      draft: '',
+      selectionIndex: 0,
+      selectedFocused: false,
+      suggestedItems: [],
+      suggestedSelectionIndex: 0,
+      suggestedFocused: false,
+    })
     expect(afterFile.activeScan).toEqual({ kind: 'file', id: 1 })
 
     const afterSmart = reduce(afterFile, { type: 'open-smart', scanId: 2, draft: 'src' })
@@ -139,6 +151,7 @@ describe('popupReducer', () => {
       type: 'file',
       draft: '',
       selectionIndex: 0,
+      selectedFocused: false,
       suggestedItems: ['src/index.ts', 'README.md'],
       suggestedSelectionIndex: 0,
       suggestedFocused: false,
@@ -158,6 +171,7 @@ describe('popupReducer', () => {
       type: 'file',
       draft: 'x',
       selectionIndex: 0,
+      selectedFocused: false,
       suggestedItems: [],
       suggestedSelectionIndex: 0,
       suggestedFocused: false,

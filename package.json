@@ -40,6 +40,7 @@
     "clipboardy": "^5.0.1",
     "enquirer": "^2.4.1",
     "fast-glob": "^3.3.3",
+    "fzf": "^0.5.2",
     "html-to-text": "^9.0.5",
     "ink": "^4.4.1",
     "js-tiktoken": "^1.0.21",
