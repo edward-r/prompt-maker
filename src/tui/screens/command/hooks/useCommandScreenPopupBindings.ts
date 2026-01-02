@@ -79,6 +79,7 @@ export type UseCommandScreenPopupBindingsOptions = {
   removeFile: (index: number) => void
   addUrl: (value: string) => void
   removeUrl: (index: number) => void
+  updateUrl: (index: number, value: string) => void
   addImage: (value: string) => void
   removeImage: (index: number) => void
   addVideo: (value: string) => void
@@ -188,6 +189,7 @@ export const useCommandScreenPopupBindings = (
     removeFile: options.removeFile,
     addUrl: options.addUrl,
     removeUrl: options.removeUrl,
+    updateUrl: options.updateUrl,
     addImage: options.addImage,
     removeImage: options.removeImage,
     addVideo: options.addVideo,

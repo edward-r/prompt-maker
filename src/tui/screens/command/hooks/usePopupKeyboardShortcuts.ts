@@ -453,35 +453,114 @@ export const usePopupKeyboardShortcuts = ({
     }
 
     if (popupState.type === 'url') {
-      if (key.upArrow && urls.length > 0) {
-        setPopupState((prev) =>
-          prev?.type === 'url'
-            ? { ...prev, selectionIndex: Math.max(prev.selectionIndex - 1, 0) }
-            : prev,
-        )
+      const draftIsEmpty = popupState.draft.trim().length === 0
+
+      if (popupState.editingIndex !== null) {
+        if (key.escape) {
+          setPopupState((prev) =>
+            prev?.type === 'url'
+              ? { ...prev, draft: '', editingIndex: null, selectedFocused: false }
+              : prev,
+          )
+          return
+        }
+
+        if (draftIsEmpty && (key.delete || isBackspaceKey(input, key))) {
+          if (urls.length > 0) {
+            onRemoveUrl(popupState.selectionIndex)
+          }
+          return
+        }
+
         return
       }
-      if (key.downArrow && urls.length > 0) {
+
+      if (key.escape) {
+        closePopup()
+        return
+      }
+
+      if (!popupState.selectedFocused && (key.upArrow || key.downArrow) && urls.length > 0) {
         setPopupState((prev) =>
           prev?.type === 'url'
             ? {
                 ...prev,
-                selectionIndex: Math.min(prev.selectionIndex + 1, urls.length - 1),
+                selectedFocused: true,
+                selectionIndex: Math.min(prev.selectionIndex, Math.max(urls.length - 1, 0)),
               }
             : prev,
         )
         return
       }
-      if (
-        (key.delete || (popupState.draft.trim().length === 0 && isBackspaceKey(input, key))) &&
-        urls.length > 0
-      ) {
+
+      if (popupState.selectedFocused) {
+        if (key.upArrow) {
+          if (popupState.selectionIndex === 0) {
+            setPopupState((prev) =>
+              prev?.type === 'url' ? { ...prev, selectedFocused: false } : prev,
+            )
+            return
+          }
+
+          setPopupState((prev) =>
+            prev?.type === 'url'
+              ? { ...prev, selectionIndex: Math.max(prev.selectionIndex - 1, 0) }
+              : prev,
+          )
+          return
+        }
+
+        if (key.downArrow) {
+          if (popupState.selectionIndex >= urls.length - 1) {
+            return
+          }
+
+          setPopupState((prev) =>
+            prev?.type === 'url'
+              ? { ...prev, selectionIndex: Math.min(prev.selectionIndex + 1, urls.length - 1) }
+              : prev,
+          )
+          return
+        }
+
+        if (key.delete || isBackspaceKey(input, key)) {
+          if (urls.length > 0) {
+            onRemoveUrl(popupState.selectionIndex)
+          }
+          return
+        }
+
+        if (isControlKey(input, key, 'e')) {
+          return
+        }
+
+        if (input.toLowerCase() === 'e' && urls.length > 0) {
+          const selected = urls[popupState.selectionIndex]
+          if (!selected) {
+            return
+          }
+
+          setPopupState((prev) =>
+            prev?.type === 'url'
+              ? {
+                  ...prev,
+                  draft: selected,
+                  editingIndex: prev.selectionIndex,
+                  selectedFocused: false,
+                }
+              : prev,
+          )
+          return
+        }
+
+        return
+      }
+
+      if (draftIsEmpty && isBackspaceKey(input, key) && urls.length > 0) {
         onRemoveUrl(popupState.selectionIndex)
         return
       }
-      if (key.escape) {
-        closePopup()
-      }
+
       return
     }
 

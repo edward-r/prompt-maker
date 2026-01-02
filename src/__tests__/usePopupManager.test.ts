@@ -59,6 +59,8 @@ const createOptions = (overrides: Partial<UsePopupManagerOptions> = {}): UsePopu
     smartContextRoot: null,
     toggleSmartContext: jest.fn(),
     setSmartRoot: jest.fn(),
+    urls: [],
+    addUrl: jest.fn(),
     images: [],
     videos: [],
     addImage: jest.fn(),

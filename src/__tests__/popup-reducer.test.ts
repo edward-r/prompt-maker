@@ -45,6 +45,19 @@ describe('popupReducer', () => {
     expect(opened.activeScan).toBeNull()
   })
 
+  it('opens URL popup', () => {
+    const opened = reduce(initialState(), { type: 'open-url' })
+
+    expect(opened.popupState).toEqual({
+      type: 'url',
+      draft: '',
+      selectionIndex: 0,
+      selectedFocused: false,
+      editingIndex: null,
+    })
+    expect(opened.activeScan).toBeNull()
+  })
+
   it('opens image/video popups with scan state', () => {
     const afterImage = reduce(initialState(), { type: 'open-image', scanId: 1 })
     expect(afterImage.popupState).toEqual({

@@ -203,7 +203,16 @@ export const popupReducer = (state: PopupManagerState, action: PopupAction): Pop
       return { popupState: buildFilePopupState(), activeScan: { kind: 'file', id: action.scanId } }
 
     case 'open-url':
-      return { popupState: { type: 'url', draft: '', selectionIndex: 0 }, activeScan: null }
+      return {
+        popupState: {
+          type: 'url',
+          draft: '',
+          selectionIndex: 0,
+          selectedFocused: false,
+          editingIndex: null,
+        },
+        activeScan: null,
+      }
 
     case 'open-image':
       return {

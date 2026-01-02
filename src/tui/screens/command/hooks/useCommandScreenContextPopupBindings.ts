@@ -27,6 +27,7 @@ export type UseCommandScreenContextPopupBindingsOptions = {
   removeFile: (index: number) => void
   addUrl: (value: string) => void
   removeUrl: (index: number) => void
+  updateUrl: (index: number, value: string) => void
   addImage: (value: string) => void
   removeImage: (index: number) => void
   addVideo: (value: string) => void
@@ -71,6 +72,7 @@ export const useCommandScreenContextPopupBindings = ({
   removeFile,
   addUrl,
   removeUrl,
+  updateUrl,
   addImage,
   removeImage,
   addVideo,
@@ -105,6 +107,7 @@ export const useCommandScreenContextPopupBindings = ({
     removeFile,
     addUrl,
     removeUrl,
+    updateUrl,
     addImage,
     removeImage,
     addVideo,

@@ -18,6 +18,8 @@ type UseCommandScreenPopupManagerOptions = {
   smartContextRoot: string | null
   toggleSmartContext: () => void
   setSmartRoot: (value: string) => void
+  urls: string[]
+  addUrl: (value: string) => void
   images: string[]
   videos: string[]
   addImage: (value: string) => void
@@ -69,6 +71,8 @@ export const useCommandScreenPopupManager = ({
   smartContextRoot,
   toggleSmartContext,
   setSmartRoot,
+  urls,
+  addUrl,
   images,
   videos,
   addImage,
@@ -134,6 +138,8 @@ export const useCommandScreenPopupManager = ({
     smartContextRoot,
     toggleSmartContext,
     setSmartRoot,
+    urls,
+    addUrl,
     images,
     videos,
     addImage,

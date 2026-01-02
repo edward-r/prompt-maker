@@ -30,6 +30,8 @@ import type {
   ToggleField,
 } from '../types'
 
+import { parseUrlArgs, validateHttpUrlCandidate } from '../screens/command/utils/url-args'
+
 export type PopupManagerActions = {
   openModelPopup: () => void
   openPolishModelPopup: () => void
@@ -75,6 +77,8 @@ export type UsePopupManagerOptions = {
   smartContextRoot: string | null
   toggleSmartContext: () => void
   setSmartRoot: (value: string) => void
+  urls: string[]
+  addUrl: (value: string) => void
   images: string[]
   videos: string[]
   addImage: (value: string) => void
@@ -132,6 +136,8 @@ export const usePopupManager = ({
   smartContextRoot,
   toggleSmartContext,
   setSmartRoot,
+  urls,
+  addUrl,
   images,
   videos,
   addImage,
@@ -603,9 +609,46 @@ export const usePopupManager = ({
         case 'file':
           openFilePopup()
           return
-        case 'url':
+        case 'url': {
+          if (trimmedArgs) {
+            const candidates = parseUrlArgs(trimmedArgs)
+            if (candidates.length === 0) {
+              setInputValue('')
+              closePopup()
+              return
+            }
+
+            const seen = new Set<string>()
+
+            for (const candidate of candidates) {
+              if (seen.has(candidate)) {
+                continue
+              }
+              seen.add(candidate)
+
+              const validation = validateHttpUrlCandidate(candidate)
+              if (!validation.ok) {
+                pushHistory(`Warning: ${validation.message}`, 'system')
+                continue
+              }
+
+              if (urls.includes(candidate)) {
+                pushHistory(`Context URL already added: ${candidate}`, 'system')
+                continue
+              }
+
+              addUrl(candidate)
+              pushHistory(`Context URL added: ${candidate}`, 'system')
+            }
+
+            setInputValue('')
+            closePopup()
+            return
+          }
+
           openUrlPopup()
           return
+        }
         case 'image': {
           if (trimmedArgs) {
             if (images.includes(trimmedArgs)) {
