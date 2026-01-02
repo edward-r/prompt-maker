@@ -28,7 +28,7 @@ export const COMMAND_DESCRIPTORS = [
     description: 'Reset and reuse last prompt (/reuse)',
   },
   { id: 'file', label: 'File', description: 'Attach file context' },
-  { id: 'url', label: 'URL', description: 'Add URL context' },
+  { id: 'url', label: 'URL', description: 'Add/manage URL context (/url [url1 url2 ...])' },
   { id: 'smart', label: 'Smart', description: 'Toggle smart context (/smart on|off)' },
   {
     id: 'smart-root',

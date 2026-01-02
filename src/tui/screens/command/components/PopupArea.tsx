@@ -226,8 +226,13 @@ export const PopupArea = ({
       draft={popupState.draft}
       items={urls}
       selectedIndex={popupState.selectionIndex}
+      selectedFocused={popupState.selectedFocused}
       emptyLabel="No URLs added"
-      instructions="Enter to add · ↑/↓ to select · Del to remove · Esc to close"
+      instructions={
+        popupState.editingIndex === null
+          ? 'Enter add (space/comma ok) · ↑/↓ focus list · e edit · Del remove · Esc close'
+          : 'Editing… Enter save · Esc cancel · Del remove'
+      }
       onDraftChange={onUrlPopupDraftChange}
       onSubmitDraft={onAddUrl}
     />

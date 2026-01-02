@@ -42,7 +42,13 @@ export type PopupState =
       suggestedSelectionIndex: number
       suggestedFocused: boolean
     }
-  | { type: 'url'; draft: string; selectionIndex: number }
+  | {
+      type: 'url'
+      draft: string
+      selectionIndex: number
+      selectedFocused: boolean
+      editingIndex: number | null
+    }
   | {
       type: 'image'
       draft: string

@@ -30,11 +30,35 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({ child
     [],
   )
 
+  const updateEntry = useCallback(
+    (index: number, value: string, setter: React.Dispatch<React.SetStateAction<string[]>>) => {
+      const trimmed = value.trim()
+      if (!trimmed) {
+        return
+      }
+
+      setter((prev) => {
+        if (index < 0 || index >= prev.length) {
+          return prev
+        }
+
+        const next = [...prev]
+        next[index] = trimmed
+        return next
+      })
+    },
+    [],
+  )
+
   const addFile = useCallback((value: string) => addEntry(value, setFiles), [addEntry])
   const removeFile = useCallback((index: number) => removeEntry(index, setFiles), [removeEntry])
 
   const addUrl = useCallback((value: string) => addEntry(value, setUrls), [addEntry])
   const removeUrl = useCallback((index: number) => removeEntry(index, setUrls), [removeEntry])
+  const updateUrl = useCallback(
+    (index: number, value: string) => updateEntry(index, value, setUrls),
+    [updateEntry],
+  )
 
   const addImage = useCallback((value: string) => addEntry(value, setImages), [addEntry])
   const removeImage = useCallback((index: number) => removeEntry(index, setImages), [removeEntry])
@@ -82,6 +106,7 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({ child
           removeFile,
           addUrl,
           removeUrl,
+          updateUrl,
           addImage,
           removeImage,
           addVideo,
