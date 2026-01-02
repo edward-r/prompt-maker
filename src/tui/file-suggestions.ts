@@ -12,8 +12,7 @@
 import path from 'node:path'
 
 import fg from 'fast-glob'
-
-import { filterStringsByQuery } from './string-filter'
+import { Fzf, extendedMatch } from 'fzf'
 
 const FILE_SUGGESTION_PATTERNS = ['**/*']
 
@@ -301,18 +300,37 @@ export type FilterFileSuggestionsOptions = {
   limit?: number
 }
 
+const fuzzyFilterStrings = (items: readonly string[], query: string, limit: number): string[] => {
+  const trimmed = query.trim()
+  if (!trimmed) {
+    return items.slice(0, limit)
+  }
+
+  const fzf = new Fzf(items, {
+    casing: 'case-insensitive',
+    normalize: true,
+    // Prefer matches near the end of paths (filenames).
+    forward: false,
+    match: extendedMatch,
+    limit,
+  })
+
+  return fzf
+    .find(trimmed)
+    .map((result) => result.item)
+    .slice(0, limit)
+}
+
 export const filterFileSuggestions = ({
   suggestions,
   query,
   exclude = [],
   limit = DEFAULT_FILE_SUGGESTION_LIMIT,
 }: FilterFileSuggestionsOptions): string[] => {
-  // Filtering itself is pure and shared; this wrapper handles
-  // per-call concerns like exclusion and limiting.
   const excluded = new Set(exclude)
   const eligible = suggestions.filter((suggestion) => !excluded.has(suggestion))
 
-  return filterStringsByQuery(eligible, query).slice(0, limit)
+  return fuzzyFilterStrings(eligible, query, limit)
 }
 
 export type FilterDirectorySuggestionsOptions = FilterFileSuggestionsOptions
