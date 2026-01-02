@@ -114,6 +114,15 @@ describe('file-suggestions', () => {
     expect(upperResults).toEqual(['README.md'])
   })
 
+  it('prefers forward matching for path-shaped queries', () => {
+    const results = filterFileSuggestions({
+      suggestions: ['src/theme/terminal-appearance.ts', 'src/tui/theme/terminal-appearance.ts'],
+      query: 'src/tui',
+    })
+
+    expect(results[0]).toBe('src/tui/theme/terminal-appearance.ts')
+  })
+
   it('discovers intent file suggestions by scanning markdown/text files', async () => {
     globMock.mockResolvedValue(['/repo/intents/a.md', '/repo/intents/b.txt'])
 

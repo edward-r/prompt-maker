@@ -114,3 +114,104 @@ Manual checks (high value for TUI refactors):
 - Paste behavior: bracketed paste large input; ensure no double-insert and token label rendering stays correct.
 - Streaming generation: ensure history updates are ordered and not duplicated.
 - Non-TTY contexts: run in a non-interactive environment and ensure no crashes.
+
+---
+
+## Prompt Queue
+
+### Prompt 01 — Popup reducer hardening (baseline)
+
+**Role**
+You are a senior TypeScript engineer working in an Ink/React TUI codebase.
+
+**Goal**
+Lock in existing popup state machine behavior with unit tests and do a minimal refactor **only if it improves testability/readability**. **No user-visible behavior changes.**
+
+**Scope (only these files, unless truly necessary)**
+
+- Primary implementation file: `src/tui/popup-reducer.ts`
+- Tests: `src/__tests__/tui/**` (create a new test file if needed)
+
+**What to accomplish**
+
+1. Add/extend unit tests for `popupReducer`
+
+Add tests that cover these behaviors **explicitly and concretely**:
+
+A. Scan staleness gating
+
+When `popupReducer` receives `scan-suggestions-success`, it must only apply suggestions if:
+
+- `state.activeScan` is non-null AND
+- `state.activeScan.kind === action.kind` AND
+- `state.activeScan.id === action.scanId`
+
+If any of those don’t match, reducer must return the **same state object** (or at least preserve `popupState` and `activeScan` unchanged).
+
+Test at least:
+
+- Mismatched `kind` does not apply suggestions.
+- Mismatched `scanId` does not apply suggestions.
+- Null `activeScan` does not apply suggestions.
+
+B. Scan success clears `activeScan` and applies suggestions to the right popup type
+
+When it _does_ match, reducer must:
+
+- Apply `suggestions` to the correct popup state fields for that popup type
+- Reset `suggestedSelectionIndex` to `0`
+- Set `suggestedFocused` to `false`
+- Set `activeScan` to `null`
+
+Test at least one of:
+
+- `open-file` → `scan-suggestions-success` (file) updates file popup `suggestedItems`
+- `open-image` → `scan-suggestions-success` (image) updates image popup `suggestedItems`
+
+C. `set` action preserves scan only when popup type does not change
+
+Behavior to lock in:
+
+- If `action.type === 'set'` and the popup **type stays the same**, preserve `activeScan`.
+- If popup **type changes**, clear `activeScan`.
+
+Test at least:
+
+- Start with a file popup + `activeScan` `{ kind: 'file', id: 123 }`.
+- Run `set` that updates the file popup (type remains `'file'`) and verify `activeScan` is preserved.
+- Run `set` that changes popup to another type (e.g. `'smart'` or `'model'`) and verify `activeScan` becomes `null`.
+
+2. Minimal refactor (optional, must be behavior-preserving)
+
+You may do a small refactor in `src/tui/popup-reducer.ts` if and only if it:
+
+- reduces duplication (e.g. suggestion application),
+- improves clarity,
+- and keeps behavior identical (tests must prove it).
+
+Do **not** add dependencies. Do **not** change popup schemas.
+
+**Test file naming/location**
+Create something like:
+
+- `src/__tests__/tui/popup-reducer.test.ts`
+
+Follow existing Jest patterns in `src/__tests__/tui/`.
+
+**Validation requirements**
+
+- `npm test`
+- `npm run typecheck`
+
+**Constraints**
+
+- TypeScript strict; **no `any`**.
+- Preserve behavior; no UX changes.
+- Reducer must remain pure (no Ink/React imports).
+- Prefer tests that assert specific fields (`suggestedItems`, `suggestedSelectionIndex`, `suggestedFocused`, `activeScan`) rather than snapshot testing.
+
+**Deliverable**
+
+- Tests added/updated and passing.
+- Any refactor is minimal and justified by reduced duplication or improved readability.
+- Summarize what the tests now guarantee.

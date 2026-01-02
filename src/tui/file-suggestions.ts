@@ -202,12 +202,16 @@ const fuzzyFilterStrings = (items: readonly string[], query: string, limit: numb
     return items.slice(0, limit)
   }
 
+  // Heuristic: if the query contains path separators, treat it as a path search
+  // and use forward matching (fzf's default). Otherwise prefer matching from the
+  // end to bias toward filenames.
+  const isPathQuery = trimmed.includes('/')
+
   const fzf = new Fzf(items, {
     casing: 'smart-case',
     normalize: true,
     fuzzy: 'v2',
-    // Prefer matches near the end of paths (filenames).
-    forward: false,
+    forward: isPathQuery,
     match: extendedMatch,
     tiebreakers: [byStartAsc, byLengthAsc],
     limit,
