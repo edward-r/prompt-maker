@@ -36,6 +36,11 @@ export const useIntentPopupGlue = ({
     if (!intentPopupSuggestedItems.length) {
       return []
     }
+
+    if (!intentPopupDraft.trim()) {
+      return []
+    }
+
     return filterIntentFileSuggestions({
       suggestions: intentPopupSuggestedItems,
       query: intentPopupDraft,
