@@ -141,10 +141,20 @@ export const ListPopup = ({
     ...inkBackgroundColorProps(theme.chipBackground),
   }
 
+  const instructionLines = useMemo(() => {
+    const normalized = instructions.replaceAll('\\n', '\n')
+
+    return normalized
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+  }, [instructions])
+  const instructionRows = Math.max(1, instructionLines.length)
+
   // Hooks must run consistently across renders (suggestions can arrive async).
   const heights = useMemo(
-    () => resolveListPopupHeights({ maxHeight: popupHeight, hasSuggestions }),
-    [hasSuggestions, popupHeight],
+    () => resolveListPopupHeights({ maxHeight: popupHeight, hasSuggestions, instructionRows }),
+    [hasSuggestions, instructionRows, popupHeight],
   )
 
   const selectedVisible = useMemo(
@@ -342,10 +352,12 @@ export const ListPopup = ({
       {layout === 'selected-first' ? inputBlock : selectedBlock}
       {suggestionsBlock}
 
-      <Box flexShrink={0}>
-        <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
-          {padRight(instructions, contentWidth)}
-        </Text>
+      <Box flexShrink={0} flexDirection="column">
+        {(instructionLines.length > 0 ? instructionLines : [instructions]).map((line, index) => (
+          <Text key={`${index}-${line}`} {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+            {padRight(line, contentWidth)}
+          </Text>
+        ))}
       </Box>
     </PopupSheet>
   ) : (
@@ -445,10 +457,20 @@ export const ListPopup = ({
         return (
           <>
             {content}
-            <Text {...backgroundProps}>{padRight('', contentWidth)}</Text>
-            <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
-              {padRight(instructions, contentWidth)}
-            </Text>
+            {instructionRows <= 1 ? (
+              <Text {...backgroundProps}>{padRight('', contentWidth)}</Text>
+            ) : null}
+            {(instructionLines.length > 0 ? instructionLines : [instructions]).map(
+              (line, index) => (
+                <Text
+                  key={`${index}-${line}`}
+                  {...backgroundProps}
+                  {...inkColorProps(theme.mutedText)}
+                >
+                  {padRight(line, contentWidth)}
+                </Text>
+              ),
+            )}
           </>
         )
       })()}

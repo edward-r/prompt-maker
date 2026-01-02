@@ -64,21 +64,36 @@ describe('resolveWindowedList', () => {
 
 describe('resolveListPopupHeights', () => {
   it('allocates rows for file popup height 16', () => {
-    expect(resolveListPopupHeights({ maxHeight: 16, hasSuggestions: true })).toEqual({
+    expect(
+      resolveListPopupHeights({ maxHeight: 16, hasSuggestions: true, instructionRows: 1 }),
+    ).toEqual({
       selectedRows: 3,
       suggestionRows: 4,
     })
   })
 
   it('prefers selected rows on small heights', () => {
-    expect(resolveListPopupHeights({ maxHeight: 10, hasSuggestions: true })).toEqual({
+    expect(
+      resolveListPopupHeights({ maxHeight: 10, hasSuggestions: true, instructionRows: 1 }),
+    ).toEqual({
       selectedRows: 1,
       suggestionRows: 0,
     })
   })
 
+  it('reduces rows when instructions wrap', () => {
+    expect(
+      resolveListPopupHeights({ maxHeight: 16, hasSuggestions: true, instructionRows: 2 }),
+    ).toEqual({
+      selectedRows: 3,
+      suggestionRows: 3,
+    })
+  })
+
   it('keeps defaults when suggestions are absent', () => {
-    expect(resolveListPopupHeights({ maxHeight: undefined, hasSuggestions: false })).toEqual({
+    expect(
+      resolveListPopupHeights({ maxHeight: undefined, hasSuggestions: false, instructionRows: 1 }),
+    ).toEqual({
       selectedRows: 6,
       suggestionRows: 0,
     })

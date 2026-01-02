@@ -211,7 +211,9 @@ export const PopupArea = ({
       selectedFocused={popupState.selectedFocused}
       layout="selected-first"
       emptyLabel="No file globs added"
-      instructions="fzf: ^ $ ' · Enter add · ↑/↓ focus · Del/BS remove · Tab"
+      instructions={
+        "Enter add · ↑/↓ focus list · Del/Backspace remove · Tab suggestions · Esc close\nfzf: ^start $end 'exact"
+      }
       suggestedItems={filePopupSuggestions}
       suggestedSelectionIndex={filePopupSuggestionSelectionIndex}
       suggestedFocused={filePopupSuggestionsFocused}
@@ -246,7 +248,9 @@ export const PopupArea = ({
       selectedFocused={popupState.selectedFocused}
       layout="selected-first"
       emptyLabel="No images attached"
-      instructions="fzf: ^ $ ' · Enter add · ↑/↓ focus · Del/BS remove · Tab"
+      instructions={
+        "Enter add · ↑/↓ focus list · Del/Backspace remove · Tab suggestions · Esc close\nfzf: ^start $end 'exact"
+      }
       suggestedItems={imagePopupSuggestions}
       suggestedSelectionIndex={imagePopupSuggestionSelectionIndex}
       suggestedFocused={imagePopupSuggestionsFocused}
@@ -264,7 +268,9 @@ export const PopupArea = ({
       selectedFocused={popupState.selectedFocused}
       layout="selected-first"
       emptyLabel="No videos attached"
-      instructions="fzf: ^ $ ' · Enter add · ↑/↓ focus · Del/BS remove · Tab"
+      instructions={
+        "Enter add · ↑/↓ focus list · Del/Backspace remove · Tab suggestions · Esc close\nfzf: ^start $end 'exact"
+      }
       suggestedItems={videoPopupSuggestions}
       suggestedSelectionIndex={videoPopupSuggestionSelectionIndex}
       suggestedFocused={videoPopupSuggestionsFocused}
