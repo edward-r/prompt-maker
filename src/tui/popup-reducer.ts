@@ -66,6 +66,7 @@ const buildFilePopupState = (): PopupState => ({
   type: 'file',
   draft: '',
   selectionIndex: 0,
+  selectedFocused: false,
   suggestedItems: [],
   suggestedSelectionIndex: 0,
   suggestedFocused: false,

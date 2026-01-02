@@ -189,6 +189,7 @@ describe('usePopupManager file popup', () => {
     expect(result.current.popupState).toEqual({
       type: 'file',
       draft: '',
+      selectedFocused: false,
       selectionIndex: 0,
       suggestedItems: [],
       suggestedSelectionIndex: 0,
@@ -215,6 +216,7 @@ describe('usePopupManager file popup', () => {
     expect(result.current.popupState).toEqual({
       type: 'file',
       draft: '',
+      selectedFocused: false,
       selectionIndex: 0,
       suggestedItems: ['src/index.ts', 'README.md'],
       suggestedSelectionIndex: 0,

@@ -37,6 +37,7 @@ export type PopupState =
       type: 'file'
       draft: string
       selectionIndex: number
+      selectedFocused: boolean
       suggestedItems: string[]
       suggestedSelectionIndex: number
       suggestedFocused: boolean

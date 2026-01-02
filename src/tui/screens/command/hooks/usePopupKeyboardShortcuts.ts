@@ -34,6 +34,7 @@ export type UsePopupKeyboardShortcutsOptions = {
   // file
   files: string[]
   filePopupSuggestions: string[]
+  onAddFile: (value: string) => void
   onRemoveFile: (index: number) => void
 
   // url
@@ -84,6 +85,7 @@ export const usePopupKeyboardShortcuts = ({
   files,
 
   filePopupSuggestions,
+  onAddFile,
   onRemoveFile,
   urls,
   onRemoveUrl,
@@ -271,6 +273,7 @@ export const usePopupKeyboardShortcuts = ({
         popupState.suggestedSelectionIndex,
         maxSuggestedIndex,
       )
+      const selectedFocused = popupState.selectedFocused
       const draftIsEmpty = popupState.draft.trim().length === 0
 
       if (key.escape) {
@@ -289,7 +292,9 @@ export const usePopupKeyboardShortcuts = ({
         if (key.upArrow) {
           if (effectiveSuggestedIndex === 0) {
             setPopupState((prev) =>
-              prev?.type === 'file' ? { ...prev, suggestedFocused: false } : prev,
+              prev?.type === 'file'
+                ? { ...prev, suggestedFocused: false, selectedFocused: files.length > 0 }
+                : prev,
             )
             return
           }
@@ -322,15 +327,9 @@ export const usePopupKeyboardShortcuts = ({
 
         if (key.return) {
           const selection = filePopupSuggestions[effectiveSuggestedIndex]
-          setPopupState((prev) =>
-            prev?.type === 'file'
-              ? {
-                  ...prev,
-                  draft: selection ?? prev.draft,
-                  suggestedFocused: false,
-                }
-              : prev,
-          )
+          if (selection) {
+            onAddFile(selection)
+          }
           return
         }
 
@@ -343,6 +342,7 @@ export const usePopupKeyboardShortcuts = ({
             ? {
                 ...prev,
                 suggestedFocused: true,
+                selectedFocused: false,
                 suggestedSelectionIndex: 0,
               }
             : prev,
@@ -350,60 +350,97 @@ export const usePopupKeyboardShortcuts = ({
         return
       }
 
-      if (key.upArrow && files.length > 0) {
-        setPopupState((prev) =>
-          prev?.type === 'file'
-            ? { ...prev, selectionIndex: Math.max(prev.selectionIndex - 1, 0) }
-            : prev,
-        )
-        return
-      }
-
-      if (key.downArrow) {
-        if (files.length === 0) {
-          if (hasSuggestions) {
-            setPopupState((prev) =>
-              prev?.type === 'file'
-                ? {
-                    ...prev,
-                    suggestedFocused: true,
-                    suggestedSelectionIndex: 0,
-                  }
-                : prev,
-            )
-          }
-          return
-        }
-
-        if (popupState.selectionIndex >= files.length - 1) {
-          if (hasSuggestions) {
-            setPopupState((prev) =>
-              prev?.type === 'file'
-                ? {
-                    ...prev,
-                    suggestedFocused: true,
-                    suggestedSelectionIndex: 0,
-                  }
-                : prev,
-            )
-            return
-          }
-
-          return
-        }
-
+      if (!selectedFocused && (key.upArrow || key.downArrow) && files.length > 0) {
         setPopupState((prev) =>
           prev?.type === 'file'
             ? {
                 ...prev,
-                selectionIndex: Math.min(prev.selectionIndex + 1, files.length - 1),
+                selectedFocused: true,
+                selectionIndex: Math.min(prev.selectionIndex, Math.max(files.length - 1, 0)),
               }
             : prev,
         )
         return
       }
 
-      if ((key.delete || (draftIsEmpty && isBackspaceKey(input, key))) && files.length > 0) {
+      if (selectedFocused) {
+        if (key.upArrow) {
+          if (popupState.selectionIndex === 0) {
+            setPopupState((prev) =>
+              prev?.type === 'file' ? { ...prev, selectedFocused: false } : prev,
+            )
+            return
+          }
+
+          setPopupState((prev) =>
+            prev?.type === 'file'
+              ? { ...prev, selectionIndex: Math.max(prev.selectionIndex - 1, 0) }
+              : prev,
+          )
+          return
+        }
+
+        if (key.downArrow) {
+          if (files.length === 0) {
+            setPopupState((prev) =>
+              prev?.type === 'file' ? { ...prev, selectedFocused: false } : prev,
+            )
+            return
+          }
+
+          if (popupState.selectionIndex >= files.length - 1) {
+            if (hasSuggestions) {
+              setPopupState((prev) =>
+                prev?.type === 'file'
+                  ? {
+                      ...prev,
+                      suggestedFocused: true,
+                      selectedFocused: false,
+                      suggestedSelectionIndex: 0,
+                    }
+                  : prev,
+              )
+            }
+            return
+          }
+
+          setPopupState((prev) =>
+            prev?.type === 'file'
+              ? {
+                  ...prev,
+                  selectionIndex: Math.min(prev.selectionIndex + 1, files.length - 1),
+                }
+              : prev,
+          )
+          return
+        }
+
+        if (key.delete || isBackspaceKey(input, key)) {
+          if (files.length > 0) {
+            onRemoveFile(popupState.selectionIndex)
+          }
+          return
+        }
+
+        return
+      }
+
+      if (key.downArrow && files.length === 0 && hasSuggestions) {
+        setPopupState((prev) =>
+          prev?.type === 'file'
+            ? {
+                ...prev,
+                suggestedFocused: true,
+                selectedFocused: false,
+                suggestedSelectionIndex: 0,
+              }
+            : prev,
+        )
+        return
+      }
+
+      // Backspace-remove remains available when the input is empty.
+      if (draftIsEmpty && isBackspaceKey(input, key) && files.length > 0) {
         onRemoveFile(popupState.selectionIndex)
         return
       }

@@ -35,6 +35,8 @@ export type ListPopupProps = {
   suggestedItems?: readonly string[]
   suggestedSelectionIndex?: number
   suggestedFocused?: boolean
+  selectedFocused?: boolean
+  layout?: 'input-first' | 'selected-first'
   maxHeight?: number
   onDraftChange: (value: string) => void
   onSubmitDraft: (value: string) => void
@@ -99,6 +101,8 @@ export const ListPopup = ({
   suggestedItems,
   suggestedSelectionIndex,
   suggestedFocused,
+  selectedFocused,
+  layout = 'input-first',
   maxHeight,
   onDraftChange,
   onSubmitDraft,
@@ -124,6 +128,8 @@ export const ListPopup = ({
     Math.min(suggestedSelectionIndex ?? 0, Math.max((suggestedItems?.length ?? 0) - 1, 0)),
   )
   const effectiveSuggestedFocused = Boolean(hasSuggestions && suggestedFocused)
+  const effectiveSelectedFocused = Boolean(selectedFocused)
+  const shouldHighlightSelectedAsFocused = selectedFocused ?? true
 
   const focusedSelectionProps = {
     ...inkColorProps(theme.selectionText),
@@ -183,7 +189,9 @@ export const ListPopup = ({
         const isSelected = actualIndex === selectedIndex
         const rowLabel = `${actualIndex + 1}. ${value}`
         const textProps = isSelected
-          ? focusedSelectionProps
+          ? shouldHighlightSelectedAsFocused
+            ? focusedSelectionProps
+            : unfocusedSelectionProps
           : { ...backgroundProps, ...inkColorProps(theme.text) }
 
         lines.push({ key: `${value}-${actualIndex}`, label: rowLabel, props: textProps })
@@ -274,6 +282,50 @@ export const ListPopup = ({
     unfocusedSelectionProps,
   ])
 
+  const inputBlock = (
+    <Box flexDirection="row">
+      <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+        Add:
+      </Text>
+      <SingleLineTextInput
+        value={draft}
+        onChange={onDraftChange}
+        placeholder={placeholder}
+        onSubmit={() => onSubmitDraft(draft)}
+        focus={!effectiveSuggestedFocused && !effectiveSelectedFocused}
+        width={Math.max(1, contentWidth - 'Add: '.length)}
+        backgroundColor={theme.popupBackground}
+      />
+    </Box>
+  )
+
+  const selectedBlock = (
+    <Box flexDirection="column" height={1 + heights.selectedRows} flexShrink={0} overflow="hidden">
+      <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+        {padRight('Selected', contentWidth)}
+      </Text>
+      {selectedLines.map((line) => (
+        <Text key={line.key} {...line.props}>
+          {padRight(line.label, contentWidth)}
+        </Text>
+      ))}
+    </Box>
+  )
+
+  const suggestionsBlock =
+    suggestionRows > 0 ? (
+      <Box flexDirection="column" height={1 + suggestionRows} flexShrink={0} overflow="hidden">
+        <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+          {padRight('Suggestions', contentWidth)}
+        </Text>
+        {suggestionLines.map((line) => (
+          <Text key={line.key} {...line.props}>
+            {padRight(line.label, contentWidth)}
+          </Text>
+        ))}
+      </Box>
+    ) : null
+
   return hasSuggestions ? (
     <PopupSheet
       width={popupWidth}
@@ -286,49 +338,9 @@ export const ListPopup = ({
         {padRight(title, contentWidth)}
       </Text>
 
-      <Box flexDirection="row">
-        <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
-          Add:
-        </Text>
-        <SingleLineTextInput
-          value={draft}
-          onChange={onDraftChange}
-          placeholder={placeholder}
-          onSubmit={() => onSubmitDraft(draft)}
-          focus={!effectiveSuggestedFocused}
-          width={Math.max(1, contentWidth - 'Add: '.length)}
-          backgroundColor={theme.popupBackground}
-        />
-      </Box>
-
-      <Box
-        flexDirection="column"
-        height={1 + heights.selectedRows}
-        flexShrink={0}
-        overflow="hidden"
-      >
-        <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
-          {padRight('Selected', contentWidth)}
-        </Text>
-        {selectedLines.map((line) => (
-          <Text key={line.key} {...line.props}>
-            {padRight(line.label, contentWidth)}
-          </Text>
-        ))}
-      </Box>
-
-      {suggestionRows > 0 ? (
-        <Box flexDirection="column" height={1 + suggestionRows} flexShrink={0} overflow="hidden">
-          <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
-            {padRight('Suggestions', contentWidth)}
-          </Text>
-          {suggestionLines.map((line) => (
-            <Text key={line.key} {...line.props}>
-              {padRight(line.label, contentWidth)}
-            </Text>
-          ))}
-        </Box>
-      ) : null}
+      {layout === 'selected-first' ? selectedBlock : inputBlock}
+      {layout === 'selected-first' ? inputBlock : selectedBlock}
+      {suggestionsBlock}
 
       <Box flexShrink={0}>
         <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
@@ -347,59 +359,99 @@ export const ListPopup = ({
       <Text {...backgroundProps} {...inkColorProps(theme.accent)}>
         {padRight(title, contentWidth)}
       </Text>
-      <Text {...backgroundProps}>{padRight('', contentWidth)}</Text>
-      <Box flexDirection="column">
-        <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
-          {padRight('Add new', contentWidth)}
-        </Text>
-        <SingleLineTextInput
-          value={draft}
-          onChange={onDraftChange}
-          placeholder={placeholder}
-          onSubmit={() => onSubmitDraft(draft)}
-          focus
-          width={contentWidth}
-          backgroundColor={theme.popupBackground}
-        />
-      </Box>
-      <Text {...backgroundProps}>{padRight('', contentWidth)}</Text>
-      <Box flexDirection="column">
-        {items.length === 0 ? (
-          <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
-            {padRight(emptyLabel, contentWidth)}
-          </Text>
-        ) : (
-          <>
-            {start > 0 ? (
-              <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
-                {padRight('… earlier entries …', contentWidth)}
-              </Text>
-            ) : null}
-            {visibleItems.map((value, index) => {
-              const actualIndex = start + index
-              const isSelected = actualIndex === selectedIndex
-              const textProps = isSelected
-                ? focusedSelectionProps
-                : { ...backgroundProps, ...inkColorProps(theme.text) }
-              return (
-                <Text key={`${value}-${actualIndex}`} {...textProps}>
-                  {padRight(`${actualIndex + 1}. ${value}`, contentWidth)}
-                </Text>
-              )
-            })}
-            {start + DEFAULT_MAX_VISIBLE_LIST_ITEMS < items.length ? (
-              <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
-                {padRight('… later entries …', contentWidth)}
-              </Text>
-            ) : null}
-          </>
-        )}
-      </Box>
 
       <Text {...backgroundProps}>{padRight('', contentWidth)}</Text>
-      <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
-        {padRight(instructions, contentWidth)}
-      </Text>
+
+      {(() => {
+        const addBlock = (
+          <Box flexDirection="column">
+            <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+              {padRight('Add new', contentWidth)}
+            </Text>
+            <SingleLineTextInput
+              value={draft}
+              onChange={onDraftChange}
+              placeholder={placeholder}
+              onSubmit={() => onSubmitDraft(draft)}
+              focus={!effectiveSelectedFocused}
+              width={contentWidth}
+              backgroundColor={theme.popupBackground}
+            />
+          </Box>
+        )
+
+        const selectedBlock = (
+          <Box flexDirection="column">
+            {items.length === 0 ? (
+              <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+                {padRight(emptyLabel, contentWidth)}
+              </Text>
+            ) : (
+              <>
+                {start > 0 ? (
+                  <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+                    {padRight('… earlier entries …', contentWidth)}
+                  </Text>
+                ) : null}
+                {visibleItems.map((value, index) => {
+                  const actualIndex = start + index
+                  const isSelected = actualIndex === selectedIndex
+                  const textProps = isSelected
+                    ? shouldHighlightSelectedAsFocused
+                      ? focusedSelectionProps
+                      : unfocusedSelectionProps
+                    : { ...backgroundProps, ...inkColorProps(theme.text) }
+                  return (
+                    <Text key={`${value}-${actualIndex}`} {...textProps}>
+                      {padRight(`${actualIndex + 1}. ${value}`, contentWidth)}
+                    </Text>
+                  )
+                })}
+                {start + DEFAULT_MAX_VISIBLE_LIST_ITEMS < items.length ? (
+                  <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+                    {padRight('… later entries …', contentWidth)}
+                  </Text>
+                ) : null}
+              </>
+            )}
+          </Box>
+        )
+
+        const content =
+          layout === 'selected-first' ? (
+            <>
+              <Box flexDirection="column">
+                <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+                  {padRight('Selected', contentWidth)}
+                </Text>
+                {selectedBlock}
+              </Box>
+              <Text {...backgroundProps}>{padRight('', contentWidth)}</Text>
+              {addBlock}
+            </>
+          ) : (
+            <>
+              {addBlock}
+              <Text {...backgroundProps}>{padRight('', contentWidth)}</Text>
+              <Box flexDirection="column">
+                <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+                  {padRight('Selected', contentWidth)}
+                </Text>
+                {selectedBlock}
+              </Box>
+            </>
+          )
+
+        return (
+          <>
+            {content}
+            <Text {...backgroundProps}>{padRight('', contentWidth)}</Text>
+            <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+              {padRight(instructions, contentWidth)}
+            </Text>
+          </>
+        )
+      })()}
     </PopupSheet>
   )
 }

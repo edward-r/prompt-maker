@@ -253,6 +253,7 @@ export const useCommandScreenPopupBindings = (
     onThemeModeCancel: themeModePopup.onCancel,
     files: options.files,
     filePopupSuggestions: context.filePopupSuggestions,
+    onAddFile: context.onAddFile,
     onRemoveFile: context.onRemoveFile,
     urls: options.urls,
     onRemoveUrl: context.onRemoveUrl,
