@@ -26,16 +26,51 @@ Global constraints respected in recommendations:
 - Cross-cutting behavior hotspot with an explicit TODO: `src/tui/notifier.ts` (293 LOC) toast dedupe semantics.
 - Theme stack is correctness-sensitive and borderline oversized: `src/tui/theme/theme-loader.ts` (398 LOC), `src/tui/theme/theme-provider.tsx` (295 LOC).
 
-## Staging Model (used in “Suggested stage”)
+## Prompt Plan (single, dependency-ordered)
 
-This replaces the previous “atomic prompts” mapping.
+Each prompt is a discrete “tests + refactor” effort. The prompts are ordered so later work builds on earlier extracted/tested helpers, with **no duplicated steps**.
 
-- **Stage 0 — Baseline safety**: lock in behavior with tests around pure helpers/reducers and critical routing.
-- **Stage 1 — Input routing invariants**: enforce priority order (help overlay → popup → screen → global keys); reduce double-handling risks.
-- **Stage 2 — Popup state + suggestion scans**: make popup transitions explicit/testable; harden async scan staleness rules.
-- **Stage 3 — Generation pipeline orchestration**: isolate effects, batch history writes, reduce churn, keep interactive/refinement stable.
-- **Stage 4 — UI decomposition**: break large components/hooks into smaller modules with stable prop surfaces.
-- **Stage 5 — Cross-cutting services**: notifier/toasts, theme loading/selection, and other shared subsystems.
+1. **Prompt 01 — Popup reducer hardening (baseline)**
+   - Add tests that lock popup scan staleness gating and `set`/scan preservation rules; do minimal reducer cleanup only if it improves testability.
+   - Validate: `npm test`, `npm run typecheck`.
+2. **Prompt 02 — Extract + test list windowing primitives**
+   - Extract pure windowing/selection/header-visibility helpers used by popups; add unit tests.
+   - Validate: `npm test`, `npm run typecheck`.
+3. **Prompt 03 — Remove sync FS IO from typing hot path**
+   - Replace `fs.statSync`/sync checks in `src/tui/screens/command/hooks/useCommandScreenShell.ts` with cached/async detection; add tests for parsing + detector behavior.
+   - Validate: `npm test`, `npm run typecheck`; manual: rapid typing + drag/drop paste.
+4. **Prompt 04 — Decompose `PopupArea` (mechanical split)**
+   - Split `src/tui/screens/command/components/PopupArea.tsx` into per-popup renderers or a `switch`-based dispatcher; no behavior changes.
+   - Validate: `npm test`, `npm run typecheck`; manual: open each popup and verify keys.
+5. **Prompt 05 — Refactor `ListPopup` to view-model + renderer**
+   - Use helpers from Prompt 02; unify “suggestions” vs “simple” paths in `src/tui/components/popups/ListPopup.tsx`.
+   - Validate: `npm test`, `npm run typecheck`; manual: file/image/video popups, focus/selection.
+6. **Prompt 06 — Refactor `ModelPopup` row/window logic**
+   - Use helpers from Prompt 02; extract row-building/windowing from `src/tui/components/popups/ModelPopup.tsx` and add tests.
+   - Validate: `npm test`, `npm run typecheck`.
+7. **Prompt 07 — Reduce command-screen plumbing surface**
+   - Normalize/cluster types and return shapes in `src/tui/screens/command/hooks/useCommandScreenPopupBindings.ts` and simplify high-churn bundling in `src/tui/screens/command/hooks/useCommandScreenController.ts` (no behavioral changes); add a “shape contract” test.
+   - Validate: `npm test`, `npm run typecheck`.
+8. **Prompt 08 — Split `useContextPopupGlue` by popup type**
+   - Decompose `src/tui/screens/command/hooks/useContextPopupGlue.ts` into per-popup hooks; extract pure popup-mutation helpers; add tests for helpers.
+   - Validate: `npm test`, `npm run typecheck`; manual: add/remove + suggestions + auto-add path detection.
+9. **Prompt 09 — Split `usePopupManager` (commands vs scans vs effects)**
+   - Decompose `src/tui/hooks/usePopupManager.ts` into command→intent mapping + scan orchestration + effectful executors; add tests for mapping + scan staleness.
+   - Validate: `npm test`, `npm run typecheck`; manual: fast popup switching while scans in flight.
+10. **Prompt 10 — Stabilize `useGenerationPipeline` (buffering + isolation)**
+
+- Extract pure formatting helpers + tests; add buffered history writes while preserving order/content; isolate series artifact IO; update any directly implicated call-into code in `src/prompt-generator-service.ts` only if required.
+- Validate: `npm test`, `npm run typecheck`; manual: long streaming generation + refinement.
+
+11. **Prompt 11 — Theme subsystem split (loader/provider)**
+
+- Split `src/tui/theme/theme-loader.ts` into discovery/validate/adapt modules; add fixture-driven tests; small provider extraction in `src/tui/theme/theme-provider.tsx` if it improves testability.
+- Validate: `npm test`, `npm run typecheck`; manual: switch theme/mode and restart.
+
+12. **Prompt 12 — Notifier/toast refactor (tests-first within prompt)**
+
+- Add tests locking current toast behavior; refactor internals into pure transition helpers + timer wiring (no UX change unless explicitly requested).
+- Validate: `npm test`, `npm run typecheck`; manual: toasts during generation.
 
 ## Inventory & Size Scan
 
@@ -56,48 +91,36 @@ Current counts:
 
 ## Ranked Refactor Candidate Table
 
-|                                                                        Rank | File path                                                                | LOC | Category         | Key issues                                                                                                         | Evidence (concrete)                                                                                                                                                                                                                                                                                                                                 | Suggested refactor direction                                                                                                                                                                                                                                                                                                                                                 | Suggested stage                                            |
-| --------------------------------------------------------------------------: | ------------------------------------------------------------------------ | --: | ---------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-|                                                                           1 | `src/tui/hooks/usePopupManager.ts`                                       | 989 | Both             | God-hook: popup state + command semantics + IO + scanning<br>Very wide dependency surface increases change risk    | Huge `UsePopupManagerOptions` surface (many setters + state)<br>Large command handler switch (`handleCommandSelection(...)`) opens popups, toggles settings, triggers flows (series/test/exit)<br>Reads intent file via `fs.readFile(...)` inside the handler<br>Starts async scans via `runSuggestionScan(...)`                                    | Split into: (1) pure command→action mapping, (2) scan orchestration hook/service, (3) effectful command executors<br>Keep popup transitions in reducer (`src/tui/popup-reducer.ts`) and gradually migrate ad-hoc `setPopupState(prev => ...)` mutations into explicit actions<br>Add unit tests for command→action mapping and scan staleness gating in `src/__tests__/tui/` | Stage 2 (popup state/scans), Stage 1 (routing)             |
-|                                                                           2 | `src/tui/hooks/useGenerationPipeline.ts`                                 | 951 | Both             | Mixed concerns: orchestration + formatting + IO + state<br>Potential render/update churn during streaming          | `handleStreamEvent(...)` wraps/splits (`wrapAnsi`) and pushes many history entries per event<br>Generation runner builds large payloads; JSON display path emits wrapped lines<br>Contains series artifact IO (`writeSeriesArtifacts(...)`, `fs.mkdir`, `fs.writeFile`)                                                                             | Introduce “event buffering” (batch history writes per tick/frame) while preserving order<br>Extract pure formatting helpers (wrap/split + display shaping) and test them<br>Move series artifact IO behind a small boundary (call remains in TUI layer, but logic is isolated/testable)                                                                                      | Stage 3 (generation pipeline)                              |
-|                                                                           3 | `src/tui/screens/command/hooks/useContextPopupGlue.ts`                   | 933 | Both             | God-hook for file/url/image/video/smart popups<br>Repeated `setPopupState` mutation patterns and per-popup effects | Screen-level key handler (`useInput(handleSeriesShortcut, { isActive: !isPopupOpen && !helpOpen })`)<br>Auto-add behaviors via effects for file/image/video drafts (drag-drop parsing)<br>Repeated suggestion filtering patterns plus “defocus if empty” effects<br>Many inline `setPopupState(prev => prev?.type === 'X' ? {...} : prev)` branches | Split into focused hooks per popup type (`useFilePopupGlue`, `useUrlPopupGlue`, `useMediaPopupGlue`, `useSmartPopupGlue`)<br>Extract pure helpers for list popup mutations (focus/selection clamp, add/remove behaviors)<br>Add unit tests for pure helpers in `src/__tests__/tui/`                                                                                          | Stage 2 (popup behavior), Stage 4 (hook decomposition)     |
-|                                                                           4 | `src/tui/components/popups/ListPopup.tsx`                                | 457 | Both             | Duplicated rendering paths (“suggestions” vs “simple”)<br>Large component with UI/layout logic baked in            | Two major render branches with overlapping structure<br>Windowing logic embedded at component level<br>Selection style prop objects rebuilt each render                                                                                                                                                                                             | Extract a pure “view model” builder (rows/layout/window) and keep component mostly presentational<br>Unify rendering path with optional suggestions panel<br>Consider splitting into `ListPopupLayout` + pure `list-popup-model.ts`                                                                                                                                          | Stage 4 (UI decomposition), Stage 0 (tests for view model) |
-|                                                                           5 | `src/tui/screens/command/hooks/useCommandScreenPopupBindings.ts`         | 404 | Size             | Large option/result types; high plumbing overhead                                                                  | Options mix unrelated groups (paste/popup/menu/generation/context)<br>Returns a large flattened object surface                                                                                                                                                                                                                                      | Keep behavior; refactor types/returns into grouped objects (`context`, `history`, `popup`, `generation`, …)<br>Prefer stable callback refs to shrink dependency arrays<br>Add a focused “shape contract” test                                                                                                                                                                | Stage 4 (UI decomposition)                                 |
-|                                                                           6 | `src/tui/theme/theme-loader.ts`                                          | 398 | Size             | Mixed discovery + parsing + validation + schema adaptation                                                         | Embedded `validateThemeJson(...)` and `adaptOpencodeThemeJson(...)`<br>`loadThemes(...)` orchestrates builtin/global/project scanning with ordering rules<br>Multiple error kinds (`read`/`parse`/`validate`)                                                                                                                                       | Split into focused modules: validation, adapter, discovery; keep `loadThemes(...)` as orchestration<br>Add tests for validate/adapt behavior using existing fixtures under `src/__tests__/__fixtures__/themes/`                                                                                                                                                              | Stage 5 (services), Stage 0 (tests first)                  |
-|                                                                           7 | `src/tui/screens/command/components/PopupArea.tsx`                       | 351 | Anti-pattern     | Large prop drilling surface<br>Long conditional chain to pick popup UI                                             | `PopupAreaProps` contains many per-popup fields/handlers<br>Large conditional selection by `popupState.type` with repeated wiring patterns                                                                                                                                                                                                          | Split into subcomponents per popup type (or a `switch` with small renderer helpers)<br>Reduce prop surface by passing a popup “view model” object instead of many individual props                                                                                                                                                                                           | Stage 4 (UI decomposition)                                 |
-|                                                                           8 | `src/tui/components/popups/ModelPopup.tsx`                               | 317 | Size             | UI formatting and list-building logic bundled into one component                                                   | `buildRows(...)` groups “Recent” and provider headers<br>Windowing + “header visibility” logic is local to this component                                                                                                                                                                                                                           | Extract pure row building + windowing helpers to a sibling module<br>Add unit tests that lock in grouping/windowing behavior                                                                                                                                                                                                                                                 | Stage 4 (UI decomposition), Stage 0 (tests)                |
-|                                                                           9 | `src/tui/screens/command/hooks/useCommandScreenController.ts`            | 310 | Size             | Large “options bundling” with long dependency arrays                                                               | Builds multiple `useMemo` option objects with long dep lists<br>High risk of accidental identity churn or missed deps                                                                                                                                                                                                                               | Move bundling to a single owner (either the view-model hook or controller)<br>Consider stable callback wrappers + refs to reduce dependency surface while preserving semantics                                                                                                                                                                                               | Stage 4 (UI decomposition)                                 |
-|                                                                          10 | `src/tui/popup-reducer.ts`                                               | 302 | Size             | Large but pure; risk is maintainability, not correctness                                                           | Many popup types and fields handled in one `switch`<br>Duplicate `buildXPopupState` patterns                                                                                                                                                                                                                                                        | Optional: split action handlers by popup type into smaller pure functions<br>Add/expand reducer tests to lock behavior before structural refactors                                                                                                                                                                                                                           | Stage 2 (popup state), Stage 0 (tests)                     |
-|                                                                          11 | `src/tui/theme/theme-provider.tsx`                                       | 295 | Both             | Effectful init + persistence + preview logic in one provider                                                       | Initial load effect has multi-branch error handling<br>Provides `previewTheme`, `setTheme`, `setMode` with persistence + runtime detection                                                                                                                                                                                                          | Extract pure selectors (resolve by name, fallback rules) from effectful persistence<br>Add tests around fallback behavior and system-mode detection fallback                                                                                                                                                                                                                 | Stage 5 (services), Stage 0 (tests)                        |
-|                                                                          12 | `src/tui/notifier.ts`                                                    | 293 | Anti-pattern     | Known semantics issue: toast dedupe likely wrong for progress updates<br>Timer bookkeeping complexity              | Top-of-file TODO explicitly calls out dedupe is wrong<br>`showToast(...)` reuses latest toast when message+kind match<br>Maintains timer maps                                                                                                                                                                                                       | Write tests to lock current behavior first<br>Then refactor toward explicit toast “update/upsert” semantics without changing UX unless explicitly opted-in<br>Move toast state transitions into pure helpers                                                                                                                                                                 | Stage 5 (services), Stage 0 (tests)                        |
-|                                                                          13 | `src/tui/screens/command/hooks/useCommandScreenShell.ts`                 | 276 | Anti-pattern     | Synchronous filesystem IO on typing hot-path                                                                       | `droppedFilePath` uses `fs.statSync(...)` inside a `useMemo` depending on `inputValue`                                                                                                                                                                                                                                                              | Move IO to an effect + cached state (ensure behavior remains responsive)                                                                                                                                                                                                                                                                                                     |
-|                           <br>Extract pure “candidate path parsing” from IO | Stage 1 (input responsiveness), Stage 4 (cleanup)                        |
-|                                                                          14 | `src/tui/components/core/InputBar.tsx`                                   | 274 | Size             | Some render-time string/layout work is non-trivial                                                                 | Status line width calculation and segment extraction run each render (memoized, but still chunky)                                                                                                                                                                                                                                                   |
-|                            <br>Many derived computations from `statusChips` | Optional: extract pure status-summary computation + tests                |
-| <br>Primary focus: ensure stable props and avoid rerender churn in children | Stage 4 (component audit)                                                |
-|                                                                          15 | `src/prompt-generator-service.ts`                                        | 257 | Both (call-into) | Correctness-sensitive series repair flow embedded in service                                                       | `generatePromptSeries(...)` repair loop with `MAX_SERIES_REPAIR_ATTEMPTS`                                                                                                                                                                                                                                                                           |
-|                  <br>Multiple parse/validate/repair branches plus callbacks | Keep behavior; extract repair loop into a helper returning typed results |
-| <br>Add unit tests around attempt counting and error surfacing (no network) | Stage 0 (tests), Stage 5 (service cleanup)                               |
+| Rank | File path                                                        | LOC | Category         | Key issues                                                                                                         | Evidence (concrete)                                                                                                                                                                                                                                                                                              | Suggested refactor direction                                                                                                                                                                                                                                              | Suggested prompt(s)                |
+| ---: | ---------------------------------------------------------------- | --: | ---------------- | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+|    1 | `src/tui/hooks/usePopupManager.ts`                               | 989 | Both             | God-hook: popup state + command semantics + IO + scanning<br>Very wide dependency surface increases change risk    | Huge `UsePopupManagerOptions` surface (many setters + state)<br>Large command handler switch (`handleCommandSelection(...)`) opens popups, toggles settings, triggers flows (series/test/exit)<br>Reads intent file via `fs.readFile(...)` inside the handler<br>Starts async scans via `runSuggestionScan(...)` | Split into: (1) pure command→intent mapping, (2) scan orchestration boundary, (3) effectful executors<br>Keep popup transitions in reducer; migrate ad-hoc `setPopupState(prev => ...)` mutations to explicit actions<br>Add tests for command mapping and scan staleness | Prompt 09 (builds on Prompt 01)    |
+|    2 | `src/tui/hooks/useGenerationPipeline.ts`                         | 951 | Both             | Mixed concerns: orchestration + formatting + IO + state<br>Potential render/update churn during streaming          | `handleStreamEvent(...)` wraps/splits (`wrapAnsi`) and pushes many history entries per event<br>JSON display path emits wrapped lines<br>Series artifact IO uses `fs.mkdir`/`fs.writeFile`                                                                                                                       | Extract pure formatting helpers + tests; introduce buffered history writes (preserve order/content); isolate series artifact IO                                                                                                                                           | Prompt 10                          |
+|    3 | `src/tui/screens/command/hooks/useContextPopupGlue.ts`           | 933 | Both             | God-hook for file/url/image/video/smart popups<br>Repeated `setPopupState` mutation patterns and per-popup effects | Screen-level key handler uses `useInput(..., { isActive: !isPopupOpen && !helpOpen })`<br>Auto-add effects for media drafts (drag-drop parsing)<br>Repeated suggestion filtering + “defocus if empty” effects                                                                                                    | Split into per-popup hooks; extract pure popup-mutation helpers; add unit tests                                                                                                                                                                                           | Prompt 08 (builds on Prompt 02/05) |
+|    4 | `src/tui/components/popups/ListPopup.tsx`                        | 457 | Both             | Duplicated rendering paths (“suggestions” vs “simple”)<br>Large component with UI/layout logic baked in            | Two major render branches with overlapping structure<br>Windowing logic embedded at component level                                                                                                                                                                                                              | Extract pure view-model builder + tests; unify render path with optional suggestions panel                                                                                                                                                                                | Prompt 02 → Prompt 05              |
+|    5 | `src/tui/screens/command/hooks/useCommandScreenPopupBindings.ts` | 404 | Size             | Large option/result types; high plumbing overhead                                                                  | Options mix unrelated groups (paste/popup/menu/generation/context)<br>Returns a large flattened object surface                                                                                                                                                                                                   | Group options/returns; add a “shape contract” test; reduce dependency-churn risk                                                                                                                                                                                          | Prompt 07                          |
+|    6 | `src/tui/theme/theme-loader.ts`                                  | 398 | Size             | Mixed discovery + parsing + validation + schema adaptation                                                         | Embedded validation + opencode-schema adaptation<br>`loadThemes(...)` orchestrates builtin/global/project scanning                                                                                                                                                                                               | Split into focused modules; add fixture-driven tests                                                                                                                                                                                                                      | Prompt 11                          |
+|    7 | `src/tui/screens/command/components/PopupArea.tsx`               | 351 | Anti-pattern     | Large prop drilling surface<br>Long conditional chain to pick popup UI                                             | `PopupAreaProps` contains many per-popup fields/handlers<br>Large conditional selection by `popupState.type`                                                                                                                                                                                                     | Split into per-popup renderer helpers/components; reduce prop surface via view-model objects where possible                                                                                                                                                               | Prompt 04                          |
+|    8 | `src/tui/components/popups/ModelPopup.tsx`                       | 317 | Size             | UI formatting and list-building logic bundled into one component                                                   | `buildRows(...)` groups “Recent” and provider headers<br>Windowing + “header visibility” logic local to component                                                                                                                                                                                                | Extract pure row building/windowing helpers + tests                                                                                                                                                                                                                       | Prompt 02 → Prompt 06              |
+|    9 | `src/tui/screens/command/hooks/useCommandScreenController.ts`    | 310 | Size             | Large “options bundling” with long dependency arrays                                                               | Many large `useMemo` option objects + long dep lists                                                                                                                                                                                                                                                             | Reduce bundling surface and dependency churn; keep behavior stable                                                                                                                                                                                                        | Prompt 07                          |
+|   10 | `src/tui/popup-reducer.ts`                                       | 302 | Size             | Large but pure; risk is maintainability, not correctness                                                           | Many popup types/actions handled in one `switch`                                                                                                                                                                                                                                                                 | Add/expand reducer tests; optional small refactor to reduce duplication                                                                                                                                                                                                   | Prompt 01                          |
+|   11 | `src/tui/theme/theme-provider.tsx`                               | 295 | Both             | Effectful init + persistence + preview logic in one provider                                                       | Initial load effect has multi-branch error handling<br>Provides `previewTheme`, `setTheme`, `setMode`                                                                                                                                                                                                            | Extract pure selectors from effectful persistence; add fallback tests                                                                                                                                                                                                     | Prompt 11                          |
+|   12 | `src/tui/notifier.ts`                                            | 293 | Anti-pattern     | Known semantics issue: toast dedupe likely wrong for progress updates<br>Timer bookkeeping complexity              | Top-of-file TODO calls out dedupe is wrong<br>`showToast(...)` reuses latest toast when message+kind match                                                                                                                                                                                                       | Add tests to lock current semantics; refactor internals into pure transitions + timer wiring                                                                                                                                                                              | Prompt 12                          |
+|   13 | `src/tui/screens/command/hooks/useCommandScreenShell.ts`         | 276 | Anti-pattern     | Synchronous filesystem IO on typing hot-path                                                                       | `droppedFilePath` uses `fs.statSync(...)` inside a `useMemo` depending on `inputValue`                                                                                                                                                                                                                           | Replace with cached/async detection; test parsing and detector behavior                                                                                                                                                                                                   | Prompt 03                          |
+|   14 | `src/tui/components/core/InputBar.tsx`                           | 274 | Size             | Some render-time string/layout work is non-trivial<br>Many derived computations from `statusChips`                 | Status line width computation and segment extraction per render                                                                                                                                                                                                                                                  | Optional: extract pure status-summary helper + tests if touched while reducing command-screen plumbing                                                                                                                                                                    | Prompt 07 (optional)               |
+|   15 | `src/prompt-generator-service.ts`                                | 257 | Both (call-into) | Correctness-sensitive series repair flow embedded in service                                                       | `generatePromptSeries(...)` repair loop with `MAX_SERIES_REPAIR_ATTEMPTS`                                                                                                                                                                                                                                        | Only refactor if directly implicated by pipeline changes; add unit tests around attempt counting/error surfacing (no network)                                                                                                                                             | Prompt 10 (only if needed)         |
 
 ## Quick Wins (low risk, high value)
 
-1. `src/tui/screens/command/components/PopupArea.tsx`: convert long conditional to `switch` and/or per-popup subcomponents.
-2. `src/tui/components/popups/ListPopup.tsx`: unify render paths; extract a pure view model.
-3. `src/tui/screens/command/hooks/useCommandScreenShell.ts`: remove sync `fs.statSync` from the `inputValue` hot path (validate carefully).
-4. `src/tui/components/popups/ModelPopup.tsx`: extract and test row/window logic (locks behavior and reduces complexity).
-5. `src/tui/popup-reducer.ts`: add/expand reducer tests before any structural split.
+- Prompt 01: add popup reducer tests (high leverage, low risk).
+- Prompt 03: remove sync `fs.statSync` from the `inputValue` hot path.
+- Prompt 04: split `PopupArea` into per-popup renderers.
+- Prompt 02 → Prompt 05: extract list helpers then unify `ListPopup` rendering.
 
 ## Deep Work Items (higher risk / broad impact)
 
-1. `src/tui/hooks/usePopupManager.ts` (Stage 2)
-   - Risks: input routing fallthrough, stale scan updates applied to wrong popup, subtle state regressions.
-   - Validate: stress open/close popups quickly; switch popup types while scans in flight; verify help overlay suppresses popup/screen input.
-2. `src/tui/hooks/useGenerationPipeline.ts` (Stage 3)
-   - Risks: ordering of history output changes, interactive refinement hangs, excessive rerenders.
-   - Validate: generation with long outputs; refinement flow; JSON output mode; ensure no duplicated history lines.
-3. `src/tui/screens/command/hooks/useContextPopupGlue.ts` (Stages 2/4)
-   - Risks: focus/index behavior drift, auto-add path detection changes, suggestion selection regressions.
-   - Validate: manual checks for each popup type; unit tests for extracted pure helpers.
+- Prompt 09 (`src/tui/hooks/usePopupManager.ts`): highest coupling to input routing + async scans.
+- Prompt 10 (`src/tui/hooks/useGenerationPipeline.ts`): streaming correctness and performance-sensitive.
+- Prompt 08 (`src/tui/screens/command/hooks/useContextPopupGlue.ts`): many per-popup behaviors and effects; regressions are subtle.
 
 ## Validation Guidance
 
@@ -117,28 +140,28 @@ Manual checks (high value for TUI refactors):
 
 ---
 
-## Prompt Queue
+## Prompt 01 — Popup reducer hardening (baseline)
 
-### Prompt 01 — Popup reducer hardening (baseline)
+## Role
 
-**Role**
 You are a senior TypeScript engineer working in an Ink/React TUI codebase.
 
-**Goal**
+## Goal
+
 Lock in existing popup state machine behavior with unit tests and do a minimal refactor **only if it improves testability/readability**. **No user-visible behavior changes.**
 
-**Scope (only these files, unless truly necessary)**
+## Scope (only these files, unless truly necessary)
 
 - Primary implementation file: `src/tui/popup-reducer.ts`
 - Tests: `src/__tests__/tui/**` (create a new test file if needed)
 
-**What to accomplish**
+## What to accomplish
 
-1. Add/extend unit tests for `popupReducer`
+### 1) Add/extend unit tests for `popupReducer`
 
 Add tests that cover these behaviors **explicitly and concretely**:
 
-A. Scan staleness gating
+#### A. Scan staleness gating
 
 When `popupReducer` receives `scan-suggestions-success`, it must only apply suggestions if:
 
@@ -154,7 +177,7 @@ Test at least:
 - Mismatched `scanId` does not apply suggestions.
 - Null `activeScan` does not apply suggestions.
 
-B. Scan success clears `activeScan` and applies suggestions to the right popup type
+#### B. Scan success clears activeScan and applies suggestions to the right popup type
 
 When it _does_ match, reducer must:
 
@@ -165,10 +188,10 @@ When it _does_ match, reducer must:
 
 Test at least one of:
 
-- `open-file` → `scan-suggestions-success` (file) updates file popup `suggestedItems`
-- `open-image` → `scan-suggestions-success` (image) updates image popup `suggestedItems`
+- `open-file` → `scan-suggestions-success`(file) updates file popup suggestedItems
+- `open-image` → `scan-suggestions-success`(image) updates image popup suggestedItems
 
-C. `set` action preserves scan only when popup type does not change
+#### C. `set` action preserves scan only when popup type does not change
 
 Behavior to lock in:
 
@@ -177,11 +200,11 @@ Behavior to lock in:
 
 Test at least:
 
-- Start with a file popup + `activeScan` `{ kind: 'file', id: 123 }`.
+- Start with a file popup + activeScan `{kind:'file', id: 123}`.
 - Run `set` that updates the file popup (type remains `'file'`) and verify `activeScan` is preserved.
 - Run `set` that changes popup to another type (e.g. `'smart'` or `'model'`) and verify `activeScan` becomes `null`.
 
-2. Minimal refactor (optional, must be behavior-preserving)
+### 2) Minimal refactor (optional, must be behavior-preserving)
 
 You may do a small refactor in `src/tui/popup-reducer.ts` if and only if it:
 
@@ -191,26 +214,27 @@ You may do a small refactor in `src/tui/popup-reducer.ts` if and only if it:
 
 Do **not** add dependencies. Do **not** change popup schemas.
 
-**Test file naming/location**
+## Test file naming/location
+
 Create something like:
 
 - `src/__tests__/tui/popup-reducer.test.ts`
 
 Follow existing Jest patterns in `src/__tests__/tui/`.
 
-**Validation requirements**
+## Validation requirements
 
 - `npm test`
 - `npm run typecheck`
 
-**Constraints**
+## Constraints
 
 - TypeScript strict; **no `any`**.
 - Preserve behavior; no UX changes.
 - Reducer must remain pure (no Ink/React imports).
 - Prefer tests that assert specific fields (`suggestedItems`, `suggestedSelectionIndex`, `suggestedFocused`, `activeScan`) rather than snapshot testing.
 
-**Deliverable**
+## Deliverable
 
 - Tests added/updated and passing.
 - Any refactor is minimal and justified by reduced duplication or improved readability.

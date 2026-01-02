@@ -177,23 +177,60 @@ export type FilterFileSuggestionsOptions = {
   limit?: number
 }
 
+const normalizeFzfToken = (token: string): string => {
+  if (!token) {
+    return token
+  }
+
+  // Preserve fzf query operators while normalizing slashes / absolute paths.
+  let rest = token
+  let prefix = ''
+  let suffix = ''
+
+  while (
+    rest.startsWith('!') ||
+    rest.startsWith('^') ||
+    rest.startsWith("'") ||
+    rest.startsWith('"')
+  ) {
+    prefix += rest.slice(0, 1)
+    rest = rest.slice(1)
+  }
+
+  if (rest.endsWith('$')) {
+    suffix = '$'
+    rest = rest.slice(0, -1)
+  }
+
+  if (!rest) {
+    return `${prefix}${suffix}`
+  }
+
+  // Normalize absolute paths to a workspace-relative form so matching can work
+  // against `discoverFileSuggestions()` results.
+  if (!path.isAbsolute(rest)) {
+    return `${prefix}${normalizeToPosix(rest)}${suffix}`
+  }
+
+  const relative = path.relative(process.cwd(), rest)
+
+  if (relative && !relative.startsWith('..')) {
+    return `${prefix}${normalizeToPosix(relative)}${suffix}`
+  }
+
+  return `${prefix}${normalizeToPosix(path.basename(rest))}${suffix}`
+}
+
 const normalizeQueryForFzf = (query: string): string => {
   const trimmed = query.trim()
   if (!trimmed) {
     return trimmed
   }
 
-  if (!path.isAbsolute(trimmed)) {
-    return normalizeToPosix(trimmed)
-  }
-
-  const relative = path.relative(process.cwd(), trimmed)
-
-  if (relative && !relative.startsWith('..')) {
-    return normalizeToPosix(relative)
-  }
-
-  return normalizeToPosix(path.basename(trimmed))
+  return trimmed
+    .split(/\s+/)
+    .map((token) => normalizeFzfToken(token))
+    .join(' ')
 }
 
 const fuzzyFilterStrings = (items: readonly string[], query: string, limit: number): string[] => {
