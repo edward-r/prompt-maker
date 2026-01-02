@@ -80,7 +80,7 @@ export const POPUP_HEIGHTS = {
   image: 16,
   video: 16,
   history: 16,
-  smart: 9,
+  smart: 12,
   tokens: 16,
   settings: 14,
   theme: 16,

@@ -481,6 +481,11 @@ export const useContextPopupGlue = ({
     if (!filePopupSuggestedItems.length) {
       return []
     }
+
+    if (!filePopupDraft.trim()) {
+      return []
+    }
+
     return filterFileSuggestions({
       suggestions: filePopupSuggestedItems,
       query: filePopupDraft,
@@ -524,6 +529,11 @@ export const useContextPopupGlue = ({
     if (!imagePopupSuggestedItems.length) {
       return []
     }
+
+    if (!imagePopupDraft.trim()) {
+      return []
+    }
+
     return filterFileSuggestions({
       suggestions: imagePopupSuggestedItems,
       query: imagePopupDraft,
@@ -568,6 +578,11 @@ export const useContextPopupGlue = ({
     if (!videoPopupSuggestedItems.length) {
       return []
     }
+
+    if (!videoPopupDraft.trim()) {
+      return []
+    }
+
     return filterFileSuggestions({
       suggestions: videoPopupSuggestedItems,
       query: videoPopupDraft,
@@ -610,6 +625,10 @@ export const useContextPopupGlue = ({
 
   const smartPopupSuggestions = useMemo(() => {
     if (!smartPopupSuggestedItems.length) {
+      return []
+    }
+
+    if (!smartPopupDraft.trim()) {
       return []
     }
 
