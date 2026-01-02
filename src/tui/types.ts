@@ -47,6 +47,7 @@ export type PopupState =
       type: 'image'
       draft: string
       selectionIndex: number
+      selectedFocused: boolean
       suggestedItems: string[]
       suggestedSelectionIndex: number
       suggestedFocused: boolean
@@ -55,6 +56,7 @@ export type PopupState =
       type: 'video'
       draft: string
       selectionIndex: number
+      selectedFocused: boolean
       suggestedItems: string[]
       suggestedSelectionIndex: number
       suggestedFocused: boolean

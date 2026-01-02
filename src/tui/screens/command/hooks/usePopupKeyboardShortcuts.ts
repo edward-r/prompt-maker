@@ -44,11 +44,13 @@ export type UsePopupKeyboardShortcutsOptions = {
   // image
   images: string[]
   imagePopupSuggestions: string[]
+  onAddImage: (value: string) => void
   onRemoveImage: (index: number) => void
 
   // video
   videos: string[]
   videoPopupSuggestions: string[]
+  onAddVideo: (value: string) => void
   onRemoveVideo: (index: number) => void
 
   // history
@@ -91,9 +93,11 @@ export const usePopupKeyboardShortcuts = ({
   onRemoveUrl,
   images,
   imagePopupSuggestions,
+  onAddImage,
   onRemoveImage,
   videos,
   videoPopupSuggestions,
+  onAddVideo,
   onRemoveVideo,
   historyPopupItems,
   smartPopupSuggestions,
@@ -488,6 +492,7 @@ export const usePopupKeyboardShortcuts = ({
         popupState.suggestedSelectionIndex,
         maxSuggestedIndex,
       )
+      const selectedFocused = popupState.selectedFocused
       const draftIsEmpty = popupState.draft.trim().length === 0
 
       if (key.escape) {
@@ -506,7 +511,9 @@ export const usePopupKeyboardShortcuts = ({
         if (key.upArrow) {
           if (effectiveSuggestedIndex === 0) {
             setPopupState((prev) =>
-              prev?.type === 'image' ? { ...prev, suggestedFocused: false } : prev,
+              prev?.type === 'image'
+                ? { ...prev, suggestedFocused: false, selectedFocused: images.length > 0 }
+                : prev,
             )
             return
           }
@@ -539,15 +546,9 @@ export const usePopupKeyboardShortcuts = ({
 
         if (key.return) {
           const selection = imagePopupSuggestions[effectiveSuggestedIndex]
-          setPopupState((prev) =>
-            prev?.type === 'image'
-              ? {
-                  ...prev,
-                  draft: selection ?? prev.draft,
-                  suggestedFocused: false,
-                }
-              : prev,
-          )
+          if (selection) {
+            onAddImage(selection)
+          }
           return
         }
 
@@ -560,6 +561,7 @@ export const usePopupKeyboardShortcuts = ({
             ? {
                 ...prev,
                 suggestedFocused: true,
+                selectedFocused: false,
                 suggestedSelectionIndex: 0,
               }
             : prev,
@@ -567,58 +569,96 @@ export const usePopupKeyboardShortcuts = ({
         return
       }
 
-      if (key.upArrow && images.length > 0) {
-        setPopupState((prev) =>
-          prev?.type === 'image'
-            ? { ...prev, selectionIndex: Math.max(prev.selectionIndex - 1, 0) }
-            : prev,
-        )
-        return
-      }
-
-      if (key.downArrow) {
-        if (images.length === 0) {
-          if (hasSuggestions) {
-            setPopupState((prev) =>
-              prev?.type === 'image'
-                ? {
-                    ...prev,
-                    suggestedFocused: true,
-                    suggestedSelectionIndex: 0,
-                  }
-                : prev,
-            )
-          }
-          return
-        }
-
-        if (popupState.selectionIndex >= images.length - 1) {
-          if (hasSuggestions) {
-            setPopupState((prev) =>
-              prev?.type === 'image'
-                ? {
-                    ...prev,
-                    suggestedFocused: true,
-                    suggestedSelectionIndex: 0,
-                  }
-                : prev,
-            )
-          }
-          return
-        }
-
+      if (!selectedFocused && (key.upArrow || key.downArrow) && images.length > 0) {
         setPopupState((prev) =>
           prev?.type === 'image'
             ? {
                 ...prev,
-                selectionIndex: Math.min(prev.selectionIndex + 1, images.length - 1),
+                selectedFocused: true,
+                selectionIndex: Math.min(prev.selectionIndex, Math.max(images.length - 1, 0)),
               }
             : prev,
         )
         return
       }
 
-      if ((key.delete || (draftIsEmpty && isBackspaceKey(input, key))) && images.length > 0) {
+      if (selectedFocused) {
+        if (key.upArrow) {
+          if (popupState.selectionIndex === 0) {
+            setPopupState((prev) =>
+              prev?.type === 'image' ? { ...prev, selectedFocused: false } : prev,
+            )
+            return
+          }
+
+          setPopupState((prev) =>
+            prev?.type === 'image'
+              ? { ...prev, selectionIndex: Math.max(prev.selectionIndex - 1, 0) }
+              : prev,
+          )
+          return
+        }
+
+        if (key.downArrow) {
+          if (images.length === 0) {
+            setPopupState((prev) =>
+              prev?.type === 'image' ? { ...prev, selectedFocused: false } : prev,
+            )
+            return
+          }
+
+          if (popupState.selectionIndex >= images.length - 1) {
+            if (hasSuggestions) {
+              setPopupState((prev) =>
+                prev?.type === 'image'
+                  ? {
+                      ...prev,
+                      suggestedFocused: true,
+                      selectedFocused: false,
+                      suggestedSelectionIndex: 0,
+                    }
+                  : prev,
+              )
+            }
+            return
+          }
+
+          setPopupState((prev) =>
+            prev?.type === 'image'
+              ? {
+                  ...prev,
+                  selectionIndex: Math.min(prev.selectionIndex + 1, images.length - 1),
+                }
+              : prev,
+          )
+          return
+        }
+
+        if (key.delete || isBackspaceKey(input, key)) {
+          if (images.length > 0) {
+            onRemoveImage(popupState.selectionIndex)
+          }
+          return
+        }
+
+        return
+      }
+
+      if (key.downArrow && images.length === 0 && hasSuggestions) {
+        setPopupState((prev) =>
+          prev?.type === 'image'
+            ? {
+                ...prev,
+                suggestedFocused: true,
+                selectedFocused: false,
+                suggestedSelectionIndex: 0,
+              }
+            : prev,
+        )
+        return
+      }
+
+      if (draftIsEmpty && isBackspaceKey(input, key) && images.length > 0) {
         onRemoveImage(popupState.selectionIndex)
         return
       }
@@ -633,6 +673,7 @@ export const usePopupKeyboardShortcuts = ({
         popupState.suggestedSelectionIndex,
         maxSuggestedIndex,
       )
+      const selectedFocused = popupState.selectedFocused
       const draftIsEmpty = popupState.draft.trim().length === 0
 
       if (key.escape) {
@@ -651,7 +692,9 @@ export const usePopupKeyboardShortcuts = ({
         if (key.upArrow) {
           if (effectiveSuggestedIndex === 0) {
             setPopupState((prev) =>
-              prev?.type === 'video' ? { ...prev, suggestedFocused: false } : prev,
+              prev?.type === 'video'
+                ? { ...prev, suggestedFocused: false, selectedFocused: videos.length > 0 }
+                : prev,
             )
             return
           }
@@ -684,15 +727,9 @@ export const usePopupKeyboardShortcuts = ({
 
         if (key.return) {
           const selection = videoPopupSuggestions[effectiveSuggestedIndex]
-          setPopupState((prev) =>
-            prev?.type === 'video'
-              ? {
-                  ...prev,
-                  draft: selection ?? prev.draft,
-                  suggestedFocused: false,
-                }
-              : prev,
-          )
+          if (selection) {
+            onAddVideo(selection)
+          }
           return
         }
 
@@ -705,6 +742,7 @@ export const usePopupKeyboardShortcuts = ({
             ? {
                 ...prev,
                 suggestedFocused: true,
+                selectedFocused: false,
                 suggestedSelectionIndex: 0,
               }
             : prev,
@@ -712,58 +750,96 @@ export const usePopupKeyboardShortcuts = ({
         return
       }
 
-      if (key.upArrow && videos.length > 0) {
-        setPopupState((prev) =>
-          prev?.type === 'video'
-            ? { ...prev, selectionIndex: Math.max(prev.selectionIndex - 1, 0) }
-            : prev,
-        )
-        return
-      }
-
-      if (key.downArrow) {
-        if (videos.length === 0) {
-          if (hasSuggestions) {
-            setPopupState((prev) =>
-              prev?.type === 'video'
-                ? {
-                    ...prev,
-                    suggestedFocused: true,
-                    suggestedSelectionIndex: 0,
-                  }
-                : prev,
-            )
-          }
-          return
-        }
-
-        if (popupState.selectionIndex >= videos.length - 1) {
-          if (hasSuggestions) {
-            setPopupState((prev) =>
-              prev?.type === 'video'
-                ? {
-                    ...prev,
-                    suggestedFocused: true,
-                    suggestedSelectionIndex: 0,
-                  }
-                : prev,
-            )
-          }
-          return
-        }
-
+      if (!selectedFocused && (key.upArrow || key.downArrow) && videos.length > 0) {
         setPopupState((prev) =>
           prev?.type === 'video'
             ? {
                 ...prev,
-                selectionIndex: Math.min(prev.selectionIndex + 1, videos.length - 1),
+                selectedFocused: true,
+                selectionIndex: Math.min(prev.selectionIndex, Math.max(videos.length - 1, 0)),
               }
             : prev,
         )
         return
       }
 
-      if ((key.delete || (draftIsEmpty && isBackspaceKey(input, key))) && videos.length > 0) {
+      if (selectedFocused) {
+        if (key.upArrow) {
+          if (popupState.selectionIndex === 0) {
+            setPopupState((prev) =>
+              prev?.type === 'video' ? { ...prev, selectedFocused: false } : prev,
+            )
+            return
+          }
+
+          setPopupState((prev) =>
+            prev?.type === 'video'
+              ? { ...prev, selectionIndex: Math.max(prev.selectionIndex - 1, 0) }
+              : prev,
+          )
+          return
+        }
+
+        if (key.downArrow) {
+          if (videos.length === 0) {
+            setPopupState((prev) =>
+              prev?.type === 'video' ? { ...prev, selectedFocused: false } : prev,
+            )
+            return
+          }
+
+          if (popupState.selectionIndex >= videos.length - 1) {
+            if (hasSuggestions) {
+              setPopupState((prev) =>
+                prev?.type === 'video'
+                  ? {
+                      ...prev,
+                      suggestedFocused: true,
+                      selectedFocused: false,
+                      suggestedSelectionIndex: 0,
+                    }
+                  : prev,
+              )
+            }
+            return
+          }
+
+          setPopupState((prev) =>
+            prev?.type === 'video'
+              ? {
+                  ...prev,
+                  selectionIndex: Math.min(prev.selectionIndex + 1, videos.length - 1),
+                }
+              : prev,
+          )
+          return
+        }
+
+        if (key.delete || isBackspaceKey(input, key)) {
+          if (videos.length > 0) {
+            onRemoveVideo(popupState.selectionIndex)
+          }
+          return
+        }
+
+        return
+      }
+
+      if (key.downArrow && videos.length === 0 && hasSuggestions) {
+        setPopupState((prev) =>
+          prev?.type === 'video'
+            ? {
+                ...prev,
+                suggestedFocused: true,
+                selectedFocused: false,
+                suggestedSelectionIndex: 0,
+              }
+            : prev,
+        )
+        return
+      }
+
+      if (draftIsEmpty && isBackspaceKey(input, key) && videos.length > 0) {
         onRemoveVideo(popupState.selectionIndex)
         return
       }

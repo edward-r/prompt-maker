@@ -298,6 +298,7 @@ export const useContextPopupGlue = ({
               ...prev,
               draft: '',
               selectionIndex: Math.max(images.length, 0),
+              selectedFocused: false,
               suggestedFocused: false,
               suggestedSelectionIndex: 0,
             }
@@ -349,6 +350,7 @@ export const useContextPopupGlue = ({
               ...prev,
               draft: '',
               selectionIndex: Math.max(videos.length, 0),
+              selectedFocused: false,
               suggestedFocused: false,
               suggestedSelectionIndex: 0,
             }
@@ -681,6 +683,7 @@ export const useContextPopupGlue = ({
           ? {
               ...prev,
               draft: sanitized,
+              selectedFocused: false,
               suggestedSelectionIndex: 0,
               suggestedFocused: false,
             }
@@ -703,6 +706,7 @@ export const useContextPopupGlue = ({
           ? {
               ...prev,
               draft: sanitized,
+              selectedFocused: false,
               suggestedSelectionIndex: 0,
               suggestedFocused: false,
             }
