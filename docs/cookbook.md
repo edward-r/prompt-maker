@@ -1,6 +1,352 @@
 # The prompt-maker-cli Cookbook
 
-**prompt-maker-cli** is a generate-focused CLI that assembles rich prompt contracts from intent, file context, and optional media before handing them to your preferred LLM. Under the hood (`src/generate-command.ts`) it resolves context, streams telemetry, optionally refines interactively, and can polish or template the final artifact. Use this cookbook to master prompting strategies, flag orchestration, and real-world recipes.
+**prompt-maker-cli** is a terminal-first prompt generator with two faces:
+
+- A flag-driven CLI (`generate` + `test`)
+- An Ink-based TUI (default when you run with no args)
+
+Under the hood, the CLI routes commands via `src/index.ts` and the generate workflow runs through `src/generate/pipeline.ts` (context resolution → optional smart context → prompt generation → optional polishing/template → history logging). This cookbook focuses on practical “recipes” and flags you can combine to build repeatable prompt contracts.
+
+A note on versions: this doc preserves all existing recipes. When something is likely outdated, it’s kept and labeled as **Legacy / may be outdated** with a pointer to the current replacement.
+
+## Table of Contents
+
+- [Quickstart (CLI + TUI)](#quickstart-cli--tui)
+- [Prompting Masterclass](#prompting-masterclass)
+- [Flag Strategy & Mechanics](#flag-strategy--mechanics)
+- [Debugging Prompt Runs](#debugging-prompt-runs)
+- [Template Playbook](#template-playbook)
+- [AI Systems Recipes](#ai-systems-recipes)
+- [Developer Recipes](#developer-recipes)
+- [Self-Directed Learning Recipes](#self-directed-learning-recipes)
+- [Git Commit Workflows](#git-commit-workflows)
+- [Editor Workflow Recipes](#editor-workflow-recipes)
+- [Jira Ticket Recipes](#jira-ticket-recipes)
+- [CI Integration Recipes](#ci-integration-recipes)
+- [NeoVim Plugin Integration Recipes](#neovim-plugin-integration-recipes)
+- [Recipes](#recipes)
+
+## Quickstart (CLI + TUI)
+
+Authoritative references for the current TUI behavior and structure:
+
+- `docs/tui-design.md` (user-facing behavior, keybinds, input routing invariants)
+- `src/tui/DEVELOPER_NOTE.md` (architecture + reducer/hook structure)
+- `AGENTS.md` (dev commands + project conventions)
+
+### Recipe: Install + run from source
+
+**Prereqs**
+
+- Node.js `>=18` (repo commonly uses Node `22.x`; see `.nvmrc`)
+
+**Solution**
+
+```bash
+npm ci
+npm run build
+
+# TUI (default when no args)
+npm start
+
+# Generate (one-shot) from source
+npm start -- "Draft a confident onboarding-bot spec" --model gpt-4o-mini
+
+# Prompt tests (from source)
+npm start -- test prompt-tests.yaml
+```
+
+**Expected result**
+
+- `npm start` launches the Ink TUI.
+- `npm start -- <intent> ...` runs the generate pipeline and prints the final prompt (or JSON if requested).
+- `npm start -- test ...` runs the YAML test suite and sets a non-zero exit code on failures.
+
+**Troubleshooting**
+
+- If you see “Missing OpenAI credentials” or “Missing Gemini credentials”, configure env vars or a config file (see recipe below).
+
+### Recipe: Run the published CLI (after install)
+
+**Prereqs**
+
+- `prompt-maker-cli` installed globally (or available on your PATH)
+
+**Solution**
+
+```bash
+# TUI
+prompt-maker-cli
+
+# Explicit TUI entry
+prompt-maker-cli ui
+
+# Generate
+prompt-maker-cli "Summarize src/tui/ in 5 bullets" -c "src/tui/**/*.ts*" --polish
+
+# Prompt tests
+prompt-maker-cli test
+```
+
+**Expected result**
+
+- `prompt-maker-cli` with no args starts the TUI.
+- `prompt-maker-cli test` runs `prompt-tests.yaml` by default.
+
+### Recipe: Configure credentials + defaults
+
+**Problem**
+
+You want `prompt-maker-cli` to run without re-exporting env vars every time, and you want the TUI’s theme settings to persist.
+
+**Solution**
+
+1. Create (or set) a config file:
+   - `PROMPT_MAKER_CLI_CONFIG=/path/to/config.json` (highest precedence)
+   - `~/.config/prompt-maker-cli/config.json`
+   - `~/.prompt-maker-cli.json`
+2. Add credentials and optional defaults:
+
+```json
+{
+  "openaiApiKey": "sk-...",
+  "geminiApiKey": "gk-...",
+  "promptGenerator": {
+    "defaultModel": "gpt-4o-mini",
+    "defaultGeminiModel": "gemini-3-pro-preview"
+  },
+  "contextTemplates": {
+    "scratch": "# Scratch\n\n{{prompt}}"
+  },
+  "theme": "ocean",
+  "themeMode": "system"
+}
+```
+
+**Discussion**
+
+- Env vars override config:
+  - `OPENAI_API_KEY` (optional `OPENAI_BASE_URL`)
+  - `GEMINI_API_KEY` (optional `GEMINI_BASE_URL`)
+- TUI theme choices persist by writing `theme` and `themeMode` back into the same config file (see `src/config.ts`).
+
+### Recipe: Learn the TUI quickly
+
+**Solution**
+
+```bash
+prompt-maker-cli
+```
+
+Then:
+
+- Press `?` to open the help overlay (it is the definitive keybind list).
+- Press `Ctrl+G` to open the command palette.
+- Press `Ctrl+T` to switch to the Test Runner view.
+
+**Discussion**
+
+The TUI is intentionally “keyboard-first” and follows strict input-routing invariants (help overlay > popup > screen > global keys). See `docs/tui-design.md`.
+
+### Recipe: Use the command palette (/commands)
+
+**Problem**
+
+You want to discover what the TUI can do (models, context, tests, theming) without memorizing flags.
+
+**Solution**
+
+1. Press `Ctrl+G` (or type `/`) to open the command palette.
+2. Type to filter commands.
+3. Use arrow keys to select.
+4. Press Enter to run the selected command (some open a popup).
+
+**Expected result**
+
+- The palette shows the current command list from `src/tui/config.ts` (`COMMAND_DESCRIPTORS`).
+- If a command opens a popup, the popup owns input until you close it (usually with `Esc`).
+
+**Troubleshooting**
+
+- If keys “don’t work,” check whether the help overlay is open (`?`) or a popup is active; those layers intentionally suppress screen/global keys.
+
+### Recipe: Add context in the TUI (files, URLs, images, video, smart)
+
+**Problem**
+
+You want to attach context interactively without rebuilding a long CLI command.
+
+**Solution**
+
+- Open the palette, then use:
+  - `/file` to add file globs (repeatable)
+  - `/url` to add URL context
+  - `/image` to attach image paths
+  - `/video` to attach video paths (will force Gemini at generation time)
+  - `/smart` to toggle smart context
+  - `/smart-root` to set/clear the smart-context scan root
+
+**Fast path: drag + drop**
+
+- Drag an absolute file path into the terminal.
+- When you see the hint “Press Tab to add … to context”, press `Tab`.
+
+**Expected result**
+
+- Context items are tracked as chips in the input bar and used for subsequent generations.
+- Popups support list management (add/remove) and some provide suggestions (toggle with `Tab`).
+
+### Recipe: Generate an atomic prompt series (TUI)
+
+**Problem**
+
+You want a set of standalone “atomic prompts” you can hand off step-by-step (no cross-references).
+
+**Solution**
+
+- Type an intent, then press `Tab`.
+  - If an absolute file path is currently “dropped” in the input, `Tab` adds that file to context instead.
+- Or run `/series` from the command palette.
+
+**Expected result**
+
+- The TUI generates a series and writes markdown files under `generated/series/<timestamped-folder>/`.
+- The folder includes `00-overview.md` plus one file per atomic prompt.
+
+**Troubleshooting**
+
+- If writing fails (permissions/readonly FS), the TUI still generates but will report file-write errors in history.
+
+### Recipe: Run prompt tests in the TUI
+
+**Problem**
+
+You want to run `prompt-tests.yaml` without leaving the UI.
+
+**Solution**
+
+1. Press `Ctrl+T` to switch to the Test Runner view.
+2. Keep `prompt-tests.yaml` (default) or enter another path.
+3. Press `Tab` to focus the Run button, then `Enter` to start.
+
+**Expected result**
+
+- The test runner loads the YAML suite, runs each test, and shows PASS/FAIL with reasons.
+
+### Recipe: Theme + theme mode (TUI)
+
+**Problem**
+
+You want the TUI colors to match your terminal and persist across sessions.
+
+**Solution**
+
+- Run `/theme` to pick a theme.
+- Run `/theme-mode dark|light|system` to switch appearance mode.
+
+**Expected result**
+
+- The selection persists in your CLI config (`theme` and `themeMode`; see `src/config.ts`).
+
+### Recipe: Run the TUI with interactive transport
+
+**Problem**
+
+You want an external tool (editor plugin, automation) to push refine/finish commands during interactive runs.
+
+**Solution**
+
+```bash
+prompt-maker-cli ui --interactive-transport /tmp/prompt-maker.sock
+```
+
+**Expected result**
+
+- The TUI starts and the underlying generate pipeline listens on the provided socket/pipe.
+- When the pipeline reaches an interactive step, the UI shows it is waiting for transport input.
+
+**Troubleshooting**
+
+- The transport protocol is implemented in `src/generate/interactive-transport.ts` and emits `transport.*` + `interactive.*` stream events.
+
+### Recipe: Use prompt-maker-cli without a TTY (headless)
+
+**Problem**
+
+You’re running in CI or piping output, so the Ink TUI and interactive prompts won’t work.
+
+**Solution**
+
+```bash
+echo "Draft a release risk summary" | prompt-maker-cli --quiet --progress=false --stream jsonl
+```
+
+**Expected result**
+
+- The CLI runs non-interactively and emits JSONL progress events to stdout.
+
+**Troubleshooting**
+
+- Interactive mode (`--interactive`) is ignored without a TTY; use `--interactive-transport` for headless interactive workflows.
+
+### Recipe: Machine-readable output (JSON + JSONL)
+
+**Problem**
+
+You want prompt-maker to integrate with other tooling (scripts, bots, editor plugins).
+
+**Solution (JSON payload)**
+
+```bash
+prompt-maker-cli "Summarize the changes" -c /tmp/staged.patch --json > run.json
+```
+
+Notes:
+
+- `--json` prints a pretty JSON payload to stdout and still appends a JSONL history entry.
+- If you also use `--show-context` with `--json`, the context is printed to stderr to avoid corrupting the JSON payload.
+
+**Solution (JSONL stream events)**
+
+```bash
+prompt-maker-cli "Summarize the changes" -c /tmp/staged.patch \
+  --stream jsonl --quiet --progress=false > events.jsonl
+```
+
+Notes:
+
+- `--stream jsonl` writes newline-delimited JSON events to stdout (see `src/generate/stream.ts`).
+- Use `--quiet` if you want _only_ JSONL lines on stdout.
+
+### Recipe: Where outputs are stored (history)
+
+**Problem**
+
+You want an audit trail of what was sent, with what context, and when.
+
+**Solution**
+
+- Every generate run appends a JSONL line to:
+  - `~/.config/prompt-maker-cli/history.jsonl`
+
+**Discussion**
+
+- The TUI also exposes history browsing via `/history`.
+- The saved JSON includes `contextPaths` and any `refinements`, which makes it possible to replay or diff runs.
+
+### Recipe: Common troubleshooting checklist
+
+**Problem**
+
+A run fails or behaves unexpectedly.
+
+**Checklist**
+
+- **Credentials**: set `OPENAI_API_KEY` / `GEMINI_API_KEY` or configure `~/.config/prompt-maker-cli/config.json`.
+- **No files matched**: your `-c/--context` glob matched nothing (see warning from `src/file-context.ts`).
+- **Interactive seems ignored**: you’re in a non-TTY environment; use `--interactive-transport` or run in a real terminal.
+- **Video forces Gemini**: `--video` switches to `resolveGeminiVideoModel()`; ensure Gemini is configured.
+- **Stream output looks “mixed”**: combine `--stream jsonl` with `--quiet`.
 
 ## Prompting Masterclass
 
@@ -28,7 +374,7 @@
 ### Core Run Modes
 
 - `--interactive/-i`: Launches a refinement loop (TTY or `--interactive-transport`). You can add instructions between iterations; transport mode enables external tooling to push JSON commands.
-- `--json`: Emits the final payload as structured JSON; **cannot** be combined with `--interactive` (see the guard at line 305), so pick one output path.
+- `--json`: Emits the final payload as structured JSON; **cannot** be combined with `--interactive` or `--interactive-transport` (enforced in `src/generate/pipeline.ts`), so pick one output path.
 - `--stream jsonl`: Mirrors telemetry and lifecycle events to stdout—ideal for logging or UI bridges. Combine with `--quiet` to suppress boxed UI while still receiving machine-friendly events.
 
 ### Context Assembly Flags
@@ -41,11 +387,11 @@
 ### Media Inputs
 
 - `--image <path>`: Attaches one or more images; they flow through to the prompt generator for multimodal models such as GPT-4o or Gemini.
-- `--video <path>`: Triggers the Gemini pipeline. `generate-command.ts` switches the model to `resolveGeminiVideoModel()` (default `gemini-3-pro-preview`) if you didn’t already choose a Gemini target. Uploads run through `media-loader.ts`, which requires `GEMINI_API_KEY` and polls `GoogleAIFileManager` until the file becomes ACTIVE.
+- `--video <path>`: Triggers the Gemini pipeline. `src/generate/pipeline.ts` switches the model to `resolveGeminiVideoModel()` (default comes from config; commonly `gemini-3-pro-preview`) when the selected model is not Gemini, and prints a warning like `Switching to … to support video input.` Uploads run through `media-loader.ts`, which requires `GEMINI_API_KEY` and polls `GoogleAIFileManager` until the file becomes `ACTIVE`.
 
 ### Output Tailoring
 
-- `--polish`, `--polish-model`: Runs a final LLM pass with the baked-in system prompt to tighten formatting while preserving structure.
+- `--polish`, `--polish-model`: Runs a final LLM pass with the baked-in system prompt to tighten formatting while preserving structure. You can also set `PROMPT_MAKER_POLISH_MODEL` to choose a default polish model when `--polish-model` is omitted.
 - `--context-template <name>`: Wraps the final prompt inside a named template (`nvim` is built-in; custom templates live in CLI config). The parser enforces non-empty template names.
 - `--copy`, `--open-chatgpt`: Quality-of-life delivery flags.
 
@@ -53,7 +399,7 @@
 
 - `--smart-context` + `--interactive`: Start with an embedding-ranked snapshot, then iteratively refine based on what you learn during the session—ideal for sprawling repos.
 - `-c "<glob>"` + `--context-file prompt-context.md`: Capture exactly which files were read so teammates can replay the run.
-- `--stream jsonl` + `--json`: Mirror real-time telemetry to stdout while still writing the final artifact to history and disk.
+- `--stream jsonl` + `--json`: Emit JSONL events during the run and print the final JSON payload at the end. (Note: this mixes JSONL + pretty JSON on stdout; for strictly machine-parseable stdout, prefer `--stream jsonl --quiet` and read the final payload from `~/.config/prompt-maker-cli/history.jsonl`.)
 - `--context-template nvim` + `--copy`: Spits out an editor-ready buffer and places it on your clipboard for immediate paste.
 - `--video` + `--polish`: Lean on Gemini for multimodal understanding, then run a polish pass (which reuses the Gemini credentials) for clean instructions.
 
@@ -61,7 +407,7 @@
 
 - `--json` vs `--interactive`: Mutually exclusive; the CLI throws early to prevent orphaned interactive sessions.
 - Inline intent vs `--intent-file`: You must pick one; `resolveIntent()` enforces this and warns if you accidentally pass a file path immediately after `-i`.
-- `--video` vs non-Gemini models: The CLI silently upgrades your model to Gemini 1.5 Pro to avoid unsupported media combinations—plan tokens accordingly and ensure `GEMINI_API_KEY` is set.
+- `--video` vs non-Gemini models: The CLI switches to the configured Gemini video model (see `resolveGeminiVideoModel()` in `src/generate/models.ts`) and prints a warning so you don’t accidentally run an unsupported combination. Ensure `GEMINI_API_KEY` is set.
 - `--interactive` without a TTY: The CLI warns and downgrades to non-interactive mode; use `--interactive-transport` for headless setups.
 - Empty `--context-template` or `--interactive-transport`: The parser trims values and rejects blank strings so you don’t end up with silent no-ops.
 
@@ -69,7 +415,7 @@
 
 - **Trace Context Inputs**: Pair `--show-context` with `--context-format json` during dry runs to print the exact `<file>` payloads gathered by `resolveFileContext` and `resolveSmartContextFiles`. When you need an audit trail, add `--context-file tmp/context-dump.md` to persist the snapshot that fed the LLM.
 - **Watch Token Telemetry**: Every generation prints a Context Telemetry box sourced from `countTokens()`. Large spikes in `fileTokens` signal sloppy globs; tighten them or let `--smart-context` re-rank files automatically.
-- **Stream Everything**: `--stream jsonl` mirrors `progress.update`, `generation.iteration.*`, and `upload.state` events to stdout. Pipe this into `jq` or a log shipper to correlate prompt iterations with downstream LLM responses.
+- **Stream Everything**: `--stream jsonl` mirrors `progress.update`, `generation.iteration.*`, and `upload.state` events to stdout. If you want to pipe directly into `jq`, combine with `--quiet` so non-JSON output doesn’t interleave with the stream.
 - **Replay with History Artifacts**: `--json` writes the final payload (intent, context paths, iterations, polish metadata) and `appendToHistory()` stores it locally. Diff these blobs to understand how refinements changed the contract over time.
 - **Interactive Diagnostics**: In TTY mode, each refinement is boxed via `displayPrompt()`. When headless, use `--interactive-transport /tmp/prompt.sock` and send JSON commands from another process; hook into the emitted `transport.*` events to orchestrate automated QA.
 - **Clipboard & Flag Tracing**: Set `PROMPT_MAKER_DEBUG_FLAGS=1` to log a JSON snapshot of parsed flags (copy, polish, quiet, json, etc.) right after argument parsing. Add `PROMPT_MAKER_COPY_TRACE=1` (or rely on the debug flag) to emit `[pmc:copy …]` diagnostics showing when clipboard writes are attempted, skipped, or fail. Example: `PROMPT_MAKER_DEBUG_FLAGS=1 PROMPT_MAKER_COPY_TRACE=1 prompt-maker-cli --polish --copy …` instantly proves whether the CLI saw `--copy` and what happened inside `clipboardy`.
@@ -78,7 +424,7 @@
 
 ## Template Playbook
 
-- **Built-in templates**: Pass `--context-template nvim` to wrap the prompt inside the bundled buffer-friendly layout defined in `generate-command.ts`. The template drops your artifact where `{{prompt}}` lives, so headings and shortcuts remain intact.
+- **Built-in templates**: Pass `--context-template nvim` to wrap the prompt inside the bundled buffer-friendly layout (resolved via `src/generate/context-templates.ts`). The template drops your artifact where `{{prompt}}` lives, so headings and shortcuts remain intact.
 - **Custom templates**: Add entries to your CLI config (`contextTemplates` map). Reference them with `--context-template my-handoff`. The parser enforces non-empty names and throws if the template is missing, saving you from silent fallbacks.
 - **Composable Delivery**: Templates stack with `--copy`, `--open-chatgpt`, and `--context-file`. Render a Neovim scratch buffer, copy it to the clipboard, and archive the text file in one run.
 - **Previewing Output**: Pair `--context-template` with `--json` to capture both the raw prompt (in the JSON payload) and the rendered template (saved as `renderedPrompt`). This is handy when diffing changes across runs.
@@ -1113,6 +1459,6 @@ prompt-maker-cli "Break down this kali sparring clip—focus on timing windows, 
 ```
 
 **Discussion**
-Passing `--video` causes `generate-command.ts` to call `resolveGeminiVideoModel()`, overriding non-Gemini choices with `gemini-3-pro-preview` so the Files API can ingest your clip. The upload path (`media-loader.ts`) demands a readable file and `GEMINI_API_KEY`; the CLI shows upload progress via `upload.state` events. Gemini’s multimodal context pairs well with a polish pass to distill the final coaching checklist.
+Passing `--video` causes `src/generate/pipeline.ts` to call `resolveGeminiVideoModel()`, overriding non-Gemini choices with your configured Gemini video model (commonly `gemini-3-pro-preview`) so the Files API can ingest your clip. The upload path (`media-loader.ts`) demands a readable file and `GEMINI_API_KEY`; the CLI shows upload progress via `upload.state` events. Gemini’s multimodal context pairs well with a polish pass to distill the final coaching checklist.
 
 ---
