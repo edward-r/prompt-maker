@@ -3,10 +3,16 @@ import path from 'node:path'
 import { useCallback, useMemo, useReducer, useRef } from 'react'
 
 import {
+  JSON_INTERACTIVE_ERROR,
+  mapPopupCommandSelection,
+  type PopupManagerCommandStep,
+} from './popup-manager/command-mapping'
+import { createPopupScanOrchestrator } from './popup-manager/scan-orchestrator'
+
+import {
   INITIAL_POPUP_MANAGER_STATE,
   popupReducer,
   type PopupAction,
-  type PopupScanKind,
   type SetStateAction,
 } from '../popup-reducer'
 
@@ -29,8 +35,6 @@ import type {
   PopupState,
   ToggleField,
 } from '../types'
-
-import { parseUrlArgs, validateHttpUrlCandidate } from '../screens/command/utils/url-args'
 
 export type PopupManagerActions = {
   openModelPopup: () => void
@@ -113,8 +117,6 @@ export type UsePopupManagerOptions = {
   syncTypedIntentRef: (intent: string) => void
 }
 
-const JSON_INTERACTIVE_ERROR = 'JSON output is unavailable while interactive transport is enabled.'
-
 /*
  * Popup state management for the Ink TUI.
  *
@@ -179,14 +181,14 @@ export const usePopupManager = ({
 } => {
   const scanIdRef = useRef(0)
 
-  const nextScanId = useCallback((): number => {
-    scanIdRef.current += 1
-    return scanIdRef.current
-  }, [])
-
   const [popupManagerState, dispatch] = useReducer(popupReducer, INITIAL_POPUP_MANAGER_STATE)
 
   const popupState = popupManagerState.popupState
+
+  const { runSuggestionScan } = useMemo(
+    () => createPopupScanOrchestrator({ scanIdRef, dispatch, pushHistory }),
+    [dispatch, pushHistory],
+  )
 
   // Compatibility shim: keeps the existing `setPopupState(prev => ...)` call sites working.
   // Internally we treat it as a reducer action.
@@ -245,37 +247,6 @@ export const usePopupManager = ({
       })
     },
     [copyEnabled, chatGptEnabled, jsonOutputEnabled],
-  )
-
-  type RunSuggestionScanOptions = {
-    kind: PopupScanKind
-    open: (scanId: number) => PopupAction
-    scan: () => Promise<string[]>
-  }
-
-  const runSuggestionScan = useCallback(
-    ({ kind, open, scan }: RunSuggestionScanOptions): void => {
-      const scanId = nextScanId()
-      dispatch(open(scanId))
-
-      const run = async (): Promise<void> => {
-        try {
-          const suggestions = await scan()
-          dispatch({
-            type: 'scan-suggestions-success',
-            kind,
-            scanId,
-            suggestions,
-          })
-        } catch (error) {
-          const message = error instanceof Error ? error.message : 'Unknown workspace scan error.'
-          pushHistory(`[${kind}] Failed to scan workspace: ${message}`, 'system')
-        }
-      }
-
-      void run()
-    },
-    [dispatch, nextScanId, pushHistory],
   )
 
   const openFilePopup = useCallback(() => {
@@ -543,350 +514,160 @@ export const usePopupManager = ({
     ],
   )
 
-  const handleCommandSelection = useCallback(
-    (commandId: CommandDescriptor['id'], argsRaw?: string) => {
-      const trimmedArgs = argsRaw?.trim() ?? ''
-      const normalizedToggleArgs = trimmedArgs.toLowerCase()
-      switch (commandId) {
-        case 'model':
-          openModelPopup()
-          return
-        case 'target':
-          openTargetModelPopup()
-          return
-        case 'polish': {
-          if (
-            normalizedToggleArgs === 'off' ||
-            normalizedToggleArgs === 'clear' ||
-            normalizedToggleArgs === '--clear'
-          ) {
-            applyPolishModelSelection(null)
-            return
-          }
-
-          openPolishModelPopup()
+  const runCommandSteps = useCallback(
+    (steps: readonly PopupManagerCommandStep[]): void => {
+      const pushHistoryEntry = (
+        step: Extract<PopupManagerCommandStep, { type: 'push-history' }>,
+      ): void => {
+        if (step.kind) {
+          pushHistory(step.message, step.kind)
           return
         }
-        case 'copy': {
-          if (!trimmedArgs) {
-            applyToggleSelection('copy', !copyEnabled)
-            return
-          }
-          if (normalizedToggleArgs === 'on' || normalizedToggleArgs === 'off') {
-            applyToggleSelection('copy', normalizedToggleArgs === 'on')
-            return
-          }
-          openTogglePopup('copy')
-          return
-        }
-        case 'chatgpt': {
-          if (!trimmedArgs) {
-            applyToggleSelection('chatgpt', !chatGptEnabled)
-            return
-          }
-          if (normalizedToggleArgs === 'on' || normalizedToggleArgs === 'off') {
-            applyToggleSelection('chatgpt', normalizedToggleArgs === 'on')
-            return
-          }
-          openTogglePopup('chatgpt')
-          return
-        }
-        case 'json': {
-          if (interactiveTransportPath) {
-            pushHistory(JSON_INTERACTIVE_ERROR, 'system')
-            setInputValue('')
-            return
-          }
-          if (!trimmedArgs) {
-            applyToggleSelection('json', !jsonOutputEnabled)
-            return
-          }
-          if (normalizedToggleArgs === 'on' || normalizedToggleArgs === 'off') {
-            applyToggleSelection('json', normalizedToggleArgs === 'on')
-            return
-          }
-          openTogglePopup('json')
-          return
-        }
-        case 'file':
-          openFilePopup()
-          return
-        case 'url': {
-          if (trimmedArgs) {
-            const candidates = parseUrlArgs(trimmedArgs)
-            if (candidates.length === 0) {
-              setInputValue('')
-              closePopup()
-              return
-            }
 
-            const seen = new Set<string>()
+        pushHistory(step.message)
+      }
 
-            for (const candidate of candidates) {
-              if (seen.has(candidate)) {
-                continue
-              }
-              seen.add(candidate)
-
-              const validation = validateHttpUrlCandidate(candidate)
-              if (!validation.ok) {
-                pushHistory(`Warning: ${validation.message}`, 'system')
-                continue
-              }
-
-              if (urls.includes(candidate)) {
-                pushHistory(`Context URL already added: ${candidate}`, 'system')
-                continue
-              }
-
-              addUrl(candidate)
-              pushHistory(`Context URL added: ${candidate}`, 'system')
-            }
-
-            setInputValue('')
-            closePopup()
-            return
-          }
-
-          openUrlPopup()
-          return
-        }
-        case 'image': {
-          if (trimmedArgs) {
-            if (images.includes(trimmedArgs)) {
-              pushHistory(`[image] Already attached: ${trimmedArgs}`, 'system')
-            } else {
-              addImage(trimmedArgs)
-              pushHistory(`[image] Attached: ${trimmedArgs}`, 'system')
-            }
-            setInputValue('')
-            closePopup()
-            return
-          }
-          openImagePopup()
-          return
-        }
-        case 'video': {
-          if (trimmedArgs) {
-            if (videos.includes(trimmedArgs)) {
-              pushHistory(`[video] Already attached: ${trimmedArgs}`, 'system')
-            } else {
-              addVideo(trimmedArgs)
-              pushHistory(`[video] Attached: ${trimmedArgs}`, 'system')
-            }
-            setInputValue('')
-            closePopup()
-            return
-          }
-          openVideoPopup()
-          return
-        }
-        case 'smart': {
-          const nextEnabled = !trimmedArgs
-            ? !smartContextEnabled
-            : normalizedToggleArgs === 'on'
-              ? true
-              : normalizedToggleArgs === 'off'
-                ? false
-                : null
-
-          if (nextEnabled === null) {
-            notify('Smart context expects /smart on|off', { kind: 'warning' })
-            setInputValue('')
-            closePopup()
-            return
-          }
-
-          const isDisabling = nextEnabled === false
-          const shouldClearRoot = isDisabling && Boolean(smartContextRoot)
-
-          if (shouldClearRoot) {
-            setSmartRoot('')
-          }
-
-          if (smartContextEnabled !== nextEnabled) {
-            toggleSmartContext()
-          }
-
-          notify(
-            nextEnabled
-              ? 'Smart context enabled'
-              : shouldClearRoot
-                ? 'Smart context disabled; root cleared'
-                : 'Smart context disabled',
-            { kind: nextEnabled ? 'info' : 'warning' },
-          )
-
-          setInputValue('')
-          closePopup()
-          return
-        }
-        case 'smart-root': {
-          if (trimmedArgs) {
-            const normalizedRootArgs = trimmedArgs.toLowerCase()
-            const rootValue =
-              normalizedRootArgs === '--clear' || normalizedRootArgs === 'clear' ? '' : trimmedArgs
-
-            const shouldEnable = Boolean(rootValue) && !smartContextEnabled
-
-            setSmartRoot(rootValue)
-            if (shouldEnable) {
-              toggleSmartContext()
-            }
-
-            notify(
-              rootValue
-                ? shouldEnable
-                  ? `Smart context enabled; root set to ${rootValue}`
-                  : `Smart context root set to ${rootValue}`
-                : 'Smart context root cleared',
-              { kind: rootValue ? 'info' : 'warning' },
-            )
-
-            setInputValue('')
-            closePopup()
-            return
-          }
-
-          openSmartRootPopup()
-          return
-        }
-        case 'tokens':
-          openTokensPopup()
-          setInputValue('')
-          return
-        case 'settings':
-          openSettingsPopup()
-          setInputValue('')
-          return
-        case 'theme':
-          openThemePopup()
-          setInputValue('')
-          return
-        case 'theme-mode':
-          openThemeModePopup()
-          setInputValue('')
-          return
-        case 'reasoning':
-          openReasoningPopup()
-          setInputValue('')
-          return
-        case 'history':
-          openHistoryPopup()
-          setInputValue('')
-          return
-        case 'intent':
-          if (trimmedArgs) {
-            handleIntentFileSubmit(trimmedArgs)
-            return
-          }
-          openIntentPopup()
-          return
-        case 'instructions':
-          if (trimmedArgs) {
-            handleInstructionsSubmit(trimmedArgs)
-            return
-          }
-          openInstructionsPopup()
-          return
-        case 'exit':
-          pushHistory('Exiting…', 'system')
-          setInputValue('')
-          clearScreen?.()
-          exitApp()
-          return
-        case 'series': {
-          const handleSeriesCommand = async (): Promise<void> => {
-            if (isGenerating) {
-              pushHistory('Generation already running. Please wait.', 'system')
-              return
-            }
-
-            const latestTypedIntent = getLatestTypedIntent()
-            const typedDraft = latestTypedIntent?.trim() ?? ''
-
-            let initialDraft = trimmedArgs || typedDraft || lastUserIntentRef.current || ''
-            let hintOverride: string | undefined
-
-            if (trimmedArgs) {
-              pushHistory('[series] Using provided text as intent draft.', 'system')
-            } else if (typedDraft) {
-              pushHistory('[series] Using typed intent as draft.', 'system')
-            } else if (lastUserIntentRef.current) {
-              pushHistory('[series] Reusing last intent as draft.', 'system')
-            }
-
-            if (!initialDraft) {
-              const trimmedIntentFile = intentFilePath.trim()
-              if (trimmedIntentFile) {
-                try {
-                  const raw = await fs.readFile(trimmedIntentFile, 'utf8')
-                  const fileIntent = raw.trim()
-                  if (fileIntent) {
-                    initialDraft = fileIntent
-                    const fileLabel = path.basename(trimmedIntentFile)
-                    pushHistory(`[series] Loaded draft from intent file ${fileLabel}.`, 'system')
-                    hintOverride = `Loaded from intent file ${fileLabel}`
-                    syncTypedIntentRef(fileIntent)
-                  } else {
-                    pushHistory(
-                      `[series] Intent file ${trimmedIntentFile} is empty; please add content.`,
-                      'system',
-                    )
-                  }
-                } catch (error) {
-                  const message =
-                    error instanceof Error ? error.message : 'Unknown intent file error.'
-                  pushHistory(
-                    `[series] Failed to read intent file ${trimmedIntentFile}: ${message}`,
-                    'system',
-                  )
+      for (const step of steps) {
+        switch (step.type) {
+          case 'open-popup':
+            switch (step.popup) {
+              case 'model':
+                openModelPopup()
+                break
+              case 'target':
+                openTargetModelPopup()
+                break
+              case 'polish':
+                openPolishModelPopup()
+                break
+              case 'toggle': {
+                const field = step.field
+                if (!field) {
+                  throw new Error('Expected toggle field in command mapping.')
                 }
+                openTogglePopup(field)
+                break
               }
+              case 'file':
+                openFilePopup()
+                break
+              case 'url':
+                openUrlPopup()
+                break
+              case 'image':
+                openImagePopup()
+                break
+              case 'video':
+                openVideoPopup()
+                break
+              case 'history':
+                openHistoryPopup()
+                break
+              case 'smart-root':
+                openSmartRootPopup()
+                break
+              case 'tokens':
+                openTokensPopup()
+                break
+              case 'settings':
+                openSettingsPopup()
+                break
+              case 'theme':
+                openThemePopup()
+                break
+              case 'theme-mode':
+                openThemeModePopup()
+                break
+              case 'reasoning':
+                openReasoningPopup()
+                break
+              case 'test':
+                openTestPopup()
+                break
+              case 'intent':
+                openIntentPopup()
+                break
+              case 'instructions':
+                openInstructionsPopup()
+                break
             }
+            break
 
-            if (!initialDraft) {
-              pushHistory('[series] No intent found; enter one in the popup.', 'system')
-            }
+          case 'apply-toggle':
+            applyToggleSelection(step.field, step.value)
+            break
 
-            openSeriesPopup(initialDraft, hintOverride)
-            setInputValue('')
-          }
-          void handleSeriesCommand()
-          return
+          case 'clear-polish':
+            applyPolishModelSelection(null)
+            break
+
+          case 'add-url':
+            addUrl(step.value)
+            break
+
+          case 'add-image':
+            addImage(step.value)
+            break
+
+          case 'add-video':
+            addVideo(step.value)
+            break
+
+          case 'toggle-smart-context':
+            toggleSmartContext()
+            break
+
+          case 'set-smart-root':
+            setSmartRoot(step.value)
+            break
+
+          case 'set-intent-file':
+            setIntentFilePath(step.value)
+            break
+
+          case 'set-meta-instructions':
+            setMetaInstructions(step.value)
+            break
+
+          case 'push-history':
+            pushHistoryEntry(step)
+            break
+
+          case 'notify':
+            notify(step.message, { kind: step.kind })
+            break
+
+          case 'set-input':
+            setInputValue(step.value)
+            break
+
+          case 'close-popup':
+            closePopup()
+            break
+
+          case 'clear-screen':
+            clearScreen?.()
+            break
+
+          case 'exit-app':
+            exitApp()
+            break
+
+          case 'run-tests':
+            void runTestsFromCommand(step.value)
+            break
         }
-        case 'test': {
-          if (trimmedArgs) {
-            pushHistory(`[tests] Running /test ${trimmedArgs}`, 'system')
-            void runTestsFromCommand(trimmedArgs)
-          } else {
-            openTestPopup()
-          }
-          return
-        }
-        default:
-          pushHistory(`Selected ${commandId}`)
       }
     },
     [
       addImage,
+      addUrl,
       addVideo,
       applyPolishModelSelection,
       applyToggleSelection,
-      chatGptEnabled,
       clearScreen,
       closePopup,
-      copyEnabled,
       exitApp,
-      getLatestTypedIntent,
-      handleIntentFileSubmit,
-      handleInstructionsSubmit,
-      images,
-      intentFilePath,
-      interactiveTransportPath,
-      isGenerating,
-      jsonOutputEnabled,
-      lastUserIntentRef,
       notify,
       openFilePopup,
       openHistoryPopup,
@@ -896,7 +677,6 @@ export const usePopupManager = ({
       openModelPopup,
       openPolishModelPopup,
       openReasoningPopup,
-      openSeriesPopup,
       openSettingsPopup,
       openSmartRootPopup,
       openTargetModelPopup,
@@ -908,14 +688,123 @@ export const usePopupManager = ({
       openUrlPopup,
       openVideoPopup,
       pushHistory,
-      runSeriesGeneration,
       runTestsFromCommand,
       setInputValue,
+      setIntentFilePath,
+      setMetaInstructions,
       setSmartRoot,
+      toggleSmartContext,
+    ],
+  )
+
+  const runSeriesCommand = useCallback(
+    (trimmedArgs: string): void => {
+      const handle = async (): Promise<void> => {
+        if (isGenerating) {
+          pushHistory('Generation already running. Please wait.', 'system')
+          return
+        }
+
+        const latestTypedIntent = getLatestTypedIntent()
+        const typedDraft = latestTypedIntent?.trim() ?? ''
+
+        let initialDraft = trimmedArgs || typedDraft || lastUserIntentRef.current || ''
+        let hintOverride: string | undefined
+
+        if (trimmedArgs) {
+          pushHistory('[series] Using provided text as intent draft.', 'system')
+        } else if (typedDraft) {
+          pushHistory('[series] Using typed intent as draft.', 'system')
+        } else if (lastUserIntentRef.current) {
+          pushHistory('[series] Reusing last intent as draft.', 'system')
+        }
+
+        if (!initialDraft) {
+          const trimmedIntentFile = intentFilePath.trim()
+          if (trimmedIntentFile) {
+            try {
+              const raw = await fs.readFile(trimmedIntentFile, 'utf8')
+              const fileIntent = raw.trim()
+              if (fileIntent) {
+                initialDraft = fileIntent
+                const fileLabel = path.basename(trimmedIntentFile)
+                pushHistory(`[series] Loaded draft from intent file ${fileLabel}.`, 'system')
+                hintOverride = `Loaded from intent file ${fileLabel}`
+                syncTypedIntentRef(fileIntent)
+              } else {
+                pushHistory(
+                  `[series] Intent file ${trimmedIntentFile} is empty; please add content.`,
+                  'system',
+                )
+              }
+            } catch (error) {
+              const message = error instanceof Error ? error.message : 'Unknown intent file error.'
+              pushHistory(
+                `[series] Failed to read intent file ${trimmedIntentFile}: ${message}`,
+                'system',
+              )
+            }
+          }
+        }
+
+        if (!initialDraft) {
+          pushHistory('[series] No intent found; enter one in the popup.', 'system')
+        }
+
+        openSeriesPopup(initialDraft, hintOverride)
+        setInputValue('')
+      }
+
+      void handle()
+    },
+    [
+      getLatestTypedIntent,
+      intentFilePath,
+      isGenerating,
+      lastUserIntentRef,
+      openSeriesPopup,
+      pushHistory,
+      setInputValue,
+      syncTypedIntentRef,
+    ],
+  )
+
+  const handleCommandSelection = useCallback(
+    (commandId: CommandDescriptor['id'], argsRaw?: string) => {
+      const result = mapPopupCommandSelection({
+        commandId,
+        argsRaw,
+        context: {
+          copyEnabled,
+          chatGptEnabled,
+          jsonOutputEnabled,
+          interactiveTransportPath,
+          urls,
+          images,
+          videos,
+          smartContextEnabled,
+          smartContextRoot,
+        },
+      })
+
+      if (result.kind === 'series') {
+        runSeriesCommand(result.trimmedArgs)
+        return
+      }
+
+      runCommandSteps(result.steps)
+    },
+    [
+      chatGptEnabled,
+      copyEnabled,
+      images,
+      interactiveTransportPath,
+      jsonOutputEnabled,
+      runCommandSteps,
+      runSeriesCommand,
       smartContextEnabled,
       smartContextRoot,
-      syncTypedIntentRef,
-      toggleSmartContext,
+      urls,
       videos,
     ],
   )
