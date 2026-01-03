@@ -9,7 +9,11 @@ import { usePromptTestRunner } from './usePromptTestRunner'
 
 const DEFAULT_TEST_FILE = 'prompt-tests.yaml'
 
-type PushHistory = (content: string, kind?: HistoryEntry['kind']) => void
+type PushHistory = (
+  content: string,
+  kind?: HistoryEntry['kind'],
+  format?: HistoryEntry['format'],
+) => void
 
 export type UseCommandScreenHistoryAndTestsResult = {
   pushHistoryRef: MutableRefObject<PushHistory>
@@ -38,8 +42,8 @@ export const useCommandScreenHistoryAndTests = (): UseCommandScreenHistoryAndTes
     throw new Error('pushHistoryRef.current has not been initialized yet.')
   })
   const pushHistoryProxy: PushHistory = useStableCallback(
-    (content: string, kind: HistoryEntry['kind'] = 'system') => {
-      pushHistoryRef.current(content, kind)
+    (content: string, kind: HistoryEntry['kind'] = 'system', format?: HistoryEntry['format']) => {
+      pushHistoryRef.current(content, kind, format)
     },
   )
 

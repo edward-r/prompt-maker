@@ -21,8 +21,8 @@ describe('buffered-history-writer', () => {
     writer.flush()
 
     expect(push.mock.calls).toEqual([
-      ['first', undefined],
-      ['second', 'progress'],
+      ['first', undefined, undefined],
+      ['second', 'progress', undefined],
     ])
 
     writer.pushBuffered('third')
@@ -33,9 +33,9 @@ describe('buffered-history-writer', () => {
     writer.flush()
 
     expect(push.mock.calls).toEqual([
-      ['first', undefined],
-      ['second', 'progress'],
-      ['third', undefined],
+      ['first', undefined, undefined],
+      ['second', 'progress', undefined],
+      ['third', undefined, undefined],
     ])
   })
 
@@ -62,9 +62,9 @@ describe('buffered-history-writer', () => {
     writer.flush()
 
     expect(push.mock.calls).toEqual([
-      ['a', 'system'],
-      ['b', 'progress'],
-      ['c', undefined],
+      ['a', 'system', undefined],
+      ['b', 'progress', undefined],
+      ['c', undefined, undefined],
     ])
   })
 })

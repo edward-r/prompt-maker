@@ -6,7 +6,11 @@ import { useStableCallback } from '../../../hooks/useStableCallback'
 import { runPromptTestSuite, type PromptTestRunReporter } from '../../../../test-command'
 import type { HistoryEntry } from '../../../types'
 
-type PushHistory = (content: string, kind?: HistoryEntry['kind']) => void
+type PushHistory = (
+  content: string,
+  kind?: HistoryEntry['kind'],
+  format?: HistoryEntry['format'],
+) => void
 
 type ClearHistory = () => void
 

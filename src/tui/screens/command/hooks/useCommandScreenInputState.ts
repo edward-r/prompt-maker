@@ -11,7 +11,11 @@ import { useCommandScreen } from '../useCommandScreen'
 import { formatDebugKeyEvent } from '../utils/debug-keys'
 
 export type UseCommandScreenInputStateOptions = {
-  pushHistoryProxy: (content: string, kind?: HistoryEntry['kind']) => void
+  pushHistoryProxy: (
+    content: string,
+    kind?: HistoryEntry['kind'],
+    format?: HistoryEntry['format'],
+  ) => void
 }
 
 export type UseCommandScreenInputStateResult = {

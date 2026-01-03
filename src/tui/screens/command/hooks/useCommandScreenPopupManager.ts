@@ -8,7 +8,11 @@ import type { HistoryEntry, ModelOption, PopupState } from '../../../types'
 
 const DEFAULT_TEST_FILE = 'prompt-tests.yaml'
 
-type PushHistory = (content: string, kind?: HistoryEntry['kind']) => void
+type PushHistory = (
+  content: string,
+  kind?: HistoryEntry['kind'],
+  format?: HistoryEntry['format'],
+) => void
 
 type UseCommandScreenPopupManagerOptions = {
   currentModel: ModelOption['id']

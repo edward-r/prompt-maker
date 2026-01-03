@@ -41,8 +41,8 @@ describe('generation-history-formatters', () => {
     ).toEqual([
       { content: 'Iteration 2 complete (123 tokens)', kind: 'progress' },
       { content: 'Prompt (iteration 2):', kind: 'system' },
-      { content: 'Line 1', kind: 'system' },
-      { content: 'Line 2', kind: 'system' },
+      { content: 'Line 1', kind: 'system', format: 'markdown' },
+      { content: 'Line 2', kind: 'system', format: 'markdown' },
     ])
 
     expect(

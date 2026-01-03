@@ -10,7 +10,11 @@ import { useModelProviderState } from './useModelProviderState'
 import { useCommandGenerationPipeline } from './useCommandGenerationPipeline'
 
 export type UseCommandScreenModelGenerationOptions = {
-  pushHistoryProxy: (content: string, kind?: HistoryEntry['kind']) => void
+  pushHistoryProxy: (
+    content: string,
+    kind?: HistoryEntry['kind'],
+    format?: HistoryEntry['format'],
+  ) => void
   notify: (message: string, options?: NotifyOptions) => void
 
   files: string[]
