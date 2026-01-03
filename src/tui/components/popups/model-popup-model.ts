@@ -8,6 +8,20 @@ export type ModelPopupRow =
   | { type: 'spacer' }
   | { type: 'option'; option: ModelOption; optionIndex: number }
 
+export const resolveModelPopupListRows = ({
+  popupHeight,
+  paddingY,
+  fixedRows,
+}: {
+  popupHeight: number
+  paddingY: number
+  fixedRows: number
+}): number => {
+  const paddingRows = 2 * paddingY
+  const availableRows = Math.max(1, popupHeight - paddingRows - fixedRows)
+  return availableRows
+}
+
 export const buildModelPopupRows = (
   options: readonly ModelOption[],
   recentCount: number,

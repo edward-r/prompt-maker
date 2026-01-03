@@ -1,5 +1,6 @@
 import {
   buildModelPopupRows,
+  resolveModelPopupListRows,
   resolveModelPopupVisibleRows,
 } from '../../tui/components/popups/model-popup-model'
 import type { ModelProvider } from '../../model-providers'
@@ -27,6 +28,16 @@ const describeRows = (rows: readonly ModelPopupRow[]): string[] =>
   })
 
 describe('model-popup-model', () => {
+  describe('resolveModelPopupListRows', () => {
+    it('reserves padding and fixed rows', () => {
+      expect(resolveModelPopupListRows({ popupHeight: 16, paddingY: 2, fixedRows: 6 })).toBe(6)
+    })
+
+    it('clamps to at least one row', () => {
+      expect(resolveModelPopupListRows({ popupHeight: 0, paddingY: 2, fixedRows: 6 })).toBe(1)
+    })
+  })
+
   describe('buildModelPopupRows', () => {
     it('groups recents separately from provider sections', () => {
       const options = [

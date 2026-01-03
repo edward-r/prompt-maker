@@ -9,7 +9,11 @@ import { useTheme } from '../../theme/theme-provider'
 import { inkBackgroundColorProps, inkColorProps } from '../../theme/theme-types'
 import type { InkColorValue } from '../../theme/theme-types'
 import type { ModelOption, ProviderStatusMap } from '../../types'
-import { buildModelPopupRows, resolveModelPopupVisibleRows } from './model-popup-model'
+import {
+  buildModelPopupRows,
+  resolveModelPopupListRows,
+  resolveModelPopupVisibleRows,
+} from './model-popup-model'
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(value, max))
@@ -54,12 +58,8 @@ export type ModelPopupProps = {
   onSubmit: (option: ModelOption | null | undefined) => void
 }
 
-const resolveListRows = (popupHeight: number): number => {
-  const paddingRows = 2 * POPUP_PADDING_Y
-  const fixedRows = 6
-  const availableRows = Math.max(1, popupHeight - paddingRows - fixedRows)
-  return availableRows
-}
+const resolveListRows = (popupHeight: number): number =>
+  resolveModelPopupListRows({ popupHeight, paddingY: POPUP_PADDING_Y, fixedRows: 6 })
 
 export const ModelPopup = ({
   title,
