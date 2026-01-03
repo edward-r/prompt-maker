@@ -1,8 +1,7 @@
-import fs from 'node:fs'
-
 import type { PopupState } from '../../../types'
 
 import { useContextPopupGlue } from './useContextPopupGlue'
+import { useDroppedFileDetection } from './useDroppedFileDetection'
 
 export type UseCommandScreenContextPopupBindingsOptions = {
   inputValue: string
@@ -88,6 +87,13 @@ export const useCommandScreenContextPopupBindings = ({
   handleCommandSelection,
   consumeSuppressedTextInputChange,
 }: UseCommandScreenContextPopupBindingsOptions): UseCommandScreenContextPopupBindingsResult => {
+  const popupDraftInput =
+    popupState?.type === 'file' || popupState?.type === 'image' || popupState?.type === 'video'
+      ? popupState.draft
+      : ''
+
+  const { isFilePath } = useDroppedFileDetection(popupDraftInput)
+
   return useContextPopupGlue({
     inputValue,
     popupState,
@@ -122,13 +128,6 @@ export const useCommandScreenContextPopupBindings = ({
     addCommandHistoryEntry,
     handleCommandSelection,
     consumeSuppressedTextInputChange,
-    isFilePath: (candidate: string) => {
-      try {
-        const stats = fs.statSync(candidate)
-        return stats.isFile()
-      } catch {
-        return false
-      }
-    },
+    isFilePath,
   })
 }

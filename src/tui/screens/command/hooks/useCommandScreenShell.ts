@@ -1,15 +1,13 @@
-import fs from 'node:fs'
-
 import type { WriteStream } from 'node:tty'
-import { useEffect, useMemo } from 'react'
+import { useEffect } from 'react'
 
 import { COMMAND_DESCRIPTORS, POPUP_HEIGHTS } from '../../../config'
-import { parseAbsolutePathFromInput } from '../../../drag-drop-path'
 import { useCommandHistory } from '../../../hooks/useCommandHistory'
 import type { HistoryEntry, PopupState } from '../../../types'
 
 import { useCommandMenuManager } from './useCommandMenuManager'
 import { useCommandScreenLayout } from './useCommandScreenLayout'
+import { useDroppedFileDetection } from './useDroppedFileDetection'
 import { useHistoryScrollKeys } from './useHistoryScrollKeys'
 import { usePopupSelectionClamp } from './usePopupSelectionClamp'
 import { useSessionCommands } from './useSessionCommands'
@@ -135,18 +133,7 @@ export const useCommandScreenShell = ({
   pushHistoryRef,
   scrollToProxy,
 }: UseCommandScreenShellOptions): UseCommandScreenShellResult => {
-  const droppedFilePath = useMemo(() => {
-    const candidate = parseAbsolutePathFromInput(inputValue)
-    if (!candidate) {
-      return null
-    }
-    try {
-      const stats = fs.statSync(candidate)
-      return stats.isFile() ? candidate : null
-    } catch {
-      return null
-    }
-  }, [inputValue])
+  const { droppedFilePath, existsSync } = useDroppedFileDetection(inputValue)
 
   const {
     isCommandMode,
@@ -157,7 +144,7 @@ export const useCommandScreenShell = ({
     selectedCommand,
   } = useCommandMenuManager({
     inputValue,
-    existsSync: (candidate: string) => fs.existsSync(candidate),
+    existsSync,
     popupState,
     helpOpen,
     ...(commandMenuSignal !== undefined ? { commandMenuSignal } : {}),

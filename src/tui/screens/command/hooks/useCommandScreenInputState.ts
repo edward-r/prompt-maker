@@ -1,11 +1,11 @@
-import fs from 'node:fs'
-
 import type { MutableRefObject } from 'react'
 import { useCallback, useMemo, useRef } from 'react'
 
 import type { DebugKeyEvent } from '../../../components/core/MultilineTextInput'
 import { isCommandInput } from '../../../drag-drop-path'
 import type { HistoryEntry } from '../../../types'
+
+import { useDroppedFileDetection } from './useDroppedFileDetection'
 
 import { useCommandScreen } from '../useCommandScreen'
 import { formatDebugKeyEvent } from '../utils/debug-keys'
@@ -148,12 +148,17 @@ export const useCommandScreenInputState = ({
     suppressNextInputRef.current = true
   }, [])
 
-  const updateLastTypedIntent = useCallback((next: string): void => {
-    if (isCommandInput(next, fs.existsSync)) {
-      return
-    }
-    lastTypedIntentRef.current = next
-  }, [])
+  const { existsSync } = useDroppedFileDetection(inputValue)
+
+  const updateLastTypedIntent = useCallback(
+    (next: string): void => {
+      if (isCommandInput(next, existsSync)) {
+        return
+      }
+      lastTypedIntentRef.current = next
+    },
+    [existsSync],
+  )
 
   return {
     terminalRows,
