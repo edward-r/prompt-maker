@@ -14,19 +14,17 @@ import React, {
 } from 'react'
 
 import { DEFAULT_MAX_TOASTS, TOAST_ANIMATION_TICK_MS, TOAST_HEIGHT } from './toast-constants'
+import {
+  addOrReuseToast,
+  beginExitToast,
+  createToastTrimmedMessage,
+  getLatestActiveToast,
+  getOldestActiveToastId,
+  removeToast as removeToastFromList,
+} from './toast-state'
+import type { ToastId, ToastItem, ToastKind } from './toast-state'
 
-export type ToastKind = 'info' | 'progress' | 'warning' | 'error'
-
-export type ToastId = number
-
-export type ToastItem = {
-  id: ToastId
-  message: string
-  kind: ToastKind
-  createdAt: number
-  autoDismissMs: number | null
-  isExiting: boolean
-}
+export type { ToastId, ToastItem, ToastKind } from './toast-state'
 
 export type NotifyOptions = {
   kind?: ToastKind
@@ -57,16 +55,6 @@ export type ToastProviderProps = {
   maxToasts?: number
   defaultAutoDismissMs?: number
   exitAnimationMs?: number
-}
-
-const createToastTrimmedMessage = (message: string): string | null => {
-  const trimmed = message.trim()
-  return trimmed ? trimmed : null
-}
-
-const getOldestActiveToastId = (toasts: ToastItem[]): ToastId | null => {
-  const oldest = toasts.find((toast) => !toast.isExiting)
-  return oldest ? oldest.id : null
 }
 
 export const ToastProvider = ({
@@ -109,7 +97,7 @@ export const ToastProvider = ({
       clearDismissTimer(id)
       clearRemovalTimer(id)
 
-      setToasts((prev) => prev.filter((toast) => toast.id !== id))
+      setToasts((prev) => removeToastFromList(prev, id))
     },
     [clearDismissTimer, clearRemovalTimer],
   )
@@ -118,15 +106,7 @@ export const ToastProvider = ({
     (id: ToastId): void => {
       clearDismissTimer(id)
 
-      setToasts((prev) => {
-        const toast = prev.find((candidate) => candidate.id === id)
-        if (!toast || toast.isExiting) {
-          return prev
-        }
-        return prev.map((candidate) =>
-          candidate.id === id ? { ...candidate, isExiting: true } : candidate,
-        )
-      })
+      setToasts((prev) => beginExitToast(prev, id))
 
       if (removalTimersRef.current.has(id)) {
         return
@@ -149,7 +129,7 @@ export const ToastProvider = ({
   )
 
   const dismissLatest = useCallback((): void => {
-    const latestActive = [...toastsRef.current].reverse().find((toast) => !toast.isExiting)
+    const latestActive = getLatestActiveToast(toastsRef.current)
     if (!latestActive) {
       return
     }
@@ -167,25 +147,21 @@ export const ToastProvider = ({
       const kind = options.kind ?? 'info'
       const autoDismissMs = options.autoDismissMs ?? defaultAutoDismissMs
 
-      const latestActive = [...toastsRef.current].reverse().find((toast) => !toast.isExiting)
-      const shouldReuse =
-        latestActive && latestActive.message === trimmed && latestActive.kind === kind
+      const result = addOrReuseToast({
+        toasts: toastsRef.current,
+        message: trimmed,
+        kind,
+        autoDismissMs,
+        now: Date.now(),
+        nextToastId: nextToastIdRef.current,
+      })
 
-      const toastId = shouldReuse ? latestActive.id : nextToastIdRef.current++
+      nextToastIdRef.current = result.nextToastId
+      const toastId = result.toastId
 
-      if (!shouldReuse) {
-        const toast: ToastItem = {
-          id: toastId,
-          message: trimmed,
-          kind,
-          createdAt: Date.now(),
-          autoDismissMs,
-          isExiting: false,
-        }
-
-        const nextToasts = [...toastsRef.current, toast]
-        toastsRef.current = nextToasts
-        setToasts(nextToasts)
+      if (result.action === 'added') {
+        toastsRef.current = result.toasts
+        setToasts(result.toasts)
       }
 
       clearDismissTimer(toastId)
