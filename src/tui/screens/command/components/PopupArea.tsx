@@ -7,7 +7,7 @@
  * screen file is mostly orchestration.
  */
 
-import { Box } from 'ink'
+import type { ComponentProps } from 'react'
 
 import { ListPopup } from '../../../components/popups/ListPopup'
 import { ModelPopup } from '../../../components/popups/ModelPopup'
@@ -117,241 +117,303 @@ export type PopupAreaProps = {
   onSmartRootSubmit: (value: string) => void
 }
 
-export const PopupArea = ({
-  popupState,
-  helpOpen,
-  overlayHeight,
-  modelPopupOptions,
-  modelPopupSelection,
-  modelPopupRecentCount,
-  providerStatuses,
-  onModelPopupQueryChange,
-  onModelPopupSubmit,
-  files,
-  filePopupSuggestions,
-  filePopupSuggestionSelectionIndex,
-  filePopupSuggestionsFocused,
-  onFilePopupDraftChange,
-  onAddFile,
-  urls,
-  onUrlPopupDraftChange,
-  onAddUrl,
-  images,
-  imagePopupSuggestions,
-  imagePopupSuggestionSelectionIndex,
-  imagePopupSuggestionsFocused,
-  onImagePopupDraftChange,
-  onAddImage,
-  videos,
-  videoPopupSuggestions,
-  videoPopupSuggestionSelectionIndex,
-  videoPopupSuggestionsFocused,
-  onVideoPopupDraftChange,
-  onAddVideo,
-  historyPopupItems,
-  onHistoryPopupDraftChange,
-  onHistoryPopupSubmit,
-  intentPopupSuggestions,
-  intentPopupSuggestionSelectionIndex,
-  intentPopupSuggestionsFocused,
-  onIntentPopupDraftChange,
-  onIntentFileSubmit,
-  onInstructionsDraftChange,
-  onInstructionsSubmit,
-  isGenerating,
-  onSeriesDraftChange,
-  onSeriesSubmit,
-  isTestCommandRunning,
-  onTestDraftChange,
-  onTestSubmit,
-  tokenUsageRun,
-  tokenUsageBreakdown,
-  statusChips,
-  reasoningPopupLines,
-  reasoningPopupVisibleRows,
-  smartContextEnabled,
-  smartContextRoot,
-  smartPopupSuggestions,
-  smartPopupSuggestionSelectionIndex,
-  smartPopupSuggestionsFocused,
-  onSmartPopupDraftChange,
-  onSmartRootSubmit,
-}: PopupAreaProps) => {
-  if (!popupState || helpOpen) {
+type NonNullPopupState = Exclude<PopupState, null>
+
+type PopupStateFor<T extends NonNullPopupState['type']> = Extract<NonNullPopupState, { type: T }>
+
+const renderModelPopup = (props: PopupAreaProps, popupState: PopupStateFor<'model'>) => {
+  const title =
+    popupState.kind === 'target'
+      ? 'Select target model'
+      : popupState.kind === 'polish'
+        ? 'Select polish model'
+        : 'Select model'
+
+  const viewModel = {
+    title,
+    query: popupState.query,
+    options: props.modelPopupOptions,
+    selectedIndex: props.modelPopupSelection,
+    recentCount: props.modelPopupRecentCount,
+    maxHeight: props.overlayHeight,
+    providerStatuses: props.providerStatuses,
+    onQueryChange: props.onModelPopupQueryChange,
+    onSubmit: props.onModelPopupSubmit,
+  } satisfies ComponentProps<typeof ModelPopup>
+
+  return <ModelPopup {...viewModel} />
+}
+
+const renderTogglePopup = (_props: PopupAreaProps, popupState: PopupStateFor<'toggle'>) => {
+  const viewModel = {
+    field: popupState.field,
+    selectionIndex: popupState.selectionIndex,
+  } satisfies ComponentProps<typeof TogglePopup>
+
+  return <TogglePopup {...viewModel} />
+}
+
+const renderFilePopup = (props: PopupAreaProps, popupState: PopupStateFor<'file'>) => {
+  const viewModel = {
+    title: 'File Context',
+    placeholder: 'src/**/*.ts',
+    draft: popupState.draft,
+    items: props.files,
+    selectedIndex: popupState.selectionIndex,
+    selectedFocused: popupState.selectedFocused,
+    layout: 'selected-first',
+    emptyLabel: 'No file globs added',
+    instructions:
+      "Enter add · ↑/↓ focus list · Del/Backspace remove · Tab suggestions · Esc close\nfzf: ^start $end 'exact",
+    suggestedItems: props.filePopupSuggestions,
+    suggestedSelectionIndex: props.filePopupSuggestionSelectionIndex,
+    suggestedFocused: props.filePopupSuggestionsFocused,
+    maxHeight: props.overlayHeight,
+    onDraftChange: props.onFilePopupDraftChange,
+    onSubmitDraft: props.onAddFile,
+  } satisfies ComponentProps<typeof ListPopup>
+
+  return <ListPopup {...viewModel} />
+}
+
+const renderUrlPopup = (props: PopupAreaProps, popupState: PopupStateFor<'url'>) => {
+  const viewModel = {
+    title: 'URL Context',
+    placeholder: 'https://github.com/...',
+    draft: popupState.draft,
+    items: props.urls,
+    selectedIndex: popupState.selectionIndex,
+    selectedFocused: popupState.selectedFocused,
+    emptyLabel: 'No URLs added',
+    instructions:
+      popupState.editingIndex === null
+        ? 'Enter add (space/comma ok) · ↑/↓ focus list · e edit · Del remove · Esc close'
+        : 'Editing… Enter save · Esc cancel · Del remove',
+    onDraftChange: props.onUrlPopupDraftChange,
+    onSubmitDraft: props.onAddUrl,
+  } satisfies ComponentProps<typeof ListPopup>
+
+  return <ListPopup {...viewModel} />
+}
+
+const renderImagePopup = (props: PopupAreaProps, popupState: PopupStateFor<'image'>) => {
+  const viewModel = {
+    title: 'Images',
+    placeholder: 'path/to/image.png',
+    draft: popupState.draft,
+    items: props.images,
+    selectedIndex: popupState.selectionIndex,
+    selectedFocused: popupState.selectedFocused,
+    layout: 'selected-first',
+    emptyLabel: 'No images attached',
+    instructions:
+      "Enter add · ↑/↓ focus list · Del/Backspace remove · Tab suggestions · Esc close\nfzf: ^start $end 'exact",
+    suggestedItems: props.imagePopupSuggestions,
+    suggestedSelectionIndex: props.imagePopupSuggestionSelectionIndex,
+    suggestedFocused: props.imagePopupSuggestionsFocused,
+    maxHeight: props.overlayHeight,
+    onDraftChange: props.onImagePopupDraftChange,
+    onSubmitDraft: props.onAddImage,
+  } satisfies ComponentProps<typeof ListPopup>
+
+  return <ListPopup {...viewModel} />
+}
+
+const renderVideoPopup = (props: PopupAreaProps, popupState: PopupStateFor<'video'>) => {
+  const viewModel = {
+    title: 'Videos',
+    placeholder: 'path/to/video.mp4',
+    draft: popupState.draft,
+    items: props.videos,
+    selectedIndex: popupState.selectionIndex,
+    selectedFocused: popupState.selectedFocused,
+    layout: 'selected-first',
+    emptyLabel: 'No videos attached',
+    instructions:
+      "Enter add · ↑/↓ focus list · Del/Backspace remove · Tab suggestions · Esc close\nfzf: ^start $end 'exact",
+    suggestedItems: props.videoPopupSuggestions,
+    suggestedSelectionIndex: props.videoPopupSuggestionSelectionIndex,
+    suggestedFocused: props.videoPopupSuggestionsFocused,
+    maxHeight: props.overlayHeight,
+    onDraftChange: props.onVideoPopupDraftChange,
+    onSubmitDraft: props.onAddVideo,
+  } satisfies ComponentProps<typeof ListPopup>
+
+  return <ListPopup {...viewModel} />
+}
+
+const renderHistoryPopup = (props: PopupAreaProps, popupState: PopupStateFor<'history'>) => {
+  const viewModel = {
+    title: 'History',
+    placeholder: 'Search commands & intents',
+    draft: popupState.draft,
+    items: props.historyPopupItems,
+    selectedIndex: popupState.selectionIndex,
+    emptyLabel: 'No history saved',
+    instructions: 'Enter to reuse · ↑/↓ navigate · Esc to close',
+    onDraftChange: props.onHistoryPopupDraftChange,
+    onSubmitDraft: props.onHistoryPopupSubmit,
+  } satisfies ComponentProps<typeof ListPopup>
+
+  return <ListPopup {...viewModel} />
+}
+
+const renderIntentPopup = (props: PopupAreaProps, popupState: PopupStateFor<'intent'>) => {
+  const viewModel = {
+    draft: popupState.draft,
+    suggestions: props.intentPopupSuggestions,
+    suggestedSelectionIndex: props.intentPopupSuggestionSelectionIndex,
+    suggestedFocused: props.intentPopupSuggestionsFocused,
+    maxHeight: props.overlayHeight,
+    onDraftChange: props.onIntentPopupDraftChange,
+    onSubmitDraft: props.onIntentFileSubmit,
+  } satisfies ComponentProps<typeof IntentFilePopup>
+
+  return <IntentFilePopup {...viewModel} />
+}
+
+const renderInstructionsPopup = (
+  props: PopupAreaProps,
+  popupState: PopupStateFor<'instructions'>,
+) => {
+  const viewModel = {
+    draft: popupState.draft,
+    onDraftChange: props.onInstructionsDraftChange,
+    onSubmitDraft: props.onInstructionsSubmit,
+  } satisfies ComponentProps<typeof InstructionsPopup>
+
+  return <InstructionsPopup {...viewModel} />
+}
+
+const renderSeriesPopup = (props: PopupAreaProps, popupState: PopupStateFor<'series'>) => {
+  const viewModel = {
+    draft: popupState.draft,
+    hint: popupState.hint,
+    isRunning: props.isGenerating,
+    onDraftChange: props.onSeriesDraftChange,
+    onSubmitDraft: props.onSeriesSubmit,
+  } satisfies ComponentProps<typeof SeriesIntentPopup>
+
+  return <SeriesIntentPopup {...viewModel} />
+}
+
+const renderTestPopup = (props: PopupAreaProps, popupState: PopupStateFor<'test'>) => {
+  const viewModel = {
+    draft: popupState.draft,
+    isRunning: props.isTestCommandRunning,
+    onDraftChange: props.onTestDraftChange,
+    onSubmitDraft: props.onTestSubmit,
+  } satisfies ComponentProps<typeof TestPopup>
+
+  return <TestPopup {...viewModel} />
+}
+
+const renderTokenUsagePopup = (props: PopupAreaProps) => {
+  const viewModel = {
+    run: props.tokenUsageRun,
+    breakdown: props.tokenUsageBreakdown,
+  } satisfies ComponentProps<typeof TokenUsagePopup>
+
+  return <TokenUsagePopup {...viewModel} />
+}
+
+const renderSettingsPopup = (props: PopupAreaProps) => {
+  const viewModel = {
+    chips: props.statusChips,
+  } satisfies ComponentProps<typeof SettingsPopup>
+
+  return <SettingsPopup {...viewModel} />
+}
+
+const renderThemePopup = (props: PopupAreaProps, popupState: PopupStateFor<'theme'>) => {
+  const viewModel = {
+    selectionIndex: popupState.selectionIndex,
+    initialThemeName: popupState.initialThemeName,
+    maxHeight: props.overlayHeight,
+  } satisfies ComponentProps<typeof ThemePickerPopup>
+
+  return <ThemePickerPopup {...viewModel} />
+}
+
+const renderThemeModePopup = (_props: PopupAreaProps, popupState: PopupStateFor<'themeMode'>) => {
+  const viewModel = {
+    selectionIndex: popupState.selectionIndex,
+    initialMode: popupState.initialMode,
+  } satisfies ComponentProps<typeof ThemeModePopup>
+
+  return <ThemeModePopup {...viewModel} />
+}
+
+const renderReasoningPopup = (props: PopupAreaProps, popupState: PopupStateFor<'reasoning'>) => {
+  const viewModel = {
+    lines: props.reasoningPopupLines,
+    visibleRows: props.reasoningPopupVisibleRows,
+    scrollOffset: popupState.scrollOffset,
+  } satisfies ComponentProps<typeof ReasoningPopup>
+
+  return <ReasoningPopup {...viewModel} />
+}
+
+const renderSmartPopup = (props: PopupAreaProps, popupState: PopupStateFor<'smart'>) => {
+  const viewModel = {
+    savedRoot: props.smartContextRoot,
+    draft: popupState.draft,
+    suggestedItems: props.smartPopupSuggestions,
+    suggestedSelectionIndex: props.smartPopupSuggestionSelectionIndex,
+    suggestedFocused: props.smartPopupSuggestionsFocused,
+    maxHeight: props.overlayHeight,
+    onDraftChange: props.onSmartPopupDraftChange,
+    onSubmitRoot: props.onSmartRootSubmit,
+  } satisfies ComponentProps<typeof SmartPopup>
+
+  return <SmartPopup {...viewModel} />
+}
+
+export const PopupArea = (props: PopupAreaProps) => {
+  const { popupState, helpOpen } = props
+
+  if (popupState === null || helpOpen) {
     return null
   }
 
-  return popupState.type === 'model' ? (
-    <ModelPopup
-      title={
-        popupState.kind === 'target'
-          ? 'Select target model'
-          : popupState.kind === 'polish'
-            ? 'Select polish model'
-            : 'Select model'
-      }
-      query={popupState.query}
-      options={modelPopupOptions}
-      selectedIndex={modelPopupSelection}
-      recentCount={modelPopupRecentCount}
-      maxHeight={overlayHeight}
-      providerStatuses={providerStatuses}
-      onQueryChange={onModelPopupQueryChange}
-      onSubmit={onModelPopupSubmit}
-    />
-  ) : popupState.type === 'toggle' ? (
-    <TogglePopup field={popupState.field} selectionIndex={popupState.selectionIndex} />
-  ) : popupState.type === 'file' ? (
-    <ListPopup
-      title="File Context"
-      placeholder="src/**/*.ts"
-      draft={popupState.draft}
-      items={files}
-      selectedIndex={popupState.selectionIndex}
-      selectedFocused={popupState.selectedFocused}
-      layout="selected-first"
-      emptyLabel="No file globs added"
-      instructions={
-        "Enter add · ↑/↓ focus list · Del/Backspace remove · Tab suggestions · Esc close\nfzf: ^start $end 'exact"
-      }
-      suggestedItems={filePopupSuggestions}
-      suggestedSelectionIndex={filePopupSuggestionSelectionIndex}
-      suggestedFocused={filePopupSuggestionsFocused}
-      maxHeight={overlayHeight}
-      onDraftChange={onFilePopupDraftChange}
-      onSubmitDraft={onAddFile}
-    />
-  ) : popupState.type === 'url' ? (
-    <ListPopup
-      title="URL Context"
-      placeholder="https://github.com/..."
-      draft={popupState.draft}
-      items={urls}
-      selectedIndex={popupState.selectionIndex}
-      selectedFocused={popupState.selectedFocused}
-      emptyLabel="No URLs added"
-      instructions={
-        popupState.editingIndex === null
-          ? 'Enter add (space/comma ok) · ↑/↓ focus list · e edit · Del remove · Esc close'
-          : 'Editing… Enter save · Esc cancel · Del remove'
-      }
-      onDraftChange={onUrlPopupDraftChange}
-      onSubmitDraft={onAddUrl}
-    />
-  ) : popupState.type === 'image' ? (
-    <ListPopup
-      title="Images"
-      placeholder="path/to/image.png"
-      draft={popupState.draft}
-      items={images}
-      selectedIndex={popupState.selectionIndex}
-      selectedFocused={popupState.selectedFocused}
-      layout="selected-first"
-      emptyLabel="No images attached"
-      instructions={
-        "Enter add · ↑/↓ focus list · Del/Backspace remove · Tab suggestions · Esc close\nfzf: ^start $end 'exact"
-      }
-      suggestedItems={imagePopupSuggestions}
-      suggestedSelectionIndex={imagePopupSuggestionSelectionIndex}
-      suggestedFocused={imagePopupSuggestionsFocused}
-      maxHeight={overlayHeight}
-      onDraftChange={onImagePopupDraftChange}
-      onSubmitDraft={onAddImage}
-    />
-  ) : popupState.type === 'video' ? (
-    <ListPopup
-      title="Videos"
-      placeholder="path/to/video.mp4"
-      draft={popupState.draft}
-      items={videos}
-      selectedIndex={popupState.selectionIndex}
-      selectedFocused={popupState.selectedFocused}
-      layout="selected-first"
-      emptyLabel="No videos attached"
-      instructions={
-        "Enter add · ↑/↓ focus list · Del/Backspace remove · Tab suggestions · Esc close\nfzf: ^start $end 'exact"
-      }
-      suggestedItems={videoPopupSuggestions}
-      suggestedSelectionIndex={videoPopupSuggestionSelectionIndex}
-      suggestedFocused={videoPopupSuggestionsFocused}
-      maxHeight={overlayHeight}
-      onDraftChange={onVideoPopupDraftChange}
-      onSubmitDraft={onAddVideo}
-    />
-  ) : popupState.type === 'history' ? (
-    <ListPopup
-      title="History"
-      placeholder="Search commands & intents"
-      draft={popupState.draft}
-      items={historyPopupItems}
-      selectedIndex={popupState.selectionIndex}
-      emptyLabel="No history saved"
-      instructions="Enter to reuse · ↑/↓ navigate · Esc to close"
-      onDraftChange={onHistoryPopupDraftChange}
-      onSubmitDraft={onHistoryPopupSubmit}
-    />
-  ) : popupState.type === 'intent' ? (
-    <IntentFilePopup
-      draft={popupState.draft}
-      suggestions={intentPopupSuggestions}
-      suggestedSelectionIndex={intentPopupSuggestionSelectionIndex}
-      suggestedFocused={intentPopupSuggestionsFocused}
-      maxHeight={overlayHeight}
-      onDraftChange={onIntentPopupDraftChange}
-      onSubmitDraft={onIntentFileSubmit}
-    />
-  ) : popupState.type === 'instructions' ? (
-    <InstructionsPopup
-      draft={popupState.draft}
-      onDraftChange={onInstructionsDraftChange}
-      onSubmitDraft={onInstructionsSubmit}
-    />
-  ) : popupState.type === 'series' ? (
-    <SeriesIntentPopup
-      draft={popupState.draft}
-      hint={popupState.hint}
-      isRunning={isGenerating}
-      onDraftChange={onSeriesDraftChange}
-      onSubmitDraft={onSeriesSubmit}
-    />
-  ) : popupState.type === 'test' ? (
-    <TestPopup
-      draft={popupState.draft}
-      isRunning={isTestCommandRunning}
-      onDraftChange={onTestDraftChange}
-      onSubmitDraft={onTestSubmit}
-    />
-  ) : popupState.type === 'tokens' ? (
-    <TokenUsagePopup run={tokenUsageRun} breakdown={tokenUsageBreakdown} />
-  ) : popupState.type === 'settings' ? (
-    <SettingsPopup chips={statusChips} />
-  ) : popupState.type === 'theme' ? (
-    <ThemePickerPopup
-      selectionIndex={popupState.selectionIndex}
-      initialThemeName={popupState.initialThemeName}
-      maxHeight={overlayHeight}
-    />
-  ) : popupState.type === 'themeMode' ? (
-    <ThemeModePopup
-      selectionIndex={popupState.selectionIndex}
-      initialMode={popupState.initialMode}
-    />
-  ) : popupState.type === 'reasoning' ? (
-    <ReasoningPopup
-      lines={reasoningPopupLines}
-      visibleRows={reasoningPopupVisibleRows}
-      scrollOffset={popupState.scrollOffset}
-    />
-  ) : popupState.type === 'smart' ? (
-    <SmartPopup
-      savedRoot={smartContextRoot}
-      draft={popupState.draft}
-      suggestedItems={smartPopupSuggestions}
-      suggestedSelectionIndex={smartPopupSuggestionSelectionIndex}
-      suggestedFocused={smartPopupSuggestionsFocused}
-      maxHeight={overlayHeight}
-      onDraftChange={onSmartPopupDraftChange}
-      onSubmitRoot={onSmartRootSubmit}
-    />
-  ) : null
+  switch (popupState.type) {
+    case 'model':
+      return renderModelPopup(props, popupState)
+    case 'toggle':
+      return renderTogglePopup(props, popupState)
+    case 'file':
+      return renderFilePopup(props, popupState)
+    case 'url':
+      return renderUrlPopup(props, popupState)
+    case 'image':
+      return renderImagePopup(props, popupState)
+    case 'video':
+      return renderVideoPopup(props, popupState)
+    case 'history':
+      return renderHistoryPopup(props, popupState)
+    case 'intent':
+      return renderIntentPopup(props, popupState)
+    case 'instructions':
+      return renderInstructionsPopup(props, popupState)
+    case 'series':
+      return renderSeriesPopup(props, popupState)
+    case 'test':
+      return renderTestPopup(props, popupState)
+    case 'tokens':
+      return renderTokenUsagePopup(props)
+    case 'settings':
+      return renderSettingsPopup(props)
+    case 'theme':
+      return renderThemePopup(props, popupState)
+    case 'themeMode':
+      return renderThemeModePopup(props, popupState)
+    case 'reasoning':
+      return renderReasoningPopup(props, popupState)
+    case 'smart':
+      return renderSmartPopup(props, popupState)
+    default: {
+      const _exhaustive: never = popupState
+      return null
+    }
+  }
 }
