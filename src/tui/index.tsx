@@ -28,10 +28,19 @@ const parseTuiArgs = (argv: string[]): TuiOptions => {
   return options
 }
 
+const EXIT_CLEAR_SEQUENCE = '\u001b[0m\u001b[2J\u001b[H'
+
+const clearTerminalOnExit = (): void => {
+  if (process.stdout.isTTY) {
+    process.stdout.write(EXIT_CLEAR_SEQUENCE)
+  }
+}
+
 export const runTuiCommand = async (argv: string[]): Promise<void> => {
   const options = parseTuiArgs(argv)
   const { waitUntilExit } = render(
     <AppContainer interactiveTransport={options.interactiveTransport} />,
   )
   await waitUntilExit()
+  clearTerminalOnExit()
 }
