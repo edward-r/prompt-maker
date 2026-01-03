@@ -272,6 +272,21 @@ const renderIntentPopup = (props: PopupAreaProps, popupState: PopupStateFor<'int
   return <IntentFilePopup {...viewModel} />
 }
 
+const renderSmartPopup = (props: PopupAreaProps, popupState: PopupStateFor<'smart'>) => {
+  const viewModel = {
+    savedRoot: props.smartContextRoot,
+    draft: popupState.draft,
+    suggestedItems: props.smartPopupSuggestions,
+    suggestedSelectionIndex: props.smartPopupSuggestionSelectionIndex,
+    suggestedFocused: props.smartPopupSuggestionsFocused,
+    maxHeight: props.overlayHeight,
+    onDraftChange: props.onSmartPopupDraftChange,
+    onSubmitRoot: props.onSmartRootSubmit,
+  } satisfies ComponentProps<typeof SmartPopup>
+
+  return <SmartPopup {...viewModel} />
+}
+
 const renderInstructionsPopup = (
   props: PopupAreaProps,
   popupState: PopupStateFor<'instructions'>,
@@ -306,6 +321,16 @@ const renderTestPopup = (props: PopupAreaProps, popupState: PopupStateFor<'test'
   } satisfies ComponentProps<typeof TestPopup>
 
   return <TestPopup {...viewModel} />
+}
+
+const renderReasoningPopup = (props: PopupAreaProps, popupState: PopupStateFor<'reasoning'>) => {
+  const viewModel = {
+    lines: props.reasoningPopupLines,
+    visibleRows: props.reasoningPopupVisibleRows,
+    scrollOffset: popupState.scrollOffset,
+  } satisfies ComponentProps<typeof ReasoningPopup>
+
+  return <ReasoningPopup {...viewModel} />
 }
 
 const renderTokenUsagePopup = (props: PopupAreaProps) => {
@@ -344,31 +369,6 @@ const renderThemeModePopup = (_props: PopupAreaProps, popupState: PopupStateFor<
   return <ThemeModePopup {...viewModel} />
 }
 
-const renderReasoningPopup = (props: PopupAreaProps, popupState: PopupStateFor<'reasoning'>) => {
-  const viewModel = {
-    lines: props.reasoningPopupLines,
-    visibleRows: props.reasoningPopupVisibleRows,
-    scrollOffset: popupState.scrollOffset,
-  } satisfies ComponentProps<typeof ReasoningPopup>
-
-  return <ReasoningPopup {...viewModel} />
-}
-
-const renderSmartPopup = (props: PopupAreaProps, popupState: PopupStateFor<'smart'>) => {
-  const viewModel = {
-    savedRoot: props.smartContextRoot,
-    draft: popupState.draft,
-    suggestedItems: props.smartPopupSuggestions,
-    suggestedSelectionIndex: props.smartPopupSuggestionSelectionIndex,
-    suggestedFocused: props.smartPopupSuggestionsFocused,
-    maxHeight: props.overlayHeight,
-    onDraftChange: props.onSmartPopupDraftChange,
-    onSubmitRoot: props.onSmartRootSubmit,
-  } satisfies ComponentProps<typeof SmartPopup>
-
-  return <SmartPopup {...viewModel} />
-}
-
 export const PopupArea = (props: PopupAreaProps) => {
   const { popupState, helpOpen } = props
 
@@ -381,6 +381,7 @@ export const PopupArea = (props: PopupAreaProps) => {
       return renderModelPopup(props, popupState)
     case 'toggle':
       return renderTogglePopup(props, popupState)
+
     case 'file':
       return renderFilePopup(props, popupState)
     case 'url':
@@ -391,26 +392,31 @@ export const PopupArea = (props: PopupAreaProps) => {
       return renderVideoPopup(props, popupState)
     case 'history':
       return renderHistoryPopup(props, popupState)
+
     case 'intent':
       return renderIntentPopup(props, popupState)
+    case 'smart':
+      return renderSmartPopup(props, popupState)
+
     case 'instructions':
       return renderInstructionsPopup(props, popupState)
     case 'series':
       return renderSeriesPopup(props, popupState)
     case 'test':
       return renderTestPopup(props, popupState)
+
+    case 'reasoning':
+      return renderReasoningPopup(props, popupState)
     case 'tokens':
       return renderTokenUsagePopup(props)
     case 'settings':
       return renderSettingsPopup(props)
+
     case 'theme':
       return renderThemePopup(props, popupState)
     case 'themeMode':
       return renderThemeModePopup(props, popupState)
-    case 'reasoning':
-      return renderReasoningPopup(props, popupState)
-    case 'smart':
-      return renderSmartPopup(props, popupState)
+
     default: {
       const _exhaustive: never = popupState
       return null
