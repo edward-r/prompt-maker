@@ -4,7 +4,7 @@ import { Box, Text, useStdout } from 'ink'
 import { SingleLineTextInput } from '../core/SingleLineTextInput'
 import { useTheme } from '../../theme/theme-provider'
 import { inkBackgroundColorProps, inkColorProps } from '../../theme/theme-types'
-import { resolveWindowedList } from './list-window'
+import { clampSelectionIndex, resolveWindowedValues } from './list-windowing'
 import { PopupSheet } from './PopupSheet'
 
 const clamp = (value: number, min: number, max: number): number =>
@@ -30,37 +30,6 @@ export type IntentFilePopupProps = {
   maxHeight?: number
   onDraftChange: (value: string) => void
   onSubmitDraft: (value: string) => void
-}
-
-type VisibleSuggestions = {
-  start: number
-  values: readonly string[]
-  showBefore: boolean
-  showAfter: boolean
-}
-
-const resolveSuggestionWindow = (
-  suggestions: readonly string[],
-  selectedIndex: number,
-  maxRows: number,
-): VisibleSuggestions => {
-  if (suggestions.length === 0 || maxRows <= 0) {
-    return { start: 0, values: [], showBefore: false, showAfter: false }
-  }
-
-  const window = resolveWindowedList({
-    itemCount: suggestions.length,
-    selectedIndex,
-    maxVisibleRows: maxRows,
-    lead: 1,
-  })
-
-  return {
-    start: window.start,
-    values: suggestions.slice(window.start, window.end),
-    showBefore: window.showBefore,
-    showAfter: window.showAfter,
-  }
 }
 
 export const IntentFilePopup = ({
@@ -94,15 +63,12 @@ export const IntentFilePopup = ({
 
   const hasSuggestions = suggestions.length > 0
 
-  const safeSuggestedSelection = Math.max(
-    0,
-    Math.min(suggestedSelectionIndex, Math.max(suggestions.length - 1, 0)),
-  )
+  const safeSuggestedSelection = clampSelectionIndex(suggestions.length, suggestedSelectionIndex)
 
   const effectiveSuggestedFocused = hasSuggestions && suggestedFocused
 
   const visibleSuggestions = useMemo(
-    () => resolveSuggestionWindow(suggestions, safeSuggestedSelection, suggestionRows),
+    () => resolveWindowedValues(suggestions, safeSuggestedSelection, suggestionRows, { lead: 1 }),
     [safeSuggestedSelection, suggestions, suggestionRows],
   )
 

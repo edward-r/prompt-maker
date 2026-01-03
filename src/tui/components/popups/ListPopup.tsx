@@ -5,7 +5,7 @@ import { SingleLineTextInput } from '../core/SingleLineTextInput'
 import { useTheme } from '../../theme/theme-provider'
 import { inkBackgroundColorProps, inkColorProps } from '../../theme/theme-types'
 import { resolveListPopupHeights, DEFAULT_MAX_VISIBLE_LIST_ITEMS } from './list-popup-layout'
-import { resolveWindowedList } from './list-window'
+import { clampSelectionIndex, resolveWindowedValues } from './list-windowing'
 import { PopupSheet } from './PopupSheet'
 
 const clamp = (value: number, min: number, max: number): number =>
@@ -42,54 +42,6 @@ export type ListPopupProps = {
   onSubmitDraft: (value: string) => void
 }
 
-const resolveSelectedVisible = (
-  items: readonly string[],
-  selectedIndex: number,
-  maxRows: number,
-): { start: number; values: readonly string[]; showBefore: boolean; showAfter: boolean } => {
-  if (items.length === 0) {
-    return { start: 0, values: [], showBefore: false, showAfter: false }
-  }
-
-  const window = resolveWindowedList({
-    itemCount: items.length,
-    selectedIndex,
-    maxVisibleRows: maxRows,
-    lead: 2,
-  })
-
-  return {
-    start: window.start,
-    values: items.slice(window.start, window.end),
-    showBefore: window.showBefore,
-    showAfter: window.showAfter,
-  }
-}
-
-const resolveSuggestedVisible = (
-  suggestions: readonly string[],
-  selectedIndex: number,
-  maxRows: number,
-): { start: number; values: readonly string[]; showBefore: boolean; showAfter: boolean } => {
-  if (suggestions.length === 0) {
-    return { start: 0, values: [], showBefore: false, showAfter: false }
-  }
-
-  const window = resolveWindowedList({
-    itemCount: suggestions.length,
-    selectedIndex,
-    maxVisibleRows: maxRows,
-    lead: 1,
-  })
-
-  return {
-    start: window.start,
-    values: suggestions.slice(window.start, window.end),
-    showBefore: window.showBefore,
-    showAfter: window.showAfter,
-  }
-}
-
 export const ListPopup = ({
   title,
   placeholder,
@@ -123,9 +75,9 @@ export const ListPopup = ({
 
   const hasSuggestions = (suggestedItems?.length ?? 0) > 0
 
-  const safeSuggestedSelection = Math.max(
-    0,
-    Math.min(suggestedSelectionIndex ?? 0, Math.max((suggestedItems?.length ?? 0) - 1, 0)),
+  const safeSuggestedSelection = clampSelectionIndex(
+    suggestedItems?.length ?? 0,
+    suggestedSelectionIndex ?? 0,
   )
   const effectiveSuggestedFocused = Boolean(hasSuggestions && suggestedFocused)
   const effectiveSelectedFocused = Boolean(selectedFocused)
@@ -158,7 +110,7 @@ export const ListPopup = ({
   )
 
   const selectedVisible = useMemo(
-    () => resolveSelectedVisible(items, selectedIndex, heights.selectedRows),
+    () => resolveWindowedValues(items, selectedIndex, heights.selectedRows),
     [heights.selectedRows, items, selectedIndex],
   )
 
@@ -166,10 +118,12 @@ export const ListPopup = ({
 
   const suggestedVisible = useMemo(() => {
     if (!hasSuggestions || suggestionRows <= 0) {
-      return { start: 0, values: [], showBefore: false, showAfter: false }
+      return resolveWindowedValues([], 0, suggestionRows)
     }
 
-    return resolveSuggestedVisible(suggestedItems ?? [], safeSuggestedSelection, suggestionRows)
+    return resolveWindowedValues(suggestedItems ?? [], safeSuggestedSelection, suggestionRows, {
+      lead: 1,
+    })
   }, [hasSuggestions, safeSuggestedSelection, suggestedItems, suggestionRows])
 
   const upperBound = Math.max(items.length - DEFAULT_MAX_VISIBLE_LIST_ITEMS, 0)

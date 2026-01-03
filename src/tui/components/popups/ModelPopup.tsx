@@ -8,7 +8,7 @@ import { MODEL_PROVIDER_LABELS } from '../../../model-providers'
 import { useTheme } from '../../theme/theme-provider'
 import { inkBackgroundColorProps, inkColorProps } from '../../theme/theme-types'
 import type { InkColorValue } from '../../theme/theme-types'
-import { resolveWindowedList } from './list-window'
+import { ensureLeadingHeaderVisible, resolveWindowedValues } from './list-windowing'
 import type { ModelOption, ProviderStatusMap } from '../../types'
 
 const clamp = (value: number, min: number, max: number): number =>
@@ -107,27 +107,6 @@ const buildRows = (options: readonly ModelOption[], recentCount: number): ModelR
   return rows
 }
 
-const ensureHeaderVisible = (
-  rows: readonly ModelRow[],
-  start: number,
-  end: number,
-  maxRows: number,
-): { start: number; end: number } => {
-  if (start <= 0 || end - start >= maxRows) {
-    return { start, end }
-  }
-
-  const first = rows[start]
-  const previous = rows[start - 1]
-  if (first?.type === 'option' && previous?.type === 'header') {
-    const nextStart = start - 1
-    const nextEnd = Math.min(rows.length, nextStart + maxRows)
-    return { start: nextStart, end: nextEnd }
-  }
-
-  return { start, end }
-}
-
 export const ModelPopup = ({
   title,
   query,
@@ -182,18 +161,19 @@ export const ModelPopup = ({
   }, [rows, selectedIndex])
 
   const window = useMemo(
-    () =>
-      resolveWindowedList({
-        itemCount: rows.length,
-        selectedIndex: selectedRowIndex,
-        maxVisibleRows: listRows,
-        lead: 2,
-      }),
-    [listRows, rows.length, selectedRowIndex],
+    () => resolveWindowedValues(rows, selectedRowIndex, listRows),
+    [listRows, rows, selectedRowIndex],
   )
 
   const slice = useMemo(
-    () => ensureHeaderVisible(rows, window.start, window.end, listRows),
+    () =>
+      ensureLeadingHeaderVisible(
+        rows,
+        { start: window.start, end: window.end },
+        listRows,
+        'header',
+        'option',
+      ),
     [listRows, rows, window.end, window.start],
   )
 
