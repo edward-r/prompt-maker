@@ -21,6 +21,23 @@ describe('list-windowing helpers', () => {
   })
 
   describe('resolveWindowedValues', () => {
+    it('matches resolveWindowedList boundaries', async () => {
+      const { resolveWindowedList } = await import('../../tui/components/popups/list-window')
+
+      const items = ['a', 'b', 'c', 'd', 'e', 'f']
+      const result = resolveWindowedValues(items, 3, 4)
+      const window = resolveWindowedList({
+        itemCount: items.length,
+        selectedIndex: 3,
+        maxVisibleRows: 4,
+      })
+
+      expect(result.start).toBe(window.start)
+      expect(result.end).toBe(window.end)
+      expect(result.showBefore).toBe(window.showBefore)
+      expect(result.showAfter).toBe(window.showAfter)
+      expect(result.values).toEqual(items.slice(window.start, window.end))
+    })
     it('handles empty items', () => {
       expect(resolveWindowedValues([], 0, 3)).toEqual({
         start: 0,
