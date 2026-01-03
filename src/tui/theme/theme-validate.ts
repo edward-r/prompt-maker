@@ -1,8 +1,8 @@
 import {
   REQUIRED_THEME_SLOTS,
+  type RequiredThemeSlot,
   type ThemeColorValue,
   type ThemeJson,
-  type ThemeSlot,
 } from './theme-types'
 
 type ThemeValidationResult = { ok: true; theme: ThemeJson } | { ok: false; message: string }
@@ -53,7 +53,7 @@ export const validateThemeJson = (value: unknown): ThemeValidationResult => {
     }
   }
 
-  const missingSlots: ThemeSlot[] = []
+  const missingSlots: RequiredThemeSlot[] = []
   for (const slot of REQUIRED_THEME_SLOTS) {
     const slotValue = theme[slot]
     if (slotValue === undefined) {

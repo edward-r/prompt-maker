@@ -14,7 +14,11 @@ export const useCommandHistory = ({
   visibleRows,
 }: UseCommandHistoryOptions): {
   history: HistoryEntry[]
-  pushHistory: (content: string, kind?: HistoryEntry['kind']) => void
+  pushHistory: (
+    content: string,
+    kind?: HistoryEntry['kind'],
+    format?: HistoryEntry['format'],
+  ) => void
   resetHistory: () => void
   clearHistory: () => void
   scroll: {
@@ -30,10 +34,21 @@ export const useCommandHistory = ({
   const [scrollOffset, setScrollOffset] = useState(0)
   const [isPinnedToBottom, setIsPinnedToBottom] = useState(true)
 
-  const pushHistory = useCallback((content: string, kind: HistoryEntry['kind'] = 'system') => {
-    setHistory((prev) => [...prev, { id: `entry-${historyIdRef.current++}`, content, kind }])
-    setIsPinnedToBottom(true)
-  }, [])
+  const pushHistory = useCallback(
+    (content: string, kind: HistoryEntry['kind'] = 'system', format?: HistoryEntry['format']) => {
+      setHistory((prev) => [
+        ...prev,
+        {
+          id: `entry-${historyIdRef.current++}`,
+          content,
+          kind,
+          ...(format ? { format } : {}),
+        },
+      ])
+      setIsPinnedToBottom(true)
+    },
+    [],
+  )
 
   useEffect(() => {
     setScrollOffset((prev) => {

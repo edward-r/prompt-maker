@@ -5,6 +5,7 @@ import type { HistoryEntry } from '../types'
 export type HistoryMessage = {
   content: string
   kind: HistoryEntry['kind']
+  format?: HistoryEntry['format']
 }
 
 export const formatCompactTokens = (count: number): string => {
@@ -78,7 +79,7 @@ export const buildIterationCompleteHistoryMessages = (options: {
   ]
 
   wrapTextForHistory(options.prompt, options.wrapWidth).forEach((line) => {
-    messages.push({ content: line, kind: 'system' })
+    messages.push({ content: line, kind: 'system', format: 'markdown' })
   })
 
   return messages

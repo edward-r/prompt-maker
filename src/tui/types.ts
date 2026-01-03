@@ -100,4 +100,5 @@ export type HistoryEntry = {
   id: string
   content: string
   kind: 'user' | 'system' | 'progress'
+  format?: 'markdown'
 }

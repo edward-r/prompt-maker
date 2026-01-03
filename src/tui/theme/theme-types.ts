@@ -37,7 +37,7 @@ export const inkBorderColorProps = (value: InkColorValue): { borderColor?: strin
   return resolved === undefined ? {} : { borderColor: resolved }
 }
 
-export type ThemeSlot =
+export type RequiredThemeSlot =
   | 'background'
   | 'text'
   | 'mutedText'
@@ -55,7 +55,25 @@ export type ThemeSlot =
   | 'chipText'
   | 'chipMutedText'
 
-export const REQUIRED_THEME_SLOTS: readonly ThemeSlot[] = [
+export type MarkdownThemeSlot =
+  | 'markdownText'
+  | 'markdownHeading'
+  | 'markdownLink'
+  | 'markdownLinkText'
+  | 'markdownCode'
+  | 'markdownBlockQuote'
+  | 'markdownEmph'
+  | 'markdownStrong'
+  | 'markdownHorizontalRule'
+  | 'markdownListItem'
+  | 'markdownListEnumeration'
+  | 'markdownImage'
+  | 'markdownImageText'
+  | 'markdownCodeBlock'
+
+export type ThemeSlot = RequiredThemeSlot | MarkdownThemeSlot
+
+export const REQUIRED_THEME_SLOTS: readonly RequiredThemeSlot[] = [
   'background',
   'text',
   'mutedText',
@@ -74,7 +92,25 @@ export const REQUIRED_THEME_SLOTS: readonly ThemeSlot[] = [
   'chipMutedText',
 ]
 
-export type ResolvedTheme = Record<ThemeSlot, InkColorValue>
+export const MARKDOWN_THEME_SLOTS: readonly MarkdownThemeSlot[] = [
+  'markdownText',
+  'markdownHeading',
+  'markdownLink',
+  'markdownLinkText',
+  'markdownCode',
+  'markdownBlockQuote',
+  'markdownEmph',
+  'markdownStrong',
+  'markdownHorizontalRule',
+  'markdownListItem',
+  'markdownListEnumeration',
+  'markdownImage',
+  'markdownImageText',
+  'markdownCodeBlock',
+]
+
+export type ResolvedTheme = Record<RequiredThemeSlot, InkColorValue> &
+  Partial<Record<MarkdownThemeSlot, InkColorValue>>
 
 // Concrete appearance mode after resolving `system`.
 export type ThemeAppearanceMode = Exclude<ThemeMode, 'system'>

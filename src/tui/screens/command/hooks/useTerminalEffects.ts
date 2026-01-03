@@ -3,7 +3,11 @@ import { useEffect } from 'react'
 
 import type { HistoryEntry } from '../../../types'
 
-type PushHistory = (content: string, kind?: HistoryEntry['kind']) => void
+type PushHistory = (
+  content: string,
+  kind?: HistoryEntry['kind'],
+  format?: HistoryEntry['format'],
+) => void
 
 type SetTerminalSize = (rows: number, columns: number) => void
 

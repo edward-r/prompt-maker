@@ -1,10 +1,24 @@
 import type { HistoryEntry } from '../types'
 
-export type HistoryPush = (content: string, kind?: HistoryEntry['kind']) => void
+export type HistoryPush = (
+  content: string,
+  kind?: HistoryEntry['kind'],
+  format?: HistoryEntry['format'],
+) => void
 
 export type BufferedHistoryWriter = {
-  pushBuffered: (content: string, kind?: HistoryEntry['kind']) => void
-  pushManyBuffered: (entries: Array<{ content: string; kind?: HistoryEntry['kind'] }>) => void
+  pushBuffered: (
+    content: string,
+    kind?: HistoryEntry['kind'],
+    format?: HistoryEntry['format'],
+  ) => void
+  pushManyBuffered: (
+    entries: Array<{
+      content: string
+      kind?: HistoryEntry['kind']
+      format?: HistoryEntry['format']
+    }>,
+  ) => void
   flush: () => void
 }
 
@@ -13,6 +27,7 @@ type FlushScheduler = (flush: () => void) => void
 type BufferedHistoryEntry = {
   content: string
   kind: HistoryEntry['kind'] | undefined
+  format: HistoryEntry['format'] | undefined
 }
 
 const scheduleMicrotaskFlush: FlushScheduler = (flush) => {
@@ -35,7 +50,7 @@ export const createBufferedHistoryWriter = (options: {
     queue = []
 
     entries.forEach((entry) => {
-      options.push(entry.content, entry.kind)
+      options.push(entry.content, entry.kind, entry.format)
     })
   }
 
@@ -48,14 +63,24 @@ export const createBufferedHistoryWriter = (options: {
     scheduleFlush(flush)
   }
 
-  const pushBuffered = (content: string, kind?: HistoryEntry['kind']) => {
-    queue.push({ content, kind })
+  const pushBuffered = (
+    content: string,
+    kind?: HistoryEntry['kind'],
+    format?: HistoryEntry['format'],
+  ) => {
+    queue.push({ content, kind, format })
     schedule()
   }
 
-  const pushManyBuffered = (entries: Array<{ content: string; kind?: HistoryEntry['kind'] }>) => {
+  const pushManyBuffered = (
+    entries: Array<{
+      content: string
+      kind?: HistoryEntry['kind']
+      format?: HistoryEntry['format']
+    }>,
+  ) => {
     entries.forEach((entry) => {
-      queue.push({ content: entry.content, kind: entry.kind })
+      queue.push({ content: entry.content, kind: entry.kind, format: entry.format })
     })
 
     if (entries.length > 0) {

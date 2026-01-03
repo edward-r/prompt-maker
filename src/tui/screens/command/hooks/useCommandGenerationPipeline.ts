@@ -7,7 +7,11 @@ import type { HistoryEntry, ProviderStatus } from '../../../types'
 import type { TokenUsageBreakdown, TokenUsageRun } from '../../../token-usage-store'
 
 export type UseCommandGenerationPipelineOptions = {
-  pushHistory: (content: string, kind?: HistoryEntry['kind']) => void
+  pushHistory: (
+    content: string,
+    kind?: HistoryEntry['kind'],
+    format?: HistoryEntry['format'],
+  ) => void
   notify?: (message: string, options?: NotifyOptions) => void
 
   files: string[]

@@ -5,7 +5,11 @@ import type { MutableRefObject } from 'react'
 import type { NotifyOptions } from '../../../notifier'
 import type { HistoryEntry, ModelOption, ProviderStatusMap } from '../../../types'
 
-export type PushHistory = (content: string, kind?: HistoryEntry['kind']) => void
+export type PushHistory = (
+  content: string,
+  kind?: HistoryEntry['kind'],
+  format?: HistoryEntry['format'],
+) => void
 
 export type CommandContextOptions = {
   interactiveTransportPath?: string | undefined

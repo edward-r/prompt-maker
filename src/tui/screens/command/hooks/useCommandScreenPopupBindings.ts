@@ -79,7 +79,11 @@ export type UseCommandScreenPopupBindingsOptions = {
   }
 
   history: {
-    pushHistory: (content: string, kind?: HistoryEntry['kind']) => void
+    pushHistory: (
+      content: string,
+      kind?: HistoryEntry['kind'],
+      format?: HistoryEntry['format'],
+    ) => void
     addCommandHistoryEntry: (value: string) => void
     commandHistoryValues: string[]
   }
@@ -202,8 +206,8 @@ export const useCommandScreenPopupBindings = (
   })
 
   const pushHistory = useStableCallback(
-    (content: string, kind: HistoryEntry['kind'] = 'system') => {
-      options.history.pushHistory(content, kind)
+    (content: string, kind: HistoryEntry['kind'] = 'system', format?: HistoryEntry['format']) => {
+      options.history.pushHistory(content, kind, format)
     },
   )
 

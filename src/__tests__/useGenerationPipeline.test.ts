@@ -171,7 +171,7 @@ describe('useGenerationPipeline', () => {
     })
 
     expect(generateCommandModule.runGeneratePipeline).toHaveBeenCalled()
-    expect(pushHistory).toHaveBeenCalledWith('Prompt', 'system')
+    expect(pushHistory).toHaveBeenCalledWith('Prompt', 'system', 'markdown')
     expect(onLastGeneratedPromptUpdate).toHaveBeenCalledWith('Prompt')
   })
 
@@ -352,10 +352,15 @@ describe('useGenerationPipeline', () => {
 
     expect(result.current.awaitingInteractiveMode).toBe('transport')
     expect(result.current.statusMessage).toBe('Waiting for interactive transport input…')
-    expect(pushHistory).toHaveBeenCalledWith('Waiting for interactive transport input…', 'progress')
+    expect(pushHistory).toHaveBeenCalledWith(
+      'Waiting for interactive transport input…',
+      'progress',
+      undefined,
+    )
     expect(pushHistory).toHaveBeenCalledWith(
       'Tip: connect a client and send refine/finish to continue.',
       'system',
+      undefined,
     )
 
     await act(async () => {

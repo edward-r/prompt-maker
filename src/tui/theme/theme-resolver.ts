@@ -1,6 +1,8 @@
 import {
+  MARKDOWN_THEME_SLOTS,
   REQUIRED_THEME_SLOTS,
   type InkColorValue,
+  type RequiredThemeSlot,
   type ResolvedTheme,
   type ThemeAppearanceMode,
   type ThemeColorValue,
@@ -188,7 +190,7 @@ export const resolveColor = (value: ThemeColorValue, ctx: ResolveColorContext): 
 }
 
 const resolveRequiredSlot = (
-  slot: ThemeSlot,
+  slot: RequiredThemeSlot,
   ctx: ResolveColorContext,
   state: ResolutionState,
 ): InkColorValue => {
@@ -217,6 +219,13 @@ export const resolveTheme = (themeJson: ThemeJson, mode: ThemeAppearanceMode): R
   const resolved: Partial<ResolvedTheme> = {}
   for (const slot of REQUIRED_THEME_SLOTS) {
     resolved[slot] = resolveRequiredSlot(slot, ctx, state)
+  }
+
+  for (const slot of MARKDOWN_THEME_SLOTS) {
+    const raw = ctx.theme[slot]
+    if (raw !== undefined) {
+      resolved[slot] = resolveNamed(`theme.${slot}`, raw, ctx, state)
+    }
   }
 
   return resolved as ResolvedTheme

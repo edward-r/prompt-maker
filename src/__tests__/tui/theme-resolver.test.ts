@@ -1,17 +1,20 @@
 import { ansiToHex, resolveColor, resolveTheme } from '../../tui/theme/theme-resolver'
 import type { ResolveColorContext } from '../../tui/theme/theme-resolver'
 import type {
+  MarkdownThemeSlot,
+  RequiredThemeSlot,
   ThemeAppearanceMode,
   ThemeColorValue,
   ThemeJson,
-  ThemeSlot,
 } from '../../tui/theme/theme-types'
 
+type ThemeKey = RequiredThemeSlot | MarkdownThemeSlot
+
 const makeTheme = (
-  overrides: Partial<Record<ThemeSlot, ThemeColorValue>> = {},
+  overrides: Partial<Record<ThemeKey, ThemeColorValue>> = {},
   defs: Record<string, ThemeColorValue> = {},
 ): ThemeJson => {
-  const base: Record<ThemeSlot, ThemeColorValue> = {
+  const base: Record<RequiredThemeSlot, ThemeColorValue> = {
     background: '#000000',
     text: '#ffffff',
     mutedText: '#888888',
@@ -99,6 +102,30 @@ describe('theme resolver', () => {
     const ctx: ResolveColorContext = { mode: 'dark', defs: {}, theme: {} }
     expect(resolveColor('#11223300', ctx)).toBeUndefined()
     expect(resolveColor('#112233ff', ctx)).toBe('#112233')
+  })
+
+  test('markdown slots resolve when present', () => {
+    const themeJson = makeTheme(
+      {
+        markdownHeading: 'accentDef',
+        markdownCode: 196,
+        markdownLink: 'transparent',
+        markdownLinkText: { dark: 'text', light: 'background' },
+        markdownCodeBlock: { dark: '#11223300', light: '#112233ff' },
+      },
+      { accentDef: '#123456' },
+    )
+
+    const resolvedDark = resolveTheme(themeJson, 'dark')
+    expect(resolvedDark.markdownHeading).toBe('#123456')
+    expect(resolvedDark.markdownCode).toBe('#ff0000')
+    expect(resolvedDark.markdownLink).toBeUndefined()
+    expect(resolvedDark.markdownLinkText).toBe('#ffffff')
+    expect(resolvedDark.markdownCodeBlock).toBeUndefined()
+
+    const resolvedLight = resolveTheme(themeJson, 'light')
+    expect(resolvedLight.markdownLinkText).toBe('#000000')
+    expect(resolvedLight.markdownCodeBlock).toBe('#112233')
   })
 
   test('mode type excludes system for resolution', () => {

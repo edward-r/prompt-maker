@@ -9,6 +9,7 @@ import {
   extractValidationSection,
   formatCompactTokens,
   getHistoryWrapWidth,
+  wrapTextForHistory,
 } from './generation-history-formatters'
 import {
   prepareSeriesOutputDir,
@@ -47,7 +48,11 @@ import type { NotifyOptions } from '../notifier'
 import type { HistoryEntry, ProviderStatus } from '../types'
 
 export type UseGenerationPipelineOptions = {
-  pushHistory: (content: string, kind?: HistoryEntry['kind']) => void
+  pushHistory: (
+    content: string,
+    kind?: HistoryEntry['kind'],
+    format?: HistoryEntry['format'],
+  ) => void
   notify?: (message: string, options?: NotifyOptions) => void
   files: string[]
   urls: string[]
@@ -202,8 +207,8 @@ export const useGenerationPipeline = ({
   const bufferedHistory = useMemo(
     () =>
       createBufferedHistoryWriter({
-        push: (content, kind) => {
-          pushHistoryRef.current(content, kind)
+        push: (content, kind, format) => {
+          pushHistoryRef.current(content, kind, format)
         },
       }),
     [pushHistoryRef],
@@ -548,9 +553,12 @@ export const useGenerationPipeline = ({
         const result: GeneratePipelineResult = await runGeneratePipeline(args, options)
         onReasoningUpdate?.(result.reasoning ?? null)
         setStatusMessage('Finalizing prompt…')
+        const wrapWidth = getHistoryWrapWidth(terminalColumnsRef.current)
         const iterationLabel = result.iterations ? ` · ${result.iterations} iterations` : ''
         pushHistoryRef.current(`Final prompt (${result.model}${iterationLabel}):`, 'system')
-        pushHistoryRef.current(result.finalPrompt, 'system')
+        wrapTextForHistory(result.finalPrompt, wrapWidth).forEach((line) => {
+          pushHistoryRef.current(line, 'system', 'markdown')
+        })
 
         lastGeneratedPromptUpdateRef.current?.(result.finalPrompt)
         if (result.telemetry) {
