@@ -18,28 +18,36 @@ import type {
   UseCommandScreenPopupAndViewResult,
 } from './useCommandScreenPopupAndView.types'
 
-type CommandScreenControllerOptions = {
-  interactiveTransportPath?: string | undefined
-  onPopupVisibilityChange?: (isOpen: boolean) => void
-  commandMenuSignal?: number
-  helpOpen: boolean
-  reservedRows: number
+export type UseCommandScreenControllerOptions = {
+  transport?: {
+    interactiveTransportPath?: string | undefined
+  }
+  popup: {
+    onPopupVisibilityChange?: (isOpen: boolean) => void
+    commandMenuSignal?: number
+    helpOpen: boolean
+    reservedRows: number
+  }
   notify: (message: string, options?: NotifyOptions) => void
 }
 
-export type CommandScreenControllerResult = UseCommandScreenPopupAndViewResult & {
-  suppressNextInput: () => void
+export type UseCommandScreenControllerResult = {
+  view: UseCommandScreenPopupAndViewResult
+  actions: {
+    suppressNextInput: () => void
+  }
 }
 
 export const useCommandScreenController = ({
-  interactiveTransportPath,
-  onPopupVisibilityChange,
-  commandMenuSignal,
-  helpOpen,
-  reservedRows,
+  transport,
+  popup,
   notify,
-}: CommandScreenControllerOptions): CommandScreenControllerResult => {
+}: UseCommandScreenControllerOptions): UseCommandScreenControllerResult => {
   const { stdout } = useStdout()
+
+  const interactiveTransportPath = transport?.interactiveTransportPath
+
+  const { onPopupVisibilityChange, commandMenuSignal, helpOpen, reservedRows } = popup
 
   const {
     files,
@@ -303,8 +311,18 @@ export const useCommandScreenController = ({
     generation: generationOptions,
   })
 
-  return {
-    ...view,
-    suppressNextInput: inputState.suppressNextInput,
-  }
+  const actions = useMemo(
+    () => ({
+      suppressNextInput: inputState.suppressNextInput,
+    }),
+    [inputState.suppressNextInput],
+  )
+
+  return useMemo(
+    () => ({
+      view,
+      actions,
+    }),
+    [view, actions],
+  )
 }

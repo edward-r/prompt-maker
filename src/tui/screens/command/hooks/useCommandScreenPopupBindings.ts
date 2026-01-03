@@ -1,4 +1,7 @@
-import type { HistoryEntry, ModelOption, PopupState } from '../../../types'
+import { useMemo } from 'react'
+
+import type { CommandDescriptor, HistoryEntry, ModelOption, PopupState } from '../../../types'
+import { useStableCallback } from '../../../hooks/useStableCallback'
 
 import { useMiscPopupDraftHandlers } from './useMiscPopupDraftHandlers'
 import { useModelPopupData } from './useModelPopupData'
@@ -24,234 +27,279 @@ import {
   type UseCommandScreenSubmitBindingsOptions,
 } from './useCommandScreenSubmitBindings'
 
+type SetPopupState = import('react').Dispatch<import('react').SetStateAction<PopupState>>
+
 export type UseCommandScreenPopupBindingsOptions = {
-  inputValue: string
-  setInputValue: (value: string | ((prev: string) => string)) => void
-  setPasteActive: (active: boolean) => void
+  input: {
+    value: string
+    setValue: (value: string | ((prev: string) => string)) => void
+    setPasteActive: (active: boolean) => void
 
-  popupState: PopupState
-  setPopupState: import('react').Dispatch<import('react').SetStateAction<PopupState>>
-  isPopupOpen: boolean
-  helpOpen: boolean
+    consumeSuppressedTextInputChange: () => boolean
+    suppressNextInput: () => void
+    updateLastTypedIntent: (next: string) => void
 
-  consumeSuppressedTextInputChange: () => boolean
-  suppressNextInput: () => void
-  updateLastTypedIntent: (next: string) => void
+    intentFilePath: string
+    lastUserIntentRef: import('react').MutableRefObject<string | null>
+  }
 
-  closePopup: () => void
-  handleCommandSelection: (
-    commandId: import('../../../types').CommandDescriptor['id'],
-    argsRaw?: string,
-  ) => void
-  handleModelPopupSubmit: (option: ModelOption | null | undefined) => void
-  applyToggleSelection: (field: 'copy' | 'chatgpt' | 'json', value: boolean) => void
-  handleIntentFileSubmit: (value: string) => void
-  handleSeriesIntentSubmit: (value: string) => void
+  popup: {
+    state: PopupState
+    setState: SetPopupState
+    isOpen: boolean
+    helpOpen: boolean
+    close: () => void
 
-  isCommandMenuActive: boolean
-  selectedCommandId: import('../../../types').CommandDescriptor['id'] | null
-  commandMenuArgsRaw: string
-  isCommandMode: boolean
+    actions: {
+      handleCommandSelection: (commandId: CommandDescriptor['id'], argsRaw?: string) => void
+      handleModelPopupSubmit: (option: ModelOption | null | undefined) => void
+      applyToggleSelection: (field: 'copy' | 'chatgpt' | 'json', value: boolean) => void
+      handleIntentFileSubmit: (value: string) => void
+      handleSeriesIntentSubmit: (value: string) => void
+    }
+  }
 
-  isGenerating: boolean
-  isAwaitingRefinement: boolean
-  submitRefinement: (value: string) => void
-  runGeneration: (payload: { intent?: string; intentFile?: string }) => Promise<void>
+  menu: {
+    isActive: boolean
+    selectedCommandId: CommandDescriptor['id'] | null
+    argsRaw: string
+    isCommandMode: boolean
 
-  handleNewCommand: (argsRaw: string) => void
-  handleReuseCommand: () => void
+    actions: {
+      handleNewCommand: (argsRaw: string) => void
+      handleReuseCommand: () => void
+    }
+  }
 
-  intentFilePath: string
-  lastUserIntentRef: import('react').MutableRefObject<string | null>
+  generation: {
+    isGenerating: boolean
+    isAwaitingRefinement: boolean
+    submitRefinement: (value: string) => void
+    runGeneration: (payload: { intent?: string; intentFile?: string }) => Promise<void>
+  }
 
-  pushHistory: (content: string, kind?: HistoryEntry['kind']) => void
-  addCommandHistoryEntry: (value: string) => void
-  commandHistoryValues: string[]
+  history: {
+    pushHistory: (content: string, kind?: HistoryEntry['kind']) => void
+    addCommandHistoryEntry: (value: string) => void
+    commandHistoryValues: string[]
+  }
 
-  droppedFilePath: string | null
-  files: string[]
-  urls: string[]
-  images: string[]
-  videos: string[]
-  smartContextEnabled: boolean
-  smartContextRoot: string | null
-  addFile: (value: string) => void
-  removeFile: (index: number) => void
-  addUrl: (value: string) => void
-  removeUrl: (index: number) => void
-  updateUrl: (index: number, value: string) => void
-  addImage: (value: string) => void
-  removeImage: (index: number) => void
-  addVideo: (value: string) => void
-  removeVideo: (index: number) => void
-  toggleSmartContext: () => void
-  setSmartRoot: (value: string) => void
-  notify: (message: string) => void
+  context: {
+    droppedFilePath: string | null
 
-  modelOptions: ModelOption[]
+    files: string[]
+    urls: string[]
+    images: string[]
+    videos: string[]
 
-  lastReasoning: string | null
-  terminalColumns: number
-  reasoningPopupHeight: number
+    smartContextEnabled: boolean
+    smartContextRoot: string | null
+
+    addFile: (value: string) => void
+    removeFile: (index: number) => void
+    addUrl: (value: string) => void
+    removeUrl: (index: number) => void
+    updateUrl: (index: number, value: string) => void
+    addImage: (value: string) => void
+    removeImage: (index: number) => void
+    addVideo: (value: string) => void
+    removeVideo: (index: number) => void
+    toggleSmartContext: () => void
+    setSmartRoot: (value: string) => void
+
+    notify: (message: string) => void
+
+    modelOptions: ModelOption[]
+
+    lastReasoning: string | null
+    terminalColumns: number
+    reasoningPopupHeight: number
+  }
 }
 
 export type UseCommandScreenPopupBindingsResult = {
-  tokenLabel: (token: string) => string | null
-  handleInputChange: (next: string) => void
-  handleSubmit: (value: string) => void
-
-  modelPopupOptions: ModelOption[]
-  modelPopupRecentCount: number
-  modelPopupSelection: number
-
-  historyPopupItems: string[]
-
-  intentPopupSuggestions: string[]
-  intentPopupSuggestionSelectionIndex: number
-  intentPopupSuggestionsFocused: boolean
-  onIntentPopupDraftChange: (next: string) => void
-
-  filePopupSuggestions: string[]
-  filePopupSuggestionSelectionIndex: number
-  filePopupSuggestionsFocused: boolean
-  onFilePopupDraftChange: (next: string) => void
-  onAddFile: (value: string) => void
-  onRemoveFile: (index: number) => void
-
-  onUrlPopupDraftChange: (next: string) => void
-  onAddUrl: (value: string) => void
-  onRemoveUrl: (index: number) => void
-
-  imagePopupSuggestions: string[]
-  imagePopupSuggestionSelectionIndex: number
-  imagePopupSuggestionsFocused: boolean
-  onImagePopupDraftChange: (next: string) => void
-  onAddImage: (value: string) => void
-  onRemoveImage: (index: number) => void
-
-  videoPopupSuggestions: string[]
-  videoPopupSuggestionSelectionIndex: number
-  videoPopupSuggestionsFocused: boolean
-  onVideoPopupDraftChange: (next: string) => void
-  onAddVideo: (value: string) => void
-  onRemoveVideo: (index: number) => void
-
-  smartPopupSuggestions: string[]
-  smartPopupSuggestionSelectionIndex: number
-  smartPopupSuggestionsFocused: boolean
-  onSmartPopupDraftChange: (next: string) => void
-  onSmartRootSubmit: (value: string) => void
-
-  onHistoryPopupDraftChange: (next: string) => void
-  onHistoryPopupSubmit: (value: string) => void
-
-  onModelPopupQueryChange: (next: string) => void
-  onSeriesDraftChange: (next: string) => void
-  onInstructionsDraftChange: (next: string) => void
-  onTestDraftChange: (next: string) => void
-
-  onSeriesSubmit: (value: string) => void
-
-  reasoningPopupLines: HistoryEntry[]
-  reasoningPopupVisibleRows: number
+  input: {
+    tokenLabel: (token: string) => string | null
+    onChange: (next: string) => void
+  }
+  submit: {
+    onSubmit: (value: string) => void
+    onSeriesSubmit: (value: string) => void
+  }
+  popup: {
+    model: {
+      options: ModelOption[]
+      recentCount: number
+      selection: number
+      onQueryChange: (next: string) => void
+    }
+    history: {
+      items: string[]
+      onDraftChange: (next: string) => void
+      onSubmit: (value: string) => void
+    }
+    intent: {
+      suggestions: string[]
+      suggestionSelectionIndex: number
+      suggestionsFocused: boolean
+      onDraftChange: (next: string) => void
+    }
+    context: {
+      file: {
+        suggestions: string[]
+        suggestionSelectionIndex: number
+        suggestionsFocused: boolean
+        onDraftChange: (next: string) => void
+        onAdd: (value: string) => void
+        onRemove: (index: number) => void
+      }
+      url: {
+        onDraftChange: (next: string) => void
+        onAdd: (value: string) => void
+        onRemove: (index: number) => void
+      }
+      image: {
+        suggestions: string[]
+        suggestionSelectionIndex: number
+        suggestionsFocused: boolean
+        onDraftChange: (next: string) => void
+        onAdd: (value: string) => void
+        onRemove: (index: number) => void
+      }
+      video: {
+        suggestions: string[]
+        suggestionSelectionIndex: number
+        suggestionsFocused: boolean
+        onDraftChange: (next: string) => void
+        onAdd: (value: string) => void
+        onRemove: (index: number) => void
+      }
+      smart: {
+        suggestions: string[]
+        suggestionSelectionIndex: number
+        suggestionsFocused: boolean
+        onDraftChange: (next: string) => void
+        onRootSubmit: (value: string) => void
+      }
+    }
+    misc: {
+      onSeriesDraftChange: (next: string) => void
+      onInstructionsDraftChange: (next: string) => void
+      onTestDraftChange: (next: string) => void
+    }
+    reasoning: {
+      lines: HistoryEntry[]
+      visibleRows: number
+    }
+  }
 }
 
 export const useCommandScreenPopupBindings = (
   options: UseCommandScreenPopupBindingsOptions,
 ): UseCommandScreenPopupBindingsResult => {
+  const notify = useStableCallback((message: string) => {
+    options.context.notify(message)
+  })
+
+  const pushHistory = useStableCallback(
+    (content: string, kind: HistoryEntry['kind'] = 'system') => {
+      options.history.pushHistory(content, kind)
+    },
+  )
+
   const paste = useCommandScreenPasteBindings({
-    inputValue: options.inputValue,
-    popupState: options.popupState,
-    helpOpen: options.helpOpen,
-    setInputValue: options.setInputValue,
-    setPasteActive: options.setPasteActive,
-    consumeSuppressedTextInputChange: options.consumeSuppressedTextInputChange,
-    suppressNextInput: options.suppressNextInput,
-    updateLastTypedIntent: options.updateLastTypedIntent,
+    inputValue: options.input.value,
+    popupState: options.popup.state,
+    helpOpen: options.popup.helpOpen,
+    setInputValue: options.input.setValue,
+    setPasteActive: options.input.setPasteActive,
+    consumeSuppressedTextInputChange: options.input.consumeSuppressedTextInputChange,
+    suppressNextInput: options.input.suppressNextInput,
+    updateLastTypedIntent: options.input.updateLastTypedIntent,
   } satisfies UseCommandScreenPasteBindingsOptions)
 
   const context = useCommandScreenContextPopupBindings({
-    inputValue: options.inputValue,
-    popupState: options.popupState,
-    helpOpen: options.helpOpen,
-    isPopupOpen: options.isPopupOpen,
-    isCommandMode: options.isCommandMode,
-    isCommandMenuActive: options.isCommandMenuActive,
-    isGenerating: options.isGenerating,
-    droppedFilePath: options.droppedFilePath,
-    files: options.files,
-    urls: options.urls,
-    images: options.images,
-    videos: options.videos,
-    smartContextEnabled: options.smartContextEnabled,
-    smartContextRoot: options.smartContextRoot,
-    addFile: options.addFile,
-    removeFile: options.removeFile,
-    addUrl: options.addUrl,
-    removeUrl: options.removeUrl,
-    updateUrl: options.updateUrl,
-    addImage: options.addImage,
-    removeImage: options.removeImage,
-    addVideo: options.addVideo,
-    removeVideo: options.removeVideo,
-    toggleSmartContext: options.toggleSmartContext,
-    setSmartRoot: options.setSmartRoot,
-    setInputValue: options.setInputValue,
-    setPopupState: options.setPopupState,
-    suppressNextInput: options.suppressNextInput,
-    notify: options.notify,
-    pushHistory: (content, kind = 'system') => options.pushHistory(content, kind),
-    addCommandHistoryEntry: options.addCommandHistoryEntry,
-    handleCommandSelection: options.handleCommandSelection,
-    consumeSuppressedTextInputChange: options.consumeSuppressedTextInputChange,
+    inputValue: options.input.value,
+    popupState: options.popup.state,
+    helpOpen: options.popup.helpOpen,
+    isPopupOpen: options.popup.isOpen,
+    isCommandMode: options.menu.isCommandMode,
+    isCommandMenuActive: options.menu.isActive,
+    isGenerating: options.generation.isGenerating,
+    droppedFilePath: options.context.droppedFilePath,
+    files: options.context.files,
+    urls: options.context.urls,
+    images: options.context.images,
+    videos: options.context.videos,
+    smartContextEnabled: options.context.smartContextEnabled,
+    smartContextRoot: options.context.smartContextRoot,
+    addFile: options.context.addFile,
+    removeFile: options.context.removeFile,
+    addUrl: options.context.addUrl,
+    removeUrl: options.context.removeUrl,
+    updateUrl: options.context.updateUrl,
+    addImage: options.context.addImage,
+    removeImage: options.context.removeImage,
+    addVideo: options.context.addVideo,
+    removeVideo: options.context.removeVideo,
+    toggleSmartContext: options.context.toggleSmartContext,
+    setSmartRoot: options.context.setSmartRoot,
+    setInputValue: options.input.setValue,
+    setPopupState: options.popup.setState,
+    suppressNextInput: options.input.suppressNextInput,
+    notify,
+    pushHistory,
+    addCommandHistoryEntry: options.history.addCommandHistoryEntry,
+    handleCommandSelection: options.popup.actions.handleCommandSelection,
+    consumeSuppressedTextInputChange: options.input.consumeSuppressedTextInputChange,
   } satisfies UseCommandScreenContextPopupBindingsOptions)
 
   const historyAndIntent = useCommandScreenHistoryIntentPopupBindings({
-    popupState: options.popupState,
-    setPopupState: options.setPopupState,
-    closePopup: options.closePopup,
-    setInputValue: options.setInputValue,
-    consumeSuppressedTextInputChange: options.consumeSuppressedTextInputChange,
-    suppressNextInput: options.suppressNextInput,
-    commandHistoryValues: options.commandHistoryValues,
+    popupState: options.popup.state,
+    setPopupState: options.popup.setState,
+    closePopup: options.popup.close,
+    setInputValue: options.input.setValue,
+    consumeSuppressedTextInputChange: options.input.consumeSuppressedTextInputChange,
+    suppressNextInput: options.input.suppressNextInput,
+    commandHistoryValues: options.history.commandHistoryValues,
   } satisfies UseCommandScreenHistoryIntentPopupBindingsOptions)
 
   const { modelPopupOptions, modelPopupRecentCount, modelPopupSelection } = useModelPopupData({
-    popupState: options.popupState,
-    modelOptions: options.modelOptions,
+    popupState: options.popup.state,
+    modelOptions: options.context.modelOptions,
   })
 
   const { reasoningPopupVisibleRows, reasoningPopupLines } = useReasoningPopup({
-    lastReasoning: options.lastReasoning,
-    terminalColumns: options.terminalColumns,
-    popupHeight: options.reasoningPopupHeight,
+    lastReasoning: options.context.lastReasoning,
+    terminalColumns: options.context.terminalColumns,
+    popupHeight: options.context.reasoningPopupHeight,
   })
 
   const themePopup = useThemePopupGlue({
-    popupState: options.popupState,
-    setPopupState: options.setPopupState,
-    closePopup: options.closePopup,
+    popupState: options.popup.state,
+    setPopupState: options.popup.setState,
+    closePopup: options.popup.close,
   })
 
   const themeModePopup = useThemeModePopupGlue({
-    popupState: options.popupState,
-    setPopupState: options.setPopupState,
-    closePopup: options.closePopup,
+    popupState: options.popup.state,
+    setPopupState: options.popup.setState,
+    closePopup: options.popup.close,
   })
 
   usePopupKeyboardShortcuts({
-    popupState: options.popupState,
-    helpOpen: options.helpOpen,
-    setPopupState: options.setPopupState,
-    closePopup: options.closePopup,
+    popupState: options.popup.state,
+    helpOpen: options.popup.helpOpen,
+    setPopupState: options.popup.setState,
+    closePopup: options.popup.close,
 
     model: {
       options: modelPopupOptions,
-      onSubmit: options.handleModelPopupSubmit,
+      onSubmit: options.popup.actions.handleModelPopupSubmit,
     },
 
     toggle: {
-      applySelection: options.applyToggleSelection,
+      applySelection: options.popup.actions.applyToggleSelection,
     },
 
     theme: {
@@ -267,26 +315,26 @@ export const useCommandScreenPopupBindings = (
     },
 
     file: {
-      items: options.files,
+      items: options.context.files,
       suggestions: context.filePopupSuggestions,
       onAdd: context.onAddFile,
       onRemove: context.onRemoveFile,
     },
 
     url: {
-      items: options.urls,
+      items: options.context.urls,
       onRemove: context.onRemoveUrl,
     },
 
     image: {
-      items: options.images,
+      items: options.context.images,
       suggestions: context.imagePopupSuggestions,
       onAdd: context.onAddImage,
       onRemove: context.onRemoveImage,
     },
 
     video: {
-      items: options.videos,
+      items: options.context.videos,
       suggestions: context.videoPopupSuggestions,
       onAdd: context.onAddVideo,
       onRemove: context.onRemoveVideo,
@@ -298,13 +346,13 @@ export const useCommandScreenPopupBindings = (
 
     smart: {
       suggestions: context.smartPopupSuggestions,
-      contextRoot: options.smartContextRoot,
+      contextRoot: options.context.smartContextRoot,
       onRootSubmit: context.onSmartRootSubmit,
     },
 
     intent: {
       suggestions: historyAndIntent.intent.intentPopupSuggestions,
-      onFileSubmit: options.handleIntentFileSubmit,
+      onFileSubmit: options.popup.actions.handleIntentFileSubmit,
     },
 
     reasoning: {
@@ -314,91 +362,167 @@ export const useCommandScreenPopupBindings = (
   })
 
   const submit = useCommandScreenSubmitBindings({
-    popupState: options.popupState,
-    isAwaitingRefinement: options.isAwaitingRefinement,
-    submitRefinement: options.submitRefinement,
-    isCommandMenuActive: options.isCommandMenuActive,
-    selectedCommandId: options.selectedCommandId,
-    commandMenuArgsRaw: options.commandMenuArgsRaw,
-    isCommandMode: options.isCommandMode,
-    intentFilePath: options.intentFilePath,
-    isGenerating: options.isGenerating,
+    popupState: options.popup.state,
+    isAwaitingRefinement: options.generation.isAwaitingRefinement,
+    submitRefinement: options.generation.submitRefinement,
+    isCommandMenuActive: options.menu.isActive,
+    selectedCommandId: options.menu.selectedCommandId,
+    commandMenuArgsRaw: options.menu.argsRaw,
+    isCommandMode: options.menu.isCommandMode,
+    intentFilePath: options.input.intentFilePath,
+    isGenerating: options.generation.isGenerating,
     expandInputForSubmit: paste.expandInputForSubmit,
-    setInputValue: options.setInputValue,
-    pushHistory: options.pushHistory,
-    addCommandHistoryEntry: options.addCommandHistoryEntry,
-    runGeneration: options.runGeneration,
-    handleCommandSelection: options.handleCommandSelection,
-    handleNewCommand: options.handleNewCommand,
-    handleReuseCommand: options.handleReuseCommand,
-    lastUserIntentRef: options.lastUserIntentRef,
-    handleSeriesIntentSubmit: options.handleSeriesIntentSubmit,
+    setInputValue: options.input.setValue,
+    pushHistory,
+    addCommandHistoryEntry: options.history.addCommandHistoryEntry,
+    runGeneration: options.generation.runGeneration,
+    handleCommandSelection: options.popup.actions.handleCommandSelection,
+    handleNewCommand: options.menu.actions.handleNewCommand,
+    handleReuseCommand: options.menu.actions.handleReuseCommand,
+    lastUserIntentRef: options.input.lastUserIntentRef,
+    handleSeriesIntentSubmit: options.popup.actions.handleSeriesIntentSubmit,
   } satisfies UseCommandScreenSubmitBindingsOptions)
 
   const miscDraftHandlers = useMiscPopupDraftHandlers({
-    setPopupState: options.setPopupState,
-    consumeSuppressedTextInputChange: options.consumeSuppressedTextInputChange,
+    setPopupState: options.popup.setState,
+    consumeSuppressedTextInputChange: options.input.consumeSuppressedTextInputChange,
   })
 
-  return {
-    tokenLabel: paste.tokenLabel,
-    handleInputChange: paste.handleInputChange,
-    handleSubmit: submit.handleSubmit,
+  const input = useMemo(
+    () => ({
+      tokenLabel: paste.tokenLabel,
+      onChange: paste.handleInputChange,
+    }),
+    [paste.tokenLabel, paste.handleInputChange],
+  )
 
-    modelPopupOptions,
-    modelPopupRecentCount,
-    modelPopupSelection,
+  const submitGroup = useMemo(
+    () => ({
+      onSubmit: submit.handleSubmit,
+      onSeriesSubmit: submit.onSeriesSubmit,
+    }),
+    [submit.handleSubmit, submit.onSeriesSubmit],
+  )
 
-    historyPopupItems: historyAndIntent.history.historyPopupItems,
-
-    intentPopupSuggestions: historyAndIntent.intent.intentPopupSuggestions,
-    intentPopupSuggestionSelectionIndex:
+  const popup = useMemo(
+    () => ({
+      model: {
+        options: modelPopupOptions,
+        recentCount: modelPopupRecentCount,
+        selection: modelPopupSelection,
+        onQueryChange: miscDraftHandlers.onModelPopupQueryChange,
+      },
+      history: {
+        items: historyAndIntent.history.historyPopupItems,
+        onDraftChange: historyAndIntent.history.onHistoryPopupDraftChange,
+        onSubmit: historyAndIntent.history.onHistoryPopupSubmit,
+      },
+      intent: {
+        suggestions: historyAndIntent.intent.intentPopupSuggestions,
+        suggestionSelectionIndex: historyAndIntent.intent.intentPopupSuggestionSelectionIndex,
+        suggestionsFocused: historyAndIntent.intent.intentPopupSuggestionsFocused,
+        onDraftChange: historyAndIntent.intent.onIntentPopupDraftChange,
+      },
+      context: {
+        file: {
+          suggestions: context.filePopupSuggestions,
+          suggestionSelectionIndex: context.filePopupSuggestionSelectionIndex,
+          suggestionsFocused: context.filePopupSuggestionsFocused,
+          onDraftChange: context.onFilePopupDraftChange,
+          onAdd: context.onAddFile,
+          onRemove: context.onRemoveFile,
+        },
+        url: {
+          onDraftChange: context.onUrlPopupDraftChange,
+          onAdd: context.onAddUrl,
+          onRemove: context.onRemoveUrl,
+        },
+        image: {
+          suggestions: context.imagePopupSuggestions,
+          suggestionSelectionIndex: context.imagePopupSuggestionSelectionIndex,
+          suggestionsFocused: context.imagePopupSuggestionsFocused,
+          onDraftChange: context.onImagePopupDraftChange,
+          onAdd: context.onAddImage,
+          onRemove: context.onRemoveImage,
+        },
+        video: {
+          suggestions: context.videoPopupSuggestions,
+          suggestionSelectionIndex: context.videoPopupSuggestionSelectionIndex,
+          suggestionsFocused: context.videoPopupSuggestionsFocused,
+          onDraftChange: context.onVideoPopupDraftChange,
+          onAdd: context.onAddVideo,
+          onRemove: context.onRemoveVideo,
+        },
+        smart: {
+          suggestions: context.smartPopupSuggestions,
+          suggestionSelectionIndex: context.smartPopupSuggestionSelectionIndex,
+          suggestionsFocused: context.smartPopupSuggestionsFocused,
+          onDraftChange: context.onSmartPopupDraftChange,
+          onRootSubmit: context.onSmartRootSubmit,
+        },
+      },
+      misc: {
+        onSeriesDraftChange: miscDraftHandlers.onSeriesDraftChange,
+        onInstructionsDraftChange: miscDraftHandlers.onInstructionsDraftChange,
+        onTestDraftChange: miscDraftHandlers.onTestDraftChange,
+      },
+      reasoning: {
+        lines: reasoningPopupLines,
+        visibleRows: reasoningPopupVisibleRows,
+      },
+    }),
+    [
+      modelPopupOptions,
+      modelPopupRecentCount,
+      modelPopupSelection,
+      miscDraftHandlers.onModelPopupQueryChange,
+      historyAndIntent.history.historyPopupItems,
+      historyAndIntent.history.onHistoryPopupDraftChange,
+      historyAndIntent.history.onHistoryPopupSubmit,
+      historyAndIntent.intent.intentPopupSuggestions,
       historyAndIntent.intent.intentPopupSuggestionSelectionIndex,
-    intentPopupSuggestionsFocused: historyAndIntent.intent.intentPopupSuggestionsFocused,
-    onIntentPopupDraftChange: historyAndIntent.intent.onIntentPopupDraftChange,
+      historyAndIntent.intent.intentPopupSuggestionsFocused,
+      historyAndIntent.intent.onIntentPopupDraftChange,
+      context.filePopupSuggestions,
+      context.filePopupSuggestionSelectionIndex,
+      context.filePopupSuggestionsFocused,
+      context.onFilePopupDraftChange,
+      context.onAddFile,
+      context.onRemoveFile,
+      context.onUrlPopupDraftChange,
+      context.onAddUrl,
+      context.onRemoveUrl,
+      context.imagePopupSuggestions,
+      context.imagePopupSuggestionSelectionIndex,
+      context.imagePopupSuggestionsFocused,
+      context.onImagePopupDraftChange,
+      context.onAddImage,
+      context.onRemoveImage,
+      context.videoPopupSuggestions,
+      context.videoPopupSuggestionSelectionIndex,
+      context.videoPopupSuggestionsFocused,
+      context.onVideoPopupDraftChange,
+      context.onAddVideo,
+      context.onRemoveVideo,
+      context.smartPopupSuggestions,
+      context.smartPopupSuggestionSelectionIndex,
+      context.smartPopupSuggestionsFocused,
+      context.onSmartPopupDraftChange,
+      context.onSmartRootSubmit,
+      miscDraftHandlers.onSeriesDraftChange,
+      miscDraftHandlers.onInstructionsDraftChange,
+      miscDraftHandlers.onTestDraftChange,
+      reasoningPopupLines,
+      reasoningPopupVisibleRows,
+    ],
+  )
 
-    filePopupSuggestions: context.filePopupSuggestions,
-    filePopupSuggestionSelectionIndex: context.filePopupSuggestionSelectionIndex,
-    filePopupSuggestionsFocused: context.filePopupSuggestionsFocused,
-    onFilePopupDraftChange: context.onFilePopupDraftChange,
-    onAddFile: context.onAddFile,
-    onRemoveFile: context.onRemoveFile,
-
-    onUrlPopupDraftChange: context.onUrlPopupDraftChange,
-    onAddUrl: context.onAddUrl,
-    onRemoveUrl: context.onRemoveUrl,
-
-    imagePopupSuggestions: context.imagePopupSuggestions,
-    imagePopupSuggestionSelectionIndex: context.imagePopupSuggestionSelectionIndex,
-    imagePopupSuggestionsFocused: context.imagePopupSuggestionsFocused,
-    onImagePopupDraftChange: context.onImagePopupDraftChange,
-    onAddImage: context.onAddImage,
-    onRemoveImage: context.onRemoveImage,
-
-    videoPopupSuggestions: context.videoPopupSuggestions,
-    videoPopupSuggestionSelectionIndex: context.videoPopupSuggestionSelectionIndex,
-    videoPopupSuggestionsFocused: context.videoPopupSuggestionsFocused,
-    onVideoPopupDraftChange: context.onVideoPopupDraftChange,
-    onAddVideo: context.onAddVideo,
-    onRemoveVideo: context.onRemoveVideo,
-
-    smartPopupSuggestions: context.smartPopupSuggestions,
-    smartPopupSuggestionSelectionIndex: context.smartPopupSuggestionSelectionIndex,
-    smartPopupSuggestionsFocused: context.smartPopupSuggestionsFocused,
-    onSmartPopupDraftChange: context.onSmartPopupDraftChange,
-    onSmartRootSubmit: context.onSmartRootSubmit,
-
-    onHistoryPopupDraftChange: historyAndIntent.history.onHistoryPopupDraftChange,
-    onHistoryPopupSubmit: historyAndIntent.history.onHistoryPopupSubmit,
-
-    onModelPopupQueryChange: miscDraftHandlers.onModelPopupQueryChange,
-    onSeriesDraftChange: miscDraftHandlers.onSeriesDraftChange,
-    onInstructionsDraftChange: miscDraftHandlers.onInstructionsDraftChange,
-    onTestDraftChange: miscDraftHandlers.onTestDraftChange,
-
-    onSeriesSubmit: submit.onSeriesSubmit,
-
-    reasoningPopupLines,
-    reasoningPopupVisibleRows,
-  }
+  return useMemo(
+    () => ({
+      input,
+      submit: submitGroup,
+      popup,
+    }),
+    [input, submitGroup, popup],
+  )
 }
