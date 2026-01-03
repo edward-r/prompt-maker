@@ -1,0 +1,17 @@
+{
+  "defs": {
+    "surface": "#0b2a32"
+  },
+  "theme": {
+    "background": "#001219",
+    "text": "#e9d8a6",
+    "textMuted": "#94d2bd",
+    "backgroundPanel": "surface",
+    "backgroundElement": "#005f73",
+    "primary": "#0a9396",
+    "border": "#005f73",
+    "warning": "#ee9b00",
+    "error": "#ae2012",
+    "success": "#2a9d8f"
+  }
+}

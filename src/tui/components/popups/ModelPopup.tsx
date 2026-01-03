@@ -8,8 +8,12 @@ import { MODEL_PROVIDER_LABELS } from '../../../model-providers'
 import { useTheme } from '../../theme/theme-provider'
 import { inkBackgroundColorProps, inkColorProps } from '../../theme/theme-types'
 import type { InkColorValue } from '../../theme/theme-types'
-import { resolveWindowedList } from './list-window'
 import type { ModelOption, ProviderStatusMap } from '../../types'
+import {
+  buildModelPopupRows,
+  resolveModelPopupListRows,
+  resolveModelPopupVisibleRows,
+} from './model-popup-model'
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(value, max))
@@ -54,79 +58,8 @@ export type ModelPopupProps = {
   onSubmit: (option: ModelOption | null | undefined) => void
 }
 
-type ModelRow =
-  | { type: 'header'; title: string }
-  | { type: 'spacer' }
-  | { type: 'option'; option: ModelOption; optionIndex: number }
-
-const resolveListRows = (popupHeight: number): number => {
-  const paddingRows = 2 * POPUP_PADDING_Y
-  const fixedRows = 6
-  const availableRows = Math.max(1, popupHeight - paddingRows - fixedRows)
-  return availableRows
-}
-
-const buildRows = (options: readonly ModelOption[], recentCount: number): ModelRow[] => {
-  if (options.length === 0) {
-    return []
-  }
-
-  const rows: ModelRow[] = []
-
-  const safeRecentCount = Math.max(0, Math.min(recentCount, options.length))
-  if (safeRecentCount > 0) {
-    rows.push({ type: 'header', title: 'Recent' })
-    for (let index = 0; index < safeRecentCount; index += 1) {
-      const option = options[index]
-      if (!option) {
-        continue
-      }
-      rows.push({ type: 'option', option, optionIndex: index })
-    }
-    if (safeRecentCount < options.length) {
-      rows.push({ type: 'spacer' })
-    }
-  }
-
-  let lastProvider: string | null = null
-  for (let index = safeRecentCount; index < options.length; index += 1) {
-    const option = options[index]
-    if (!option) {
-      continue
-    }
-
-    const providerLabel = MODEL_PROVIDER_LABELS[option.provider]
-    if (providerLabel !== lastProvider) {
-      rows.push({ type: 'header', title: providerLabel })
-      lastProvider = providerLabel
-    }
-
-    rows.push({ type: 'option', option, optionIndex: index })
-  }
-
-  return rows
-}
-
-const ensureHeaderVisible = (
-  rows: readonly ModelRow[],
-  start: number,
-  end: number,
-  maxRows: number,
-): { start: number; end: number } => {
-  if (start <= 0 || end - start >= maxRows) {
-    return { start, end }
-  }
-
-  const first = rows[start]
-  const previous = rows[start - 1]
-  if (first?.type === 'option' && previous?.type === 'header') {
-    const nextStart = start - 1
-    const nextEnd = Math.min(rows.length, nextStart + maxRows)
-    return { start: nextStart, end: nextEnd }
-  }
-
-  return { start, end }
-}
+const resolveListRows = (popupHeight: number): number =>
+  resolveModelPopupListRows({ popupHeight, paddingY: POPUP_PADDING_Y, fixedRows: 6 })
 
 export const ModelPopup = ({
   title,
@@ -168,48 +101,17 @@ export const ModelPopup = ({
 
   const listRows = useMemo(() => resolveListRows(popupHeight), [popupHeight])
 
-  const rows = useMemo(() => buildRows(options, recentCount), [options, recentCount])
+  const rows = useMemo(() => buildModelPopupRows(options, recentCount), [options, recentCount])
 
-  const selectedRowIndex = useMemo(() => {
-    if (rows.length === 0) {
-      return 0
-    }
-
-    const index = rows.findIndex(
-      (row) => row.type === 'option' && row.optionIndex === selectedIndex,
-    )
-    return index >= 0 ? index : 0
-  }, [rows, selectedIndex])
-
-  const window = useMemo(
+  const { slice, visibleRows } = useMemo(
     () =>
-      resolveWindowedList({
-        itemCount: rows.length,
-        selectedIndex: selectedRowIndex,
+      resolveModelPopupVisibleRows({
+        rows,
+        selectedOptionIndex: selectedIndex,
         maxVisibleRows: listRows,
-        lead: 2,
       }),
-    [listRows, rows.length, selectedRowIndex],
+    [listRows, rows, selectedIndex],
   )
-
-  const slice = useMemo(
-    () => ensureHeaderVisible(rows, window.start, window.end, listRows),
-    [listRows, rows, window.end, window.start],
-  )
-
-  const visibleRows = useMemo(() => {
-    const base = rows.slice(slice.start, slice.end)
-    if (base.length >= listRows) {
-      return base
-    }
-
-    const padded: ModelRow[] = [...base]
-    while (padded.length < listRows) {
-      padded.push({ type: 'spacer' })
-    }
-
-    return padded
-  }, [listRows, rows, slice.end, slice.start])
 
   const selectedTextProps = {
     ...inkColorProps(theme.selectionText),

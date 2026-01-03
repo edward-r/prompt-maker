@@ -3,7 +3,7 @@ import { Box, Text, useStdout } from 'ink'
 
 import { useTheme } from '../../theme/theme-provider'
 import { inkBackgroundColorProps, inkColorProps } from '../../theme/theme-types'
-import { resolveWindowedList } from './list-window'
+import { resolveWindowedValues } from './list-windowing'
 import { PopupSheet } from './PopupSheet'
 
 export type ThemePickerPopupProps = {
@@ -71,14 +71,8 @@ export const ThemePickerPopup = ({
   const clampedSelection = Math.min(selectionIndex, Math.max(names.length - 1, 0))
 
   const window = useMemo(
-    () =>
-      resolveWindowedList({
-        itemCount: names.length,
-        selectedIndex: clampedSelection,
-        maxVisibleRows: listRows,
-        lead: 2,
-      }),
-    [clampedSelection, listRows, names.length],
+    () => resolveWindowedValues(names, clampedSelection, listRows),
+    [clampedSelection, listRows, names],
   )
 
   const selectedTextProps = {
@@ -119,17 +113,13 @@ export const ThemePickerPopup = ({
       lines.push({ key: 'before', label: '… earlier …', isSelected: false })
     }
 
-    for (let offset = 0; offset < window.end - window.start; offset += 1) {
-      const name = names[window.start + offset]
-      if (!name) {
-        continue
-      }
+    window.values.forEach((name, offset) => {
       const label = labelsByName.get(name) ?? name
       const isActive = name === activeThemeName
       const line = `${isActive ? '●' : ' '} ${label}`
       const isSelected = window.start + offset === clampedSelection
       lines.push({ key: name, label: line, isSelected })
-    }
+    })
 
     if (window.showAfter) {
       lines.push({ key: 'after', label: '… later …', isSelected: false })

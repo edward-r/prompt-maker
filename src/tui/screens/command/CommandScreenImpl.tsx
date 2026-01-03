@@ -40,18 +40,22 @@ export const CommandScreen = memo(
       ref,
     ) => {
       const {
-        transportMessage,
-        historyPaneProps,
-        popupAreaProps,
-        commandMenuPaneProps,
-        commandInputProps,
-        suppressNextInput,
+        view: {
+          transportMessage,
+          historyPaneProps,
+          popupAreaProps,
+          commandMenuPaneProps,
+          commandInputProps,
+        },
+        actions: { suppressNextInput },
       } = useCommandScreenController({
-        ...(interactiveTransportPath ? { interactiveTransportPath } : {}),
-        ...(onPopupVisibilityChange ? { onPopupVisibilityChange } : {}),
-        ...(commandMenuSignal !== undefined ? { commandMenuSignal } : {}),
-        helpOpen,
-        reservedRows,
+        ...(interactiveTransportPath ? { transport: { interactiveTransportPath } } : {}),
+        popup: {
+          ...(onPopupVisibilityChange ? { onPopupVisibilityChange } : {}),
+          ...(commandMenuSignal !== undefined ? { commandMenuSignal } : {}),
+          helpOpen,
+          reservedRows,
+        },
         notify,
       })
 

@@ -1,10 +1,20 @@
-import fs from 'node:fs/promises'
 import path from 'node:path'
 
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react'
 
-import wrapAnsi from 'wrap-ansi'
-
+import { createBufferedHistoryWriter } from './buffered-history-writer'
+import {
+  buildIterationCompleteHistoryMessages,
+  buildJsonPayloadHistoryMessages,
+  extractValidationSection,
+  formatCompactTokens,
+  getHistoryWrapWidth,
+} from './generation-history-formatters'
+import {
+  prepareSeriesOutputDir,
+  type WriteSeriesArtifactsResult,
+  writeSeriesArtifacts,
+} from './series-artifacts-io'
 import { useLatestRef } from './useLatestRef'
 
 import {
@@ -30,79 +40,11 @@ import { resolveFileContext } from '../../file-context'
 import { resolveSmartContextFiles } from '../../smart-context-service'
 import { resolveUrlContext } from '../../url-context'
 import type { UploadStateChange } from '../../prompt-generator-service'
-import { buildSeriesOutputDirName, sanitizeForPathSegment } from '../../utils/series-path'
 import { MODEL_PROVIDER_LABELS } from '../../model-providers'
 import { checkModelProviderStatus } from '../provider-status'
 import type { TokenUsageStore } from '../token-usage-store'
 import type { NotifyOptions } from '../notifier'
 import type { HistoryEntry, ProviderStatus } from '../types'
-
-const formatCompactTokens = (count: number): string => {
-  if (count < 1000) {
-    return String(count)
-  }
-  if (count < 10_000) {
-    return `${(count / 1000).toFixed(1)}k`
-  }
-  if (count < 1_000_000) {
-    return `${Math.round(count / 1000)}k`
-  }
-  return `${(count / 1_000_000).toFixed(1)}m`
-}
-
-const extractValidationSection = (content: string): string | null => {
-  const markerRegex = /^(?:#{1,6}\s*Validation\b.*|Validation\s*:.*)$/im
-  const match = markerRegex.exec(content)
-  if (!match) {
-    return null
-  }
-
-  return content.slice(match.index).trim()
-}
-
-type WriteSeriesArtifactsResult = {
-  writtenCount: number
-  errors: Array<{ fileName: string; message: string }>
-}
-
-const writeSeriesArtifacts = async (
-  seriesDir: string,
-  series: SeriesResponse,
-): Promise<WriteSeriesArtifactsResult> => {
-  const tasks: Array<{ fileName: string; content: string }> = []
-
-  tasks.push({ fileName: '00-overview.md', content: series.overviewPrompt })
-
-  series.atomicPrompts.forEach((step, index) => {
-    const stepNumber = index + 1
-    const stepPrefix = stepNumber.toString().padStart(2, '0')
-    const titleSlug = sanitizeForPathSegment(step.title, 'step', 60)
-    tasks.push({ fileName: `${stepPrefix}-${titleSlug}.md`, content: step.content })
-  })
-
-  const results = await Promise.allSettled(
-    tasks.map(async (task) => {
-      await fs.writeFile(path.join(seriesDir, task.fileName), task.content, 'utf8')
-      return task.fileName
-    }),
-  )
-
-  const errors: Array<{ fileName: string; message: string }> = []
-  let writtenCount = 0
-
-  results.forEach((result, index) => {
-    const fileName = tasks[index]?.fileName ?? 'unknown'
-    if (result.status === 'fulfilled') {
-      writtenCount += 1
-      return
-    }
-
-    const message = result.reason instanceof Error ? result.reason.message : String(result.reason)
-    errors.push({ fileName, message })
-  })
-
-  return { writtenCount, errors }
-}
 
 export type UseGenerationPipelineOptions = {
   pushHistory: (content: string, kind?: HistoryEntry['kind']) => void
@@ -257,17 +199,38 @@ export const useGenerationPipeline = ({
     }
   }, [submitRefinement])
 
+  const bufferedHistory = useMemo(
+    () =>
+      createBufferedHistoryWriter({
+        push: (content, kind) => {
+          pushHistoryRef.current(content, kind)
+        },
+      }),
+    [pushHistoryRef],
+  )
+
+  useEffect(() => {
+    if (!isGenerating) {
+      bufferedHistory.flush()
+    }
+  }, [bufferedHistory, isGenerating])
+
+  useEffect(() => {
+    return () => {
+      bufferedHistory.flush()
+    }
+  }, [bufferedHistory])
+
   const handleStreamEvent = useCallback(
     (event: StreamEventInput) => {
-      const pushHistoryLatest = pushHistoryRef.current
       const tokenUsageStoreLatest = tokenUsageStoreRef.current
-      const wrapWidth = Math.max(40, terminalColumnsRef.current - 6)
+      const wrapWidth = getHistoryWrapWidth(terminalColumnsRef.current)
 
       switch (event.event) {
         case 'progress.update': {
           const scope = event.scope ? `[${event.scope}] ` : ''
           const message = `${scope}${event.label} (${event.state})`
-          pushHistoryLatest(message, 'progress')
+          bufferedHistory.pushBuffered(message, 'progress')
           setStatusMessage(message)
           return
         }
@@ -284,18 +247,14 @@ export const useGenerationPipeline = ({
             return
           }
 
-          pushHistoryLatest(message, 'progress')
+          bufferedHistory.pushBuffered(message, 'progress')
           return
         }
         case 'generation.iteration.start':
-          pushHistoryLatest(`Iteration ${event.iteration} started`, 'progress')
+          bufferedHistory.pushBuffered(`Iteration ${event.iteration} started`, 'progress')
           return
         case 'generation.iteration.complete': {
           const reasoningTokens = event.reasoningTokens ?? 0
-          const tokenLabel =
-            reasoningTokens > 0
-              ? ` (${event.tokens} prompt tokens · ${reasoningTokens} reasoning tokens)`
-              : ` (${event.tokens} tokens)`
 
           const activeRunId = activeRunIdRef.current
           if (activeRunId && tokenUsageStoreLatest) {
@@ -306,15 +265,17 @@ export const useGenerationPipeline = ({
             })
           }
 
-          pushHistoryLatest(`Iteration ${event.iteration} complete${tokenLabel}`, 'progress')
-          pushHistoryLatest(`Prompt (iteration ${event.iteration}):`, 'system')
-
-          event.prompt.split('\n').forEach((line) => {
-            const wrapped = wrapAnsi(line, wrapWidth, { trim: false, hard: true })
-            wrapped.split('\n').forEach((wrappedLine) => {
-              pushHistoryLatest(wrappedLine, 'system')
-            })
-          })
+          bufferedHistory.pushManyBuffered(
+            buildIterationCompleteHistoryMessages({
+              iteration: event.iteration,
+              tokens: event.tokens,
+              ...(event.reasoningTokens !== undefined
+                ? { reasoningTokens: event.reasoningTokens }
+                : {}),
+              prompt: event.prompt,
+              wrapWidth,
+            }),
+          )
 
           return
         }
@@ -325,7 +286,7 @@ export const useGenerationPipeline = ({
           if (activeRunId && tokenUsageStoreLatest) {
             tokenUsageStoreLatest.recordTelemetry(activeRunId, telemetry)
           }
-          pushHistoryLatest(
+          bufferedHistory.pushBuffered(
             `Telemetry · total ${telemetry.totalTokens} · intent ${telemetry.intentTokens} · files ${telemetry.fileTokens} · system ${telemetry.systemTokens}`,
             'progress',
           )
@@ -333,19 +294,19 @@ export const useGenerationPipeline = ({
         }
         case 'generation.final':
           setAwaitingInteractiveMode(null)
-          pushHistoryLatest('Generation stream finalized.', 'progress')
+          bufferedHistory.pushBuffered('Generation stream finalized.', 'progress')
           return
 
         case 'transport.listening':
-          pushHistoryLatest(`Transport listening on ${event.path}`, 'progress')
+          bufferedHistory.pushBuffered(`Transport listening on ${event.path}`, 'progress')
           return
 
         case 'transport.client.connected':
-          pushHistoryLatest('Transport client connected.', 'progress')
+          bufferedHistory.pushBuffered('Transport client connected.', 'progress')
           return
 
         case 'transport.client.disconnected':
-          pushHistoryLatest('Transport client disconnected.', 'progress')
+          bufferedHistory.pushBuffered('Transport client disconnected.', 'progress')
           return
 
         case 'interactive.awaiting': {
@@ -359,7 +320,7 @@ export const useGenerationPipeline = ({
 
           // One dispatch updates both mode + message.
           setAwaitingInteractiveMode(normalizedMode, waitingMessage)
-          pushHistoryLatest(waitingMessage, 'progress')
+          bufferedHistory.pushBuffered(waitingMessage, 'progress')
 
           const transportPath = interactiveTransportPathRef.current
           if (
@@ -367,7 +328,10 @@ export const useGenerationPipeline = ({
             transportPath &&
             !transportAwaitingHintShownRef.current
           ) {
-            pushHistoryLatest('Tip: connect a client and send refine/finish to continue.', 'system')
+            bufferedHistory.pushBuffered(
+              'Tip: connect a client and send refine/finish to continue.',
+              'system',
+            )
             transportAwaitingHintShownRef.current = true
           }
 
@@ -376,7 +340,10 @@ export const useGenerationPipeline = ({
         case 'interactive.state': {
           const message = `Interactive ${event.phase}`
           setAwaitingInteractiveMode(null, message)
-          pushHistoryLatest(`Interactive ${event.phase} (iteration ${event.iteration})`, 'progress')
+          bufferedHistory.pushBuffered(
+            `Interactive ${event.phase} (iteration ${event.iteration})`,
+            'progress',
+          )
           return
         }
 
@@ -385,9 +352,9 @@ export const useGenerationPipeline = ({
       }
     },
     [
+      bufferedHistory,
       interactiveTransportPathRef,
       notifyRef,
-      pushHistoryRef,
       terminalColumnsRef,
       tokenUsageStoreRef,
       setAwaitingInteractiveMode,
@@ -598,15 +565,10 @@ export const useGenerationPipeline = ({
           )
         }
         if (jsonOutputEnabled) {
-          pushHistoryRef.current('JSON payload:', 'system')
-          const prettyPayload = JSON.stringify(result.payload, null, 2)
-          const wrapWidth = Math.max(40, terminalColumnsRef.current - 6)
-          prettyPayload.split('\n').forEach((line) => {
-            const wrapped = wrapAnsi(line, wrapWidth, { trim: false, hard: true })
-            wrapped.split('\n').forEach((wrappedLine) => {
-              pushHistoryRef.current(wrappedLine, 'system')
-            })
-          })
+          const wrapWidth = getHistoryWrapWidth(terminalColumnsRef.current)
+          bufferedHistory.pushManyBuffered(
+            buildJsonPayloadHistoryMessages(result.payload, wrapWidth),
+          )
         }
 
         if (copyEnabled) {
@@ -650,6 +612,7 @@ export const useGenerationPipeline = ({
       normalizedMetaInstructions,
       interactiveTransportPathRef,
       pushHistoryRef,
+      bufferedHistory,
       terminalColumnsRef,
       tokenUsageStoreRef,
       handleStreamEvent,
@@ -684,17 +647,12 @@ export const useGenerationPipeline = ({
       dispatch({ type: 'generation-start', statusMessage: 'Series: resolving context…' })
       pushHistoryRef.current('[series] Starting series generation…', 'progress')
 
-      const seriesDir = path.join(
-        path.resolve(process.cwd(), 'generated', 'series'),
-        buildSeriesOutputDirName(intent),
-      )
+      const prepareDirResult = await prepareSeriesOutputDir(intent)
+      const seriesDir = prepareDirResult.seriesDir
 
-      let canWriteFiles = true
-      try {
-        await fs.mkdir(seriesDir, { recursive: true })
-      } catch (error) {
-        canWriteFiles = false
-        const message = error instanceof Error ? error.message : 'Unknown filesystem error.'
+      let canWriteFiles = prepareDirResult.canWriteFiles
+      if (!canWriteFiles) {
+        const message = prepareDirResult.errorMessage ?? 'Unknown filesystem error.'
         pushHistoryRef.current(
           `[series] Failed to prepare output directory: ${message}`,
           'progress',

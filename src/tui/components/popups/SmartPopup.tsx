@@ -4,7 +4,7 @@ import { Box, Text, useStdout } from 'ink'
 import { SingleLineTextInput } from '../core/SingleLineTextInput'
 import { useTheme } from '../../theme/theme-provider'
 import { inkBackgroundColorProps, inkColorProps } from '../../theme/theme-types'
-import { resolveWindowedList } from './list-window'
+import { clampSelectionIndex, resolveWindowedValues } from './list-windowing'
 import { PopupSheet } from './PopupSheet'
 
 const clamp = (value: number, min: number, max: number): number =>
@@ -33,37 +33,6 @@ export type SmartPopupProps = {
   onSubmitRoot: (value: string) => void
 }
 
-type SuggestionWindow = {
-  start: number
-  values: readonly string[]
-  showBefore: boolean
-  showAfter: boolean
-}
-
-const resolveSuggestionWindow = (
-  suggestions: readonly string[],
-  selectedIndex: number,
-  maxRows: number,
-): SuggestionWindow => {
-  if (suggestions.length === 0 || maxRows <= 0) {
-    return { start: 0, values: [], showBefore: false, showAfter: false }
-  }
-
-  const window = resolveWindowedList({
-    itemCount: suggestions.length,
-    selectedIndex,
-    maxVisibleRows: maxRows,
-    lead: 1,
-  })
-
-  return {
-    start: window.start,
-    values: suggestions.slice(window.start, window.end),
-    showBefore: window.showBefore,
-    showAfter: window.showAfter,
-  }
-}
-
 export const SmartPopup = ({
   savedRoot,
   draft,
@@ -86,10 +55,7 @@ export const SmartPopup = ({
   const backgroundProps = inkBackgroundColorProps(theme.popupBackground)
 
   const hasSuggestions = suggestedItems.length > 0
-  const safeSuggestedSelection = Math.max(
-    0,
-    Math.min(suggestedSelectionIndex, Math.max(suggestedItems.length - 1, 0)),
-  )
+  const safeSuggestedSelection = clampSelectionIndex(suggestedItems.length, suggestedSelectionIndex)
   const effectiveSuggestedFocused = hasSuggestions && suggestedFocused
 
   const popupHeight = Math.max(9, Math.floor(maxHeight ?? 9))
@@ -103,7 +69,8 @@ export const SmartPopup = ({
   }, [popupHeight])
 
   const visibleSuggestions = useMemo(
-    () => resolveSuggestionWindow(suggestedItems, safeSuggestedSelection, suggestionRows),
+    () =>
+      resolveWindowedValues(suggestedItems, safeSuggestedSelection, suggestionRows, { lead: 1 }),
     [safeSuggestedSelection, suggestedItems, suggestionRows],
   )
 
