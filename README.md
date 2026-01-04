@@ -1,6 +1,6 @@
 # Prompt Maker CLI (`@perceptron/prompt-maker-cli`)
 
-Terminal-first prompt generator with a built-in Ink TUI. It turns rough intent + optional context (files, URLs, smart context, images, videos) into a structured prompt contract, with optional polishing, streaming telemetry, and automatic history logging.
+Terminal-first prompt generator with a built-in Ink TUI. It turns rough intent + optional context (files, URLs, smart context, images, videos) into a structured **prompt contract**, with optional polishing, streaming telemetry, and automatic history logging.
 
 Highlights:
 
@@ -13,6 +13,75 @@ The project is **TUI-first**:
 
 - `prompt-maker-cli` with **no args** launches the TUI.
 - Use the same pipelines via flags (`generate`) or tests (`test`) when you need automation.
+
+## Table of Contents
+
+- [Diagram Index](#diagram-index)
+- [Quickstart](#quickstart)
+- [CLI Modes and Routing](#cli-modes-and-routing)
+- [TUI Mode (recommended)](#tui-mode-recommended)
+  - [Launch](#launch)
+  - [Keybindings](#keybindings)
+  - [Input Routing Invariant](#input-routing-invariant)
+  - [Command Palette (`/commands`)](#command-palette-commands)
+  - [Series Generation (“atomic prompts”)](#series-generation-atomic-prompts)
+  - [TUI Theming](#tui-theming)
+- [Generate Mode (CLI)](#generate-mode-cli)
+  - [Common Workflows](#common-workflows)
+  - [Key Flags](#key-flags)
+  - [Conceptual Architecture](#conceptual-architecture)
+  - [Intent Intake](#intent-intake)
+  - [Context Ingestion](#context-ingestion)
+  - [Remote URL and GitHub Context](#remote-url-and-github-context)
+  - [Smart Context (Local RAG)](#smart-context-local-rag)
+  - [Media Attachments](#media-attachments)
+  - [Streaming Events and Telemetry](#streaming-events-and-telemetry)
+  - [Interactive Refinement](#interactive-refinement)
+  - [Polish Pass](#polish-pass)
+  - [Output Artifacts](#output-artifacts)
+- [Prompt Tests](#prompt-tests)
+- [TUI Architecture and UX Model](#tui-architecture-and-ux-model)
+- [Provider Configuration](#provider-configuration)
+- [Outputs and Persistence](#outputs-and-persistence)
+- [Development](#development)
+- [Maintainer References](#maintainer-references)
+- [License](#license)
+
+## Diagram Index
+
+All diagrams are GitHub Mermaid compatible and grounded in:
+
+- `docs/neovim-plugin-integration.md` (pipeline, streaming events, transports, context/media details)
+- `docs/tui-design.md` (TUI architecture, UX invariants)
+- This README’s CLI/TUI behavior sections
+
+CLI + Generate Pipeline:
+
+- [D1. CLI Routing Flow](#d1-cli-routing-flow) — how `ui` / `generate` / `test` are selected.
+- [D2. Generate Pipeline Overview](#d2-generate-pipeline-overview) — end-to-end generate workflow, including interactive and polish.
+- [D3. `--stream jsonl` Event Timeline](#d3---stream-jsonl-event-timeline) — typical JSONL event emission order.
+- [D4. `--interactive-transport` Lifecycle](#d4---interactive-transport-lifecycle) — socket/pipe setup, commands, mirrored events.
+- [D5. Interactive Phase State Machine](#d5-interactive-phase-state-machine) — phases emitted via `interactive.state`.
+
+Context + Media:
+
+- [D6. Context Ingestion Decision Tree](#d6-context-ingestion-decision-tree) — how sources merge and when failures warn vs fail.
+- [D7. Smart Context Workflow](#d7-smart-context-workflow) — scan → cache/index → top‑k → de-dupe append.
+- [D8. URL + GitHub Context Resolution](#d8-url--github-context-resolution) — remote fetch behavior and safety limits.
+- [D9. Media Handling (Images + Videos)](#d9-media-handling-images--videos) — image parts vs video uploads and Gemini switching.
+
+TUI:
+
+- [D10. TUI Architecture Map](#d10-tui-architecture-map) — AppContainer + screens + popups + keymaps.
+- [D11. TUI Input Routing Priority](#d11-tui-input-routing-priority) — help overlay > popup > screen > globals.
+
+Other:
+
+- [D12. `/series` Generation and Filesystem Outputs](#d12-series-generation-and-filesystem-outputs) — atomic prompt series, write-on-best-effort.
+- [D13. Theme Resolution Precedence](#d13-theme-resolution-precedence) — theme search order and overriding.
+- [D14. Prompt Test Runner Flow](#d14-prompt-test-runner-flow) — `test` mode and the TUI Test Runner view.
+
+---
 
 ## Quickstart
 
@@ -58,6 +127,28 @@ Routing rules:
 - First arg `generate` or `expand` → `generate` (`expand` is an alias)
 - Anything else (including flags like `--json`) → `generate`
 
+### D1. CLI Routing Flow
+
+Shows how argv maps to top-level modes.
+
+```mermaid
+flowchart TD
+  A[Start: prompt-maker-cli argv] --> B{Any args?}
+
+  B -- No --> UI[Mode: ui\nInk TUI]
+  B -- Yes --> C{First arg}
+
+  C -- ui --> UI
+  C -- test --> TEST[Mode: test\nPrompt tests runner]
+  C -- generate --> GEN[Mode: generate\nPrompt generation]
+  C -- expand --> GEN
+  C -- other/flags --> GEN
+
+  UI --> UIEP[Mount Ink AppContainer]
+  TEST --> TESEP[Load YAML suite\nRun tests]
+  GEN --> GEP[Resolve intent/context\nRun pipeline]
+```
+
 ## TUI mode (recommended)
 
 The Ink TUI is the fastest way to iterate on prompts interactively:
@@ -66,6 +157,8 @@ The Ink TUI is the fastest way to iterate on prompts interactively:
 - Command palette + popups for models, context, settings, and themes.
 - Built-in Test Runner view.
 - Session-oriented UX (reuse last prompt, view token breakdown, show last reasoning, etc.).
+
+Reference: `docs/tui-design.md`.
 
 ### Launch
 
@@ -112,7 +205,7 @@ Test Runner view:
   - in file input: moves focus to actions
   - in actions: runs tests
 
-#### Input routing invariant
+### Input routing invariant
 
 Key handling priority (highest wins):
 
@@ -122,6 +215,26 @@ Key handling priority (highest wins):
 4. AppContainer global keys
 
 This prevents “fallthrough” where one key triggers multiple layers.
+
+### D11. TUI Input Routing Priority
+
+Shows the key handling priority order as an explicit routing gate.
+
+```mermaid
+flowchart TD
+  K[Keypress] --> H{Help overlay open?}
+  H -- Yes --> HNDH[Help overlay handles key\n(suppress everything else)]
+  H -- No --> P{Popup open?}
+
+  P -- Yes --> HNDP[Active popup handles key\n(no fallthrough)]
+  P -- No --> S{Active screen handles key?}
+
+  S -- Yes --> HNDS[Screen handles key\n(e.g., history scroll, submit)]
+  S -- No --> G{Global keybind?}
+
+  G -- Yes --> HNDG[AppContainer global key\n(exit, toggle views, help)]
+  G -- No --> IGN[Ignored]
+```
 
 ### Command palette (`/commands`)
 
@@ -176,6 +289,30 @@ Artifacts are written under:
 
 If the output directory cannot be created (permissions, read-only filesystem, etc.), the series still generates but won’t be saved.
 
+### D12. `/series` Generation and Filesystem Outputs
+
+Shows the `/series` happy path and the best-effort write behavior.
+
+<details>
+<summary>Diagram</summary>
+
+```mermaid
+flowchart TD
+  A[User triggers /series\n(or presses Tab)] --> B[Collect draft text\n(or use current input)]
+  B --> C[Generate atomic prompt steps\n(no cross references)]
+  C --> D[Render files\n00-overview + 01..N steps]
+
+  D --> E{Can create output dir?\n generated/series/<timestamp>-<slug>/}
+  E -- Yes --> W[Write markdown files]
+
+  E -- No --> NW[Skip writes; keep results in-session]
+
+  W --> DONE[Series ready]
+  NW --> DONE
+```
+
+</details>
+
 ### TUI theming
 
 Inside the TUI:
@@ -222,6 +359,35 @@ If multiple themes share the same name:
 3. Global themes (`~/.config/prompt-maker-cli/themes`)
 4. Built-in themes (lowest precedence)
 
+### D13. Theme Resolution Precedence
+
+Shows the lookup order used when multiple themes share a name.
+
+<details>
+<summary>Diagram</summary>
+
+```mermaid
+flowchart TD
+  A[Resolve theme name\n(from config: theme)] --> B[Search sources by precedence]
+
+  B --> P1[1) Project-local themes\nnearest .prompt-maker-cli/themes]
+  P1 --> M1{Found theme with name?}
+  M1 -- Yes --> USE[Use that theme]
+  M1 -- No --> P2[2) Project-local themes\nancestor directories]
+
+  P2 --> M2{Found?}
+  M2 -- Yes --> USE
+  M2 -- No --> G[3) Global themes\n~/.config/prompt-maker-cli/themes]
+
+  G --> M3{Found?}
+  M3 -- Yes --> USE
+  M3 -- No --> BI[4) Built-in themes]
+
+  BI --> USE
+```
+
+</details>
+
 #### Theme mode (`system`)
 
 `system` is intentionally pragmatic:
@@ -230,6 +396,8 @@ If multiple themes share the same name:
 - Else, we try to infer from `COLORFGBG`.
 - If no reliable signal is present, we deterministically fall back to `dark`.
 - Config also accepts `themeMode: "auto"` as an alias for `"system"`.
+
+---
 
 ## Generate mode (CLI)
 
@@ -299,6 +467,353 @@ Notes:
 - `--stream jsonl` is designed for machine consumption; for clean JSONL output on stdout use `--quiet` and avoid other human-output flags.
 - `DEBUG=1` or `VERBOSE=1` prints the model’s `reasoning` (if provided) to stderr.
 
+### Conceptual architecture
+
+Generate mode assembles a “prompt contract” from:
+
+- **Intent** text
+- **Resolved context** (local files, remote URLs/GitHub, optional smart context)
+- **Optional media** parts (images, videos)
+- **Model choices** (generation model and recorded target model)
+
+Then it iterates (optionally interactively), optionally runs a polish pass, emits events, and writes history.
+
+### D2. Generate Pipeline Overview
+
+Summarizes the full “generate” path, including interactive refinement and the polish pass.
+
+<details>
+<summary>Diagram</summary>
+
+```mermaid
+flowchart TD
+  A[Start: generate invocation] --> I[Intent intake\n(positional | --intent-file | stdin)]
+  I --> V{Intent valid?\nUTF-8, no NUL, <=512KB}
+  V -- No --> FATAL[Fail fast\n(intent required / invalid)]
+  V -- Yes --> C[Resolve context blocks]
+
+  C --> CF[Local file context\n--context globs]
+  C --> CU[Remote URL context\n--url http(s)]
+  C --> CG[GitHub URL expansion\n--url github.com/...]
+  C --> CS[Optional smart context\n--smart-context]
+  C --> CM[Optional media\n--image / --video]
+
+  CF --> DEDUPE[De-dupe / merge context paths]
+  CU --> DEDUPE
+  CG --> DEDUPE
+  CS --> DEDUPE
+  CM --> DEDUPE
+
+  DEDUPE --> T[Token telemetry\n(intent + context)]
+  T --> G1[Generation iteration 1\nPromptGeneratorService.generatePrompt]
+
+  G1 --> INT{Interactive?\n--interactive or --interactive-transport}
+  INT -- No --> DONEITER[Stop refining]
+
+  INT -- Yes --> LOOP[Interactive loop\n(transport or TTY)]
+  LOOP --> GREF[Generation iteration N\n(buildRefinementMessage)]
+  GREF --> LOOP
+  LOOP --> DONEITER
+
+  DONEITER --> P{Polish enabled?\n--polish}
+  P -- Yes --> POL[polishPrompt\n(optional --polish-model)]
+  P -- No --> SKIP[Skip polish]
+
+  POL --> OUT[Assemble output payload\n(render template, history append)]
+  SKIP --> OUT
+
+  OUT --> FINAL[Deliver artifacts\n(prompt + renderedPrompt + JSON/history)]
+```
+
+</details>
+
+---
+
+### Intent intake
+
+Intent sources (exactly one must yield content):
+
+- Inline argument
+- `--intent-file <path>`
+- stdin
+
+Intent file constraints (used by integrations as guardrails):
+
+- Must be UTF‑8 text
+- Must not contain NUL bytes
+- Size cap: 512 KB
+
+### Context ingestion
+
+Context can be attached from:
+
+- Local file globs: `--context` (repeatable)
+- Remote URLs: `--url` (repeatable)
+- Smart context: `--smart-context` (+ `--smart-context-root`)
+- Media: `--image`, `--video`
+
+#### D6. Context Ingestion Decision Tree
+
+Shows how sources are resolved, merged, and how errors are classified (warnings vs fatal).
+
+<details>
+<summary>Diagram</summary>
+
+```mermaid
+flowchart TD
+  A[Begin context resolution] --> B[Resolve user intent\n(positional | --intent-file | stdin)]
+
+  B --> C{Has non-empty intent text?}
+  C -- No --> F[Fail: intent text required]
+  C -- Yes --> D[Initialize context list]
+
+  D --> E1[Expand --context globs\nfast-glob dot:true]
+  E1 --> E1M{Any matches?}
+  E1M -- No --> W1[Warn: glob matched nothing\n(non-fatal)]
+  E1M -- Yes --> E1R[Read files\nattach as <file path="...">]
+
+  D --> E2[Resolve --url entries\nhttp(s) only]
+  E2 --> E2P{Protocol ok?}
+  E2P -- No --> W2[Warn: non-http(s) URL\n(skip)]
+  E2P -- Yes --> E2D[Download <=1MB\nHTML -> text]
+  E2D --> E2OK{Fetch ok?}
+  E2OK -- No --> W3[Warn: URL fetch failed\n(non-fatal)]
+  E2OK -- Yes --> E2R[Attach as virtual file\npath: url:<url>]
+
+  D --> E3[Recognize GitHub URLs\n(blob/tree/repo root)]
+  E3 --> E3R[Expand with limits\n<=60 files, <=64KB each]
+  E3R --> E3OK{Fetch ok?}
+  E3OK -- No --> W4[Warn: GitHub fetch failed\n(non-fatal)]
+  E3OK -- Yes --> E3A[Attach expanded files\n(ignore dist, node_modules, lockfiles...]
+
+  D --> E4{--smart-context enabled?}
+  E4 -- No --> SKIPSC[Skip smart context]
+  E4 -- Yes --> SC[Scan/index/search local files\n<=25KB]
+
+  D --> E5[Media attachments\n--image / --video]
+  E5 --> E5W[Unsupported/oversize -> warn + skip]
+
+  E1R --> MERGE[De-dupe context paths\n(avoid duplicates across sources)]
+  E2R --> MERGE
+  E3A --> MERGE
+  SC --> MERGE
+  SKIPSC --> MERGE
+  E5W --> MERGE
+
+  MERGE --> DONE[Context ready\n(used for telemetry + generation)]
+```
+
+</details>
+
+### Remote URL and GitHub context
+
+- `--url` supports `http:`/`https:` only.
+- Each URL becomes a virtual context file (`path: url:<url>`).
+- HTML pages are capped at 1MB and converted to text (scripts/styles stripped).
+- GitHub URLs are recognized for repo root, `tree`, and `blob` forms.
+- GitHub safety limits:
+  - ≤60 files
+  - ≤64KB each
+  - ignore lists (e.g., `node_modules`, `dist`, lockfiles, archives)
+- Optional `GITHUB_TOKEN` improves rate limits.
+
+#### D8. URL + GitHub Context Resolution
+
+Summarizes remote context paths and the GitHub expansion safeguards.
+
+<details>
+<summary>Diagram</summary>
+
+```mermaid
+flowchart TD
+  A[--url <value>] --> B{Is github.com URL?}
+
+  B -- No --> U[Generic URL fetch]
+
+  U --> U1{Protocol http(s)?}
+  U1 -- No --> UW[Warn + skip]
+  U1 -- Yes --> U2[Download <=1MB]
+  U2 --> U3{HTML?}
+  U3 -- Yes --> U4[Convert HTML to text\n(html-to-text)]
+  U3 -- No --> U5[Use response body as text]
+  U4 --> UA[Attach virtual file\npath: url:<url>]
+  U5 --> UA
+
+  B -- Yes --> G[GitHub resolver]
+
+  G --> G1[Detect form\nrepo root | tree | blob]
+  G1 --> G2[Enumerate targets\napply ignore lists]
+
+  G2 --> G3[Fetch contents]
+
+  G3 --> G4{Within safety limits?\n<=60 files, <=64KB each}
+  G4 -- No --> GL[Stop at limits\n(skip extras)]
+  G4 -- Yes --> GA[Attach expanded files\n(as virtual context entries)]
+
+  GL --> DONE[Context additions complete]
+  GA --> DONE
+  UA --> DONE
+```
+
+</details>
+
+### Smart context (Local RAG)
+
+Smart context attaches additional relevant local files based on embeddings.
+
+- Trigger: `--smart-context` (optionally with `--smart-context-root <dir>`)
+- Scan glob: `**/*.{ts,tsx,js,jsx,py,md,json}` (excludes `node_modules`, build outputs, lockfiles, git metadata)
+- File cap: skip files larger than 25KB
+- Cache: `~/.config/prompt-maker-cli/embeddings_cache.json`
+- Select: top‑k results (default 5) against the intent string
+- De-dupe: do not append files already attached via user context
+
+#### D7. Smart Context Workflow
+
+Shows the scan/index/search loop and where caching and de-dupe happen.
+
+<details>
+<summary>Diagram</summary>
+
+```mermaid
+flowchart TD
+  A[--smart-context enabled] --> B[Choose scan root\n(--smart-context-root or CWD)]
+  B --> C[Scan files\nfast-glob include extensions]
+
+  C --> D[Filter\nexclude node_modules/dist/...\nskip >25KB]
+  D --> E[Index embeddings\n(cache by SHA256)]
+  E --> F[Search top-k\nagainst intent text]
+
+  F --> G[Read selected files]
+
+  G --> H[Append unique files\nskip ones already in user context]
+  H --> DONE[Smart context ready\nmerged into generation context]
+```
+
+</details>
+
+### Media attachments
+
+- **Images** (`--image`): PNG/JPG/JPEG/WEBP/GIF up to 20 MB. Encoded into image parts.
+- **Videos** (`--video`): Gemini-only.
+  - If any `--video` is present and the requested model is not Gemini, the CLI auto-switches to a Gemini model (`gemini-3-pro-preview` or configured default).
+  - Uploads use Google’s Files API and poll until the file becomes `ACTIVE`.
+  - Upload progress emits stream events.
+
+#### D9. Media Handling (Images + Videos)
+
+Shows validation, model switching for videos, and upload attachment.
+
+<details>
+<summary>Diagram</summary>
+
+```mermaid
+flowchart TD
+  A[Media flags present?] --> B{--image provided?}
+
+  B -- Yes --> I1[Validate image\next + <=20MB]
+  I1 --> IOK{Valid?}
+  IOK -- No --> IW[Warn + skip]
+  IOK -- Yes --> I2[Read + Base64 encode\n(build image parts)]
+
+  B -- No --> I0[No image work]
+
+  A --> C{--video provided?}
+  C -- No --> V0[No video work]
+
+  C -- Yes --> V1{Is selected model Gemini?}
+  V1 -- No --> VSW[Auto-switch generation model\n-> Gemini video-capable default]
+  V1 -- Yes --> V2[Upload video\n(GoogleAIFileManager)]
+
+  VSW --> V2
+  V2 --> V3[Poll until ACTIVE\n(or fail with error)]
+  V3 --> VOK{Upload ok?}
+  VOK -- No --> VW[Warn/Fail (upload error)\n(run continues where possible)]
+  VOK -- Yes --> V4[Attach video reference\ninto request parts]
+
+  I2 --> DONE[Media ready]
+  IW --> DONE
+  I0 --> DONE
+  V0 --> DONE
+  V4 --> DONE
+  VW --> DONE
+```
+
+</details>
+
+### Streaming events and telemetry
+
+`--stream none|jsonl` controls whether events are printed to stdout.
+
+- `--stream jsonl` emits newline-delimited JSON events to stdout.
+- Even with `--stream none`, the interactive transport acts as an always-on “tap” that receives the same events.
+
+Event types (integration-relevant highlights):
+
+- `context.telemetry` (intent/file/total token counts)
+- `progress.update` (machine-readable progress)
+- `upload.state` (image/video upload start/finish)
+- `generation.iteration.start` / `generation.iteration.complete`
+- `interactive.state` / `interactive.awaiting`
+- `transport.listening`, `transport.client.connected`, `transport.client.disconnected`
+- `generation.final` (final JSON payload)
+
+#### D3. `--stream jsonl` Event Timeline
+
+Shows a typical event sequence (actual events depend on flags and context sources).
+
+<details>
+<summary>Diagram</summary>
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant User
+  participant CLI as prompt-maker-cli
+  participant Stream as stdout (--stream jsonl)
+
+  User->>CLI: start generate (intent + flags)
+  CLI->>Stream: context.telemetry
+
+  alt Remote context present
+    CLI->>Stream: progress.update (scope=url start/update/stop)
+  end
+
+  alt Smart context enabled
+    CLI->>Stream: progress.update (scope=smart start/update/stop)
+  end
+
+  alt Media present
+    CLI->>Stream: upload.state (start per image/video)
+    CLI->>Stream: progress.update (label "Uploading..." updates)
+    CLI->>Stream: upload.state (finish per image/video)
+  end
+
+  CLI->>Stream: generation.iteration.start (iteration=1)
+  CLI->>Stream: generation.iteration.complete (iteration=1)
+
+  opt Interactive refinement enabled
+    CLI->>Stream: interactive.state (phase=start)
+    CLI->>Stream: interactive.awaiting (mode=tty|transport)
+    loop for each refinement
+      CLI->>Stream: interactive.state (phase=refine)
+      CLI->>Stream: generation.iteration.start (iteration=N)
+      CLI->>Stream: generation.iteration.complete (iteration=N)
+      CLI->>Stream: interactive.awaiting (mode=tty|transport)
+    end
+    CLI->>Stream: interactive.state (phase=complete)
+  end
+
+  opt Polish enabled
+    CLI->>Stream: progress.update (scope=polish start/update/stop)
+  end
+
+  CLI->>Stream: generation.final (result payload)
+  CLI-->>User: human output (unless --quiet)
+```
+
+</details>
+
 ### Interactive refinement
 
 Two interactive mechanisms exist:
@@ -318,14 +833,119 @@ Commands are newline-delimited JSON:
 
 The transport also receives the same JSONL stream events as an always-on event “tap” (even if `--stream` is `none`).
 
-### Context sources and limits (high-level)
+#### D4. `--interactive-transport` Lifecycle
 
-- `--context` globs use `fast-glob` with `{ dot: true }`.
-- `--url` accepts `http:`/`https:` and stores each entry as a virtual file (`path: url:<url>`).
-  - HTML is limited to 1MB and converted to text.
-- GitHub URLs (`--url https://github.com/...`) can expand repo trees/blobs.
-  - Safety limits: max 60 files, max 64KB each.
-- `--smart-context` indexes files (≤25KB) and caches embeddings at `~/.config/prompt-maker-cli/embeddings_cache.json`.
+Shows how a client drives refinement and how events mirror back over the same connection.
+
+<details>
+<summary>Diagram</summary>
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant CLI as prompt-maker-cli
+  participant Sock as Socket/Pipe (server)
+  participant Client as Integration client
+
+  CLI->>Sock: bind + listen
+  CLI->>Client: transport.listening (event tap)
+
+  Client->>Sock: connect
+  CLI->>Client: transport.client.connected
+
+  CLI->>Client: (mirrored stream events)\ncontext.telemetry, progress.update, ...
+
+  loop Refinement cycle
+    Client->>Sock: {"type":"refine","instruction":"..."}\n(newline-delimited JSON)
+    CLI->>Client: interactive.state (phase=refine)
+    CLI->>Client: generation.iteration.start
+    CLI->>Client: generation.iteration.complete
+    CLI->>Client: interactive.awaiting (mode=transport)
+  end
+
+  Client->>Sock: {"type":"finish"}
+  CLI->>Client: interactive.state (phase=complete)
+  CLI->>Client: generation.final
+
+  Client-->>Sock: disconnect
+  CLI->>Client: transport.client.disconnected
+  CLI->>Sock: cleanup socket on exit
+```
+
+</details>
+
+#### D5. Interactive Phase State Machine
+
+Shows the high-level phases exposed via events during refinement.
+
+<details>
+<summary>Diagram</summary>
+
+```mermaid
+stateDiagram-v2
+  [*] --> start
+
+  start: interactive.state\nphase=start
+  start --> prompt
+
+  prompt: interactive.state\nphase=prompt
+  prompt --> awaiting
+
+  awaiting: interactive.awaiting\nmode=tty|transport
+  awaiting --> refine: receive instruction
+  awaiting --> complete: finish requested
+
+  refine: interactive.state\nphase=refine
+  refine --> awaiting: iteration complete
+
+  complete: interactive.state\nphase=complete
+  complete --> [*]
+```
+
+</details>
+
+### Polish pass
+
+`--polish` triggers a finishing pass (`polishPrompt`) that focuses on formatting fidelity.
+
+- Polish model defaults to the generation model.
+- Override with `--polish-model` (or `PROMPT_MAKER_POLISH_MODEL`).
+
+### Output artifacts
+
+A completed run can produce:
+
+- `prompt`: the final generated prompt text (untemplated)
+- `polishedPrompt`: present when `--polish` is used
+- `renderedPrompt`: present when `--context-template <name>` is applied
+- `generation.final` stream event: includes the full payload (`GenerateJsonPayload`)
+- History append: `~/.config/prompt-maker-cli/history.jsonl`
+
+Practical integration rule (used by editor integrations):
+
+- Prefer `renderedPrompt` if present.
+- Else prefer `polishedPrompt` if present.
+- Else use `prompt`.
+
+<details>
+<summary>Reference: output payload fields (GenerateJsonPayload)</summary>
+
+From `docs/neovim-plugin-integration.md`, the JSON payload includes (high-level):
+
+- `intent`
+- `model` (generation model)
+- `targetModel` (recorded runtime model)
+- `prompt`
+- `refinements`, `iterations`, `interactive`
+- `timestamp`
+- `contextPaths`
+- optional `outputPath`
+- optional `polishedPrompt`, `polishModel`
+- optional `contextTemplate`, `renderedPrompt`
+
+</details>
+
+---
 
 ## Prompt tests
 
@@ -338,6 +958,97 @@ prompt-maker-cli test prompt-tests.yaml
 - Default file: `prompt-tests.yaml` (repo root)
 - TUI Test Runner view: `Ctrl+T`
 - Quirk: `prompt-maker-cli test --help` prints help but still runs the suite
+
+### D14. Prompt Test Runner Flow
+
+Shows CLI and TUI entry points converging on the same runner.
+
+<details>
+<summary>Diagram</summary>
+
+```mermaid
+flowchart TD
+  A[Start: prompt-maker-cli test [file]] --> B{File provided?}
+  B -- No --> D[Use default\nprompt-tests.yaml]
+  B -- Yes --> C[Use provided YAML path]
+
+  C --> E[Load and validate YAML suite]
+  D --> E
+
+  E --> F[Run cases\n(using src/test-command.ts runner)]
+  F --> G[Report results\nstdout/stderr UI]
+
+  subgraph TUI[Test Runner view]
+    T1[Ctrl+T opens Test Runner] --> T2[Edit file path input]
+    T2 --> T3[Run tests action\n(Enter)]
+    T3 --> F
+  end
+```
+
+</details>
+
+---
+
+## TUI architecture and UX model
+
+The TUI is organized around an `AppContainer` that selects the active screen and enforces input routing invariants.
+
+- Screens:
+  - Generate screen: `src/tui/screens/command/CommandScreen.tsx`
+  - Test Runner screen: `src/tui/screens/test-runner/TestRunnerScreen.tsx`
+- Popups:
+  - Popup transitions managed by `src/tui/popup-reducer.ts` (pure reducer)
+  - Side effects and orchestration managed by `src/tui/hooks/usePopupManager.ts`
+- Keybinds:
+  - Defined by `src/tui/app-container-keymap.ts`
+
+Reference: `docs/tui-design.md`.
+
+### D10. TUI Architecture Map
+
+Shows how routing, screens, and popups fit together conceptually.
+
+<details>
+<summary>Diagram</summary>
+
+```mermaid
+flowchart TD
+  subgraph Entry[Entry]
+    EP[src/index.ts\nCLI router] -->|ui| TUI[src/tui/index.tsx\nparse --interactive-transport]
+    TUI --> AC[AppContainer\nsrc/tui/AppContainer.tsx]
+  end
+
+  subgraph Global[Global layers]
+    KEYMAP[Global keymap\nsrc/tui/app-container-keymap.ts]
+    HELP[Help overlay\n("?" toggles)]
+  end
+
+  subgraph Screens[Screens]
+    CS[CommandScreen (Generate)\nsrc/tui/screens/command/CommandScreen.tsx]
+    TS[TestRunnerScreen\nsrc/tui/screens/test-runner/TestRunnerScreen.tsx]
+  end
+
+  subgraph Popups[Popups + palette]
+    PR[popup-reducer\nsrc/tui/popup-reducer.ts]\n(pure)
+    PM[usePopupManager\nsrc/tui/hooks/usePopupManager.ts]\n(effects)
+    PAL[Command palette\n(COMMAND_DESCRIPTORS in src/tui/config.ts)]
+  end
+
+  AC -->|active view| CS
+  AC -->|active view| TS
+
+  AC --> HELP
+  AC --> KEYMAP
+
+  CS --> PAL
+  PAL --> PR
+  PR --> PM
+  PM --> CS
+```
+
+</details>
+
+---
 
 ## Provider configuration
 
@@ -373,6 +1084,8 @@ Env vars override config keys:
 - `GEMINI_API_KEY` (and optional `GEMINI_BASE_URL`)
 - Optional: `GITHUB_TOKEN` (for GitHub URL context rate limits)
 
+---
+
 ## Outputs and persistence
 
 - Generate-run history (JSONL): `~/.config/prompt-maker-cli/history.jsonl`
@@ -380,6 +1093,8 @@ Env vars override config keys:
 - Token telemetry:
   - Printed as a summary in non-`--quiet` runs
   - Always emitted as a `context.telemetry` JSONL stream event
+
+---
 
 ## Development
 
@@ -397,11 +1112,16 @@ npm test
 npm run format
 ```
 
-Maintainer references:
+---
+
+## Maintainer references
 
 - `docs/prompt-maker-cli-tui-encyclopedia.md` (authoritative behavior reference)
 - `docs/tui-design.md` (UX goals + input routing invariant)
+- `docs/neovim-plugin-integration.md` (generate pipeline + streaming events + interactive transports)
 - `src/tui/DEVELOPER_NOTE.md` (architecture notes; some paths are historical)
+
+---
 
 ## License
 
