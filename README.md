@@ -887,20 +887,20 @@ Shows the high-level phases exposed via events during refinement.
 stateDiagram-v2
   [*] --> start
 
-  start: interactive.state\nphase=start
+  start: interactive.state<br>phase=start
   start --> prompt
 
-  prompt: interactive.state\nphase=prompt
+  prompt: interactive.state<br>phase=prompt
   prompt --> awaiting
 
-  awaiting: interactive.awaiting\nmode=tty|transport
+  awaiting: interactive.awaiting<br>mode=tty|transport
   awaiting --> refine: receive instruction
   awaiting --> complete: finish requested
 
-  refine: interactive.state\nphase=refine
+  refine: interactive.state<br>phase=refine
   refine --> awaiting: iteration complete
 
-  complete: interactive.state\nphase=complete
+  complete: interactive.state<br>phase=complete
   complete --> [*]
 ```
 
