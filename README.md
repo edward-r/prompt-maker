@@ -127,25 +127,41 @@ This prevents “fallthrough” where one key triggers multiple layers.
 
 Open the palette with `Ctrl+G` or type `/` in the Generate input.
 
-Common commands:
+Commands:
 
-| Command       | Args           | What it does                                                          |
-| ------------- | -------------- | --------------------------------------------------------------------- |
-| `/model`      | -              | Pick the generation model                                             |
-| `/target`     | -              | Pick the target/runtime model (recorded; not included in prompt text) |
-| `/file`       | -              | Add local file context (popup)                                        |
-| `/url`        | `[url ...]`    | Add URL context directly or via popup                                 |
-| `/smart`      | `on\|off`      | Toggle smart context                                                  |
-| `/series`     | `[draft text]` | Generate a set of standalone “atomic prompts”                         |
-| `/theme`      | -              | Theme picker (preview with arrows, `Enter` confirm, `Esc` cancel)     |
-| `/theme-mode` | -              | Theme mode picker (`dark` / `light` / `system`)                       |
-| `/test`       | `[file]`       | Run prompt tests or open the test popup                               |
+| Command                   | Args                     | What it does                                                                                        |
+| ------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------- |
+| `/model`                  | -                        | Pick the generation model (popup)                                                                   |
+| `/target`                 | -                        | Pick the target/runtime model (recorded; not included in prompt text) (popup)                       |
+| `/polish`                 | `off\|clear\|--clear`    | Clear polish model, or pick the polish model (popup)                                                |
+| `/intent`                 | `[path]`                 | Set an intent file path, or pick a file (popup)                                                     |
+| `/meta` / `/instructions` | `[text]`                 | Set meta instructions, or open the meta editor (popup)                                              |
+| `/new`                    | -                        | Reset session state                                                                                 |
+| `/reuse`                  | -                        | Reset session and reuse last prompt                                                                 |
+| `/file`                   | -                        | Add local file context (popup)                                                                      |
+| `/url`                    | `[url ...]`              | Add one or more HTTP(S) URLs inline, or open the URL popup                                          |
+| `/smart`                  | `on\|off`                | Toggle smart context                                                                                |
+| `/smart-root`             | `<path>\|--clear\|clear` | Set/clear smart-context scan root (may auto-enable smart context)                                   |
+| `/image`                  | `[path]`                 | Add an image path inline, or open the image popup                                                   |
+| `/video`                  | `[path]`                 | Add a video path inline, or open the video popup                                                    |
+| `/copy`                   | `[on\|off]`              | Toggle auto-copy, or open the toggle popup                                                          |
+| `/chatgpt`                | `[on\|off]`              | Toggle auto-open-ChatGPT, or open the toggle popup                                                  |
+| `/json`                   | `[on\|off]`              | Toggle showing the JSON payload in history (TUI-only; blocked when interactive transport is active) |
+| `/tokens`                 | -                        | Show token breakdown (popup)                                                                        |
+| `/settings`               | -                        | Show settings (popup)                                                                               |
+| `/theme`                  | -                        | Theme picker (preview with arrows, `Enter` confirm, `Esc` cancel) (popup)                           |
+| `/theme-mode`             | -                        | Theme mode picker (popup)                                                                           |
+| `/reasoning` / `/why`     | -                        | Show last model reasoning (popup, when available)                                                   |
+| `/history`                | -                        | Show command history (popup)                                                                        |
+| `/series`                 | `[draft text]`           | Generate a set of standalone “atomic prompts”                                                       |
+| `/test`                   | `[file]`                 | Run prompt tests (with a file arg) or open the test popup                                           |
+| `/exit`                   | -                        | Exit the app                                                                                        |
 
 Notes:
 
 - `/theme-mode` opens a popup (it does not parse inline args).
-- `/json` inside the TUI only affects whether a JSON payload is shown in the history pane; it does not enable generate-mode `--json`.
-- Useful extras: `/tokens` (token breakdown), `/history` (command history), `/reasoning` or `/why` (last model reasoning, when available).
+- `/json` inside the TUI only toggles whether a JSON payload is shown in the history pane; it does not enable generate-mode `--json`.
+- `/json` is blocked when `prompt-maker-cli ui --interactive-transport ...` is active.
 
 ### Series generation (“atomic prompts”)
 
