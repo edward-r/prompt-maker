@@ -133,20 +133,22 @@ Shows how argv maps to top-level modes.
 
 ```mermaid
 flowchart TD
-  A[Start: prompt-maker-cli argv] --> B{Any args?}
+  A["Resolve theme name<br>(from config: theme)"] --> B[Search sources by precedence]
 
-  B -- No --> UI[Mode: ui\nInk TUI]
-  B -- Yes --> C{First arg}
+  B --> P1["1) Project-local themes<br>nearest .prompt-maker-cli/themes"]
+  P1 --> M1{Found theme with name?}
+  M1 -- Yes --> USE[Use that theme]
+  M1 -- No --> P2["2) Project-local themes<br>ancestor directories"]
 
-  C -- ui --> UI
-  C -- test --> TEST[Mode: test\nPrompt tests runner]
-  C -- generate --> GEN[Mode: generate\nPrompt generation]
-  C -- expand --> GEN
-  C -- other/flags --> GEN
+  P2 --> M2{Found?}
+  M2 -- Yes --> USE
+  M2 -- No --> G["3) Global themes<br>~/.config/prompt-maker-cli/themes"]
 
-  UI --> UIEP[Mount Ink AppContainer]
-  TEST --> TESEP[Load YAML suite\nRun tests]
-  GEN --> GEP[Resolve intent/context\nRun pipeline]
+  G --> M3{Found?}
+  M3 -- Yes --> USE
+  M3 -- No --> BI["4) Built-in themes"]
+
+  BI --> USE
 ```
 
 ## TUI mode (recommended)
@@ -298,11 +300,11 @@ Shows the `/series` happy path and the best-effort write behavior.
 
 ```mermaid
 flowchart TD
-  A[User triggers /series\n(or presses Tab)] --> B[Collect draft text\n(or use current input)]
-  B --> C[Generate atomic prompt steps\n(no cross references)]
-  C --> D[Render files\n00-overview + 01..N steps]
+  A["User triggers /series<br>(or presses Tab)"] --> B["Collect draft text<br>(or use current input)"]
+  B --> C["Generate atomic prompt steps<br>(no cross references)"]
+  C --> D[Render files<br>00-overview + 01..N steps]
 
-  D --> E{Can create output dir?\n generated/series/<timestamp>-<slug>/}
+  D --> E{Can create output dir?<br> generated/series/<timestamp>-<slug>/}
   E -- Yes --> W[Write markdown files]
 
   E -- No --> NW[Skip writes; keep results in-session]
@@ -487,16 +489,16 @@ Summarizes the full “generate” path, including interactive refinement and th
 
 ```mermaid
 flowchart TD
-  A[Start: generate invocation] --> I[Intent intake\n(positional | --intent-file | stdin)]
-  I --> V{Intent valid?\nUTF-8, no NUL, <=512KB}
-  V -- No --> FATAL[Fail fast\n(intent required / invalid)]
+  A[Start: generate invocation] --> I["Intent intake<br>(positional | --intent-file | stdin)"]
+  I --> V{Intent valid?<br>UTF-8, no NUL, <=512KB}
+  V -- No --> FATAL["Fail fast<br>(intent required / invalid)"]
   V -- Yes --> C[Resolve context blocks]
 
-  C --> CF[Local file context\n--context globs]
-  C --> CU[Remote URL context\n--url http(s)]
-  C --> CG[GitHub URL expansion\n--url github.com/...]
-  C --> CS[Optional smart context\n--smart-context]
-  C --> CM[Optional media\n--image / --video]
+  C --> CF[Local file context<br>--context globs]
+  C --> CU["Remote URL context<br>--url http(s)"]
+  C --> CG[GitHub URL expansion<br>--url github.com/...]
+  C --> CS[Optional smart context<br>--smart-context]
+  C --> CM[Optional media<br>--image / --video]
 
   CF --> DEDUPE[De-dupe / merge context paths]
   CU --> DEDUPE
@@ -504,25 +506,25 @@ flowchart TD
   CS --> DEDUPE
   CM --> DEDUPE
 
-  DEDUPE --> T[Token telemetry\n(intent + context)]
-  T --> G1[Generation iteration 1\nPromptGeneratorService.generatePrompt]
+  DEDUPE --> T["Token telemetry<br>(intent + context)"]
+  T --> G1[Generation iteration 1<br>PromptGeneratorService.generatePrompt]
 
-  G1 --> INT{Interactive?\n--interactive or --interactive-transport}
+  G1 --> INT{Interactive?<br>--interactive or --interactive-transport}
   INT -- No --> DONEITER[Stop refining]
 
-  INT -- Yes --> LOOP[Interactive loop\n(transport or TTY)]
-  LOOP --> GREF[Generation iteration N\n(buildRefinementMessage)]
+  INT -- Yes --> LOOP["Interactive loop<br>(transport or TTY)"]
+  LOOP --> GREF["Generation iteration N<br>(buildRefinementMessage)"]
   GREF --> LOOP
   LOOP --> DONEITER
 
-  DONEITER --> P{Polish enabled?\n--polish}
-  P -- Yes --> POL[polishPrompt\n(optional --polish-model)]
+  DONEITER --> P{Polish enabled?<br>--polish}
+  P -- Yes --> POL["polishPrompt<br>(optional --polish-model)"]
   P -- No --> SKIP[Skip polish]
 
-  POL --> OUT[Assemble output payload\n(render template, history append)]
+  POL --> OUT["Assemble output payload<br>(render template, history append)"]
   SKIP --> OUT
 
-  OUT --> FINAL[Deliver artifacts\n(prompt + renderedPrompt + JSON/history)]
+  OUT --> FINAL["Deliver artifacts<br>(prompt + renderedPrompt + JSON/history)"]
 ```
 
 </details>
@@ -561,46 +563,46 @@ Shows how sources are resolved, merged, and how errors are classified (warnings 
 
 ```mermaid
 flowchart TD
-  A[Begin context resolution] --> B[Resolve user intent\n(positional | --intent-file | stdin)]
+  A[Begin context resolution] --> B["Resolve user intent<br>(positional | --intent-file | stdin)"]
 
   B --> C{Has non-empty intent text?}
   C -- No --> F[Fail: intent text required]
   C -- Yes --> D[Initialize context list]
 
-  D --> E1[Expand --context globs\nfast-glob dot:true]
+  D --> E1[Expand --context globs<br>fast-glob dot:true]
   E1 --> E1M{Any matches?}
-  E1M -- No --> W1[Warn: glob matched nothing\n(non-fatal)]
-  E1M -- Yes --> E1R[Read files\nattach as <file path="...">]
+  E1M -- No --> W1["Warn: glob matched nothing<br>(non-fatal)"]
+  E1M -- Yes --> E1R[Read files<br>attach as <file path="...">]
 
-  D --> E2[Resolve --url entries\nhttp(s) only]
+  D --> E2["Resolve --url entries<br>http(s) only"]
   E2 --> E2P{Protocol ok?}
-  E2P -- No --> W2[Warn: non-http(s) URL\n(skip)]
-  E2P -- Yes --> E2D[Download <=1MB\nHTML -> text]
+  E2P -- No --> W2["Warn: non-http(s) URL<br>(skip)"]
+  E2P -- Yes --> E2D[Download <=1MB<br>HTML -> text]
   E2D --> E2OK{Fetch ok?}
-  E2OK -- No --> W3[Warn: URL fetch failed\n(non-fatal)]
-  E2OK -- Yes --> E2R[Attach as virtual file\npath: url:<url>]
+  E2OK -- No --> W3["Warn: URL fetch failed<br>(non-fatal)"]
+  E2OK -- Yes --> E2R[Attach as virtual file<br>path: url:<url>]
 
-  D --> E3[Recognize GitHub URLs\n(blob/tree/repo root)]
-  E3 --> E3R[Expand with limits\n<=60 files, <=64KB each]
+  D --> E3["Recognize GitHub URLs<br>(blob/tree/repo root)"]
+  E3 --> E3R["Expand with limits<br><=60 files, <=64KB each"]
   E3R --> E3OK{Fetch ok?}
-  E3OK -- No --> W4[Warn: GitHub fetch failed\n(non-fatal)]
-  E3OK -- Yes --> E3A[Attach expanded files\n(ignore dist, node_modules, lockfiles...]
+  E3OK -- No --> W4["Warn: GitHub fetch failed<br>(non-fatal)"]
+  E3OK -- Yes --> E3A["Attach expanded files<br>(ignore dist, node_modules, lockfiles..."]
 
   D --> E4{--smart-context enabled?}
   E4 -- No --> SKIPSC[Skip smart context]
-  E4 -- Yes --> SC[Scan/index/search local files\n<=25KB]
+  E4 -- Yes --> SC[Scan/index/search local files<br><=25KB]
 
-  D --> E5[Media attachments\n--image / --video]
+  D --> E5[Media attachments<br>--image / --video]
   E5 --> E5W[Unsupported/oversize -> warn + skip]
 
-  E1R --> MERGE[De-dupe context paths\n(avoid duplicates across sources)]
+  E1R --> MERGE["De-dupe context paths<br>(avoid duplicates across sources)"]
   E2R --> MERGE
   E3A --> MERGE
   SC --> MERGE
   SKIPSC --> MERGE
   E5W --> MERGE
 
-  MERGE --> DONE[Context ready\n(used for telemetry + generation)]
+  MERGE --> DONE["Context ready<br>(used for telemetry + generation)"]
 ```
 
 </details>
@@ -630,25 +632,25 @@ flowchart TD
 
   B -- No --> U[Generic URL fetch]
 
-  U --> U1{Protocol http(s)?}
+  U --> U1{"Protocol http(s)?"}
   U1 -- No --> UW[Warn + skip]
   U1 -- Yes --> U2[Download <=1MB]
   U2 --> U3{HTML?}
-  U3 -- Yes --> U4[Convert HTML to text\n(html-to-text)]
+  U3 -- Yes --> U4["Convert HTML to text<br>(html-to-text)"]
   U3 -- No --> U5[Use response body as text]
-  U4 --> UA[Attach virtual file\npath: url:<url>]
+  U4 --> UA[Attach virtual file<br>path: url:<url>]
   U5 --> UA
 
   B -- Yes --> G[GitHub resolver]
 
-  G --> G1[Detect form\nrepo root | tree | blob]
-  G1 --> G2[Enumerate targets\napply ignore lists]
+  G --> G1["Detect form<br>repo root | tree | blob"]
+  G1 --> G2[Enumerate targets<br>apply ignore lists]
 
   G2 --> G3[Fetch contents]
 
-  G3 --> G4{Within safety limits?\n<=60 files, <=64KB each}
-  G4 -- No --> GL[Stop at limits\n(skip extras)]
-  G4 -- Yes --> GA[Attach expanded files\n(as virtual context entries)]
+  G3 --> G4{Within safety limits?<br><=60 files, <=64KB each}
+  G4 -- No --> GL["Stop at limits<br>(skip extras)"]
+  G4 -- Yes --> GA["Attach expanded files<br>(as virtual context entries)"]
 
   GL --> DONE[Context additions complete]
   GA --> DONE
@@ -677,17 +679,17 @@ Shows the scan/index/search loop and where caching and de-dupe happen.
 
 ```mermaid
 flowchart TD
-  A[--smart-context enabled] --> B[Choose scan root\n(--smart-context-root or CWD)]
-  B --> C[Scan files\nfast-glob include extensions]
+  A["--smart-context enabled] --> B[Choose scan root<br>(--smart-context-root or CWD)"]
+  B --> C[Scan files<br>fast-glob include extensions]
 
-  C --> D[Filter\nexclude node_modules/dist/...\nskip >25KB]
-  D --> E[Index embeddings\n(cache by SHA256)]
-  E --> F[Search top-k\nagainst intent text]
+  C --> D[Filter<br>exclude node_modules/dist/...<br>skip >25KB]
+  D --> E["Index embeddings<br>(cache by SHA256)"]
+  E --> F[Search top-k<br>against intent text]
 
   F --> G[Read selected files]
 
-  G --> H[Append unique files\nskip ones already in user context]
-  H --> DONE[Smart context ready\nmerged into generation context]
+  G --> H[Append unique files<br>skip ones already in user context]
+  H --> DONE[Smart context ready<br>merged into generation context]
 ```
 
 </details>
@@ -711,10 +713,10 @@ Shows validation, model switching for videos, and upload attachment.
 flowchart TD
   A[Media flags present?] --> B{--image provided?}
 
-  B -- Yes --> I1[Validate image\next + <=20MB]
+  B -- Yes --> I1[Validate image<br>ext + <=20MB]
   I1 --> IOK{Valid?}
   IOK -- No --> IW[Warn + skip]
-  IOK -- Yes --> I2[Read + Base64 encode\n(build image parts)]
+  IOK -- Yes --> I2["Read + Base64 encode<br>(build image parts)"]
 
   B -- No --> I0[No image work]
 
@@ -722,14 +724,14 @@ flowchart TD
   C -- No --> V0[No video work]
 
   C -- Yes --> V1{Is selected model Gemini?}
-  V1 -- No --> VSW[Auto-switch generation model\n-> Gemini video-capable default]
-  V1 -- Yes --> V2[Upload video\n(GoogleAIFileManager)]
+  V1 -- No --> VSW[Auto-switch generation model<br>-> Gemini video-capable default]
+  V1 -- Yes --> V2["Upload video<br>(GoogleAIFileManager)"]
 
   VSW --> V2
-  V2 --> V3[Poll until ACTIVE\n(or fail with error)]
+  V2 --> V3["Poll until ACTIVE<br>(or fail with error)"]
   V3 --> VOK{Upload ok?}
-  VOK -- No --> VW[Warn/Fail (upload error)\n(run continues where possible)]
-  VOK -- Yes --> V4[Attach video reference\ninto request parts]
+  VOK -- No --> VW["Warn/Fail (upload error)<br>(run continues where possible)"]
+  VOK -- Yes --> V4[Attach video reference<br>into request parts]
 
   I2 --> DONE[Media ready]
   IW --> DONE
@@ -968,19 +970,19 @@ Shows CLI and TUI entry points converging on the same runner.
 
 ```mermaid
 flowchart TD
-  A[Start: prompt-maker-cli test [file]] --> B{File provided?}
-  B -- No --> D[Use default\nprompt-tests.yaml]
+  A["Start: prompt-maker-cli test [file]"] --> B{File provided?}
+  B -- No --> D[Use default<br>prompt-tests.yaml]
   B -- Yes --> C[Use provided YAML path]
 
   C --> E[Load and validate YAML suite]
   D --> E
 
-  E --> F[Run cases\n(using src/test-command.ts runner)]
-  F --> G[Report results\nstdout/stderr UI]
+  E --> F["Run cases<br>(using src/test-command.ts runner)"]
+  F --> G[Report results<br>stdout/stderr UI]
 
   subgraph TUI[Test Runner view]
     T1[Ctrl+T opens Test Runner] --> T2[Edit file path input]
-    T2 --> T3[Run tests action\n(Enter)]
+    T2 --> T3["Run tests action<br>(Enter)"]
     T3 --> F
   end
 ```
@@ -1014,24 +1016,25 @@ Shows how routing, screens, and popups fit together conceptually.
 ```mermaid
 flowchart TD
   subgraph Entry[Entry]
-    EP[src/index.ts\nCLI router] -->|ui| TUI[src/tui/index.tsx\nparse --interactive-transport]
-    TUI --> AC[AppContainer\nsrc/tui/AppContainer.tsx]
+    EP[src/index.ts<br>CLI router] -->|ui| TUI[src/tui/index.tsx<br>parse --interactive-transport]
+    TUI --> AC[AppContainer<br>src/tui/AppContainer.tsx]
   end
 
   subgraph Global[Global layers]
-    KEYMAP[Global keymap\nsrc/tui/app-container-keymap.ts]
-    HELP[Help overlay\n("?" toggles)]
+    KEYMAP[Global keymap<br>src/tui/app-container-keymap.ts]
+    HELP["Help overlay<br>('?' toggles)"]
   end
 
   subgraph Screens[Screens]
-    CS[CommandScreen (Generate)\nsrc/tui/screens/command/CommandScreen.tsx]
-    TS[TestRunnerScreen\nsrc/tui/screens/test-runner/TestRunnerScreen.tsx]
+    CS["CommandScreen (Generate)<br>src/tui/screens/command/CommandScreen.tsx"]
+    TS[TestRunnerScreen<br>src/tui/screens/test-runner/TestRunnerScreen.tsx]
   end
 
   subgraph Popups[Popups + palette]
-    PR[popup-reducer\nsrc/tui/popup-reducer.ts]\n(pure)
-    PM[usePopupManager\nsrc/tui/hooks/usePopupManager.ts]\n(effects)
-    PAL[Command palette\n(COMMAND_DESCRIPTORS in src/tui/config.ts)]
+    PR["popup-reducer<br>src/tui/popup-reducer.ts<br>(pure)"]
+
+    PM["usePopupManager<br>src/tui/hooks/usePopupManager.ts<br>(effects)"]
+    PAL["Command palette<br>(COMMAND_DESCRIPTORS in src/tui/config.ts)"]
   end
 
   AC -->|active view| CS
