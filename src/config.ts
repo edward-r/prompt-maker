@@ -5,10 +5,20 @@ import path from 'node:path'
 import type { ModelDefinition, ModelProvider } from './model-providers'
 import type { ThemeMode } from './tui/theme/theme-types'
 
+export type ContextOverflowStrategy =
+  | 'fail'
+  | 'drop-smart'
+  | 'drop-url'
+  | 'drop-largest'
+  | 'drop-oldest'
+
 export type PromptGeneratorConfig = {
   defaultModel?: string
   defaultGeminiModel?: string
   models?: ModelDefinition[]
+  maxInputTokens?: number
+  maxContextTokens?: number
+  contextOverflowStrategy?: ContextOverflowStrategy
 }
 
 export type PromptMakerCliConfig = {
@@ -265,6 +275,24 @@ const parseConfig = (raw: unknown): PromptMakerCliConfig => {
     if (raw.promptGenerator.models !== undefined) {
       promptGenerator.models = parsePromptGeneratorModels(raw.promptGenerator.models)
     }
+    if (raw.promptGenerator.maxInputTokens !== undefined) {
+      promptGenerator.maxInputTokens = expectPositiveInteger(
+        raw.promptGenerator.maxInputTokens,
+        'promptGenerator.maxInputTokens',
+      )
+    }
+    if (raw.promptGenerator.maxContextTokens !== undefined) {
+      promptGenerator.maxContextTokens = expectPositiveInteger(
+        raw.promptGenerator.maxContextTokens,
+        'promptGenerator.maxContextTokens',
+      )
+    }
+    if (raw.promptGenerator.contextOverflowStrategy !== undefined) {
+      promptGenerator.contextOverflowStrategy = expectContextOverflowStrategy(
+        raw.promptGenerator.contextOverflowStrategy,
+        'promptGenerator.contextOverflowStrategy',
+      )
+    }
     config.promptGenerator = promptGenerator
   }
 
@@ -359,6 +387,41 @@ const parseCapabilitiesField = (value: unknown, label: string): string[] => {
       .filter((entry) => entry.length > 0)
   }
   throw new Error(`${label} must be a string or array of strings.`)
+}
+
+const CONTEXT_OVERFLOW_STRATEGIES = [
+  'fail',
+  'drop-smart',
+  'drop-url',
+  'drop-largest',
+  'drop-oldest',
+] as const satisfies ReadonlyArray<ContextOverflowStrategy>
+
+function expectPositiveInteger(value: unknown, label: string): number {
+  if (
+    typeof value !== 'number' ||
+    !Number.isFinite(value) ||
+    !Number.isInteger(value) ||
+    value <= 0
+  ) {
+    throw new Error(`${label} must be a positive integer.`)
+  }
+  return value
+}
+
+function expectContextOverflowStrategy(value: unknown, label: string): ContextOverflowStrategy {
+  if (typeof value !== 'string') {
+    throw new Error(`${label} must be one of: ${CONTEXT_OVERFLOW_STRATEGIES.join(', ')}.`)
+  }
+  const normalized = value.trim().toLowerCase()
+  if (isContextOverflowStrategy(normalized)) {
+    return normalized
+  }
+  throw new Error(`${label} must be one of: ${CONTEXT_OVERFLOW_STRATEGIES.join(', ')}.`)
+}
+
+function isContextOverflowStrategy(value: string): value is ContextOverflowStrategy {
+  return CONTEXT_OVERFLOW_STRATEGIES.includes(value as ContextOverflowStrategy)
 }
 
 const expectBoolean = (value: unknown, label: string): boolean => {
