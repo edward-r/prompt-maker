@@ -3,6 +3,13 @@ import type { UploadDetail, UploadState } from '../prompt-generator-service'
 
 export type StreamMode = 'none' | 'jsonl'
 
+export type ContextOverflowStrategy =
+  | 'fail'
+  | 'drop-smart'
+  | 'drop-url'
+  | 'drop-largest'
+  | 'drop-oldest'
+
 export type GenerateArgs = {
   intent?: string
   intentFile?: string
@@ -17,6 +24,9 @@ export type GenerateArgs = {
   quiet: boolean
   progress: boolean
   stream: StreamMode
+  maxInputTokens?: number
+  maxContextTokens?: number
+  contextOverflow?: ContextOverflowStrategy
   showContext: boolean
   contextTemplate?: string
   contextFile?: string

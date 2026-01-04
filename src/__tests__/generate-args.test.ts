@@ -1,4 +1,4 @@
-import { extractIntentArg, stripHelpFlags } from '../generate/args'
+import { extractIntentArg, parseGenerateArgs, stripHelpFlags } from '../generate/args'
 
 describe('generate args helpers', () => {
   describe('extractIntentArg', () => {
@@ -31,6 +31,35 @@ describe('generate args helpers', () => {
 
       expect(result.helpRequested).toBe(true)
       expect(result.optionArgs).toEqual(['--', '--help', '-h'])
+    })
+  })
+
+  describe('parseGenerateArgs', () => {
+    it('parses token budget flags without consuming intent', () => {
+      const parsed = parseGenerateArgs(['--max-input-tokens', '100', 'do the thing'])
+
+      expect(parsed.args.maxInputTokens).toBe(100)
+      expect(parsed.args.intent).toBe('do the thing')
+    })
+
+    it('rejects non-positive integer token budgets', () => {
+      expect(() => parseGenerateArgs(['--max-input-tokens', '0'])).toThrow(
+        '--max-input-tokens must be a positive integer.',
+      )
+
+      expect(() => parseGenerateArgs(['--max-context-tokens', '1.5'])).toThrow(
+        '--max-context-tokens must be a positive integer.',
+      )
+    })
+
+    it('parses validated context overflow strategy', () => {
+      const parsed = parseGenerateArgs(['--context-overflow', 'drop-oldest'])
+
+      expect(parsed.args.contextOverflow).toBe('drop-oldest')
+    })
+
+    it('rejects invalid context overflow strategy', () => {
+      expect(() => parseGenerateArgs(['--context-overflow', 'nope'])).toThrow()
     })
   })
 })

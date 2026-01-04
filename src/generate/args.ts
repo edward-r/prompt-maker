@@ -1,7 +1,7 @@
 import yargs from 'yargs'
 import type { ArgumentsCamelCase } from 'yargs'
 
-import type { GenerateArgs, StreamMode } from './types'
+import type { ContextOverflowStrategy, GenerateArgs, StreamMode } from './types'
 
 const VALUE_FLAGS = new Set([
   '--intent-file',
@@ -18,10 +18,21 @@ const VALUE_FLAGS = new Set([
   '--context-format',
   '--context-template',
   '--smart-context-root',
+  '--max-input-tokens',
+  '--max-context-tokens',
+  '--context-overflow',
   '--interactive-transport',
 ])
 
 const HELP_FLAGS = new Set(['--help', '-h'])
+
+const CONTEXT_OVERFLOW_STRATEGIES = [
+  'fail',
+  'drop-smart',
+  'drop-url',
+  'drop-largest',
+  'drop-oldest',
+] as const satisfies ReadonlyArray<ContextOverflowStrategy>
 
 type ParsedArgs = {
   args: GenerateArgs
@@ -157,6 +168,41 @@ export const parseGenerateArgs = (argv: string[]): ParsedArgs => {
       type: 'string',
       describe: 'Override the base directory scanned when --smart-context is enabled',
     })
+    .option('max-input-tokens', {
+      type: 'number',
+      describe: 'Maximum allowed input tokens (intent + system + context)',
+      coerce: (value: unknown) => parsePositiveIntegerFlag('--max-input-tokens', value),
+    })
+    .option('max-context-tokens', {
+      type: 'number',
+      describe: 'Maximum allowed tokens reserved for context attachments',
+      coerce: (value: unknown) => parsePositiveIntegerFlag('--max-context-tokens', value),
+    })
+    .option('context-overflow', {
+      type: 'string',
+      choices: CONTEXT_OVERFLOW_STRATEGIES,
+      describe: 'Strategy for resolving context token overflows',
+    })
+    .check((argv) => {
+      if (argv.maxInputTokens !== undefined) {
+        argv.maxInputTokens = parsePositiveIntegerFlag('--max-input-tokens', argv.maxInputTokens)
+      }
+
+      if (argv.maxContextTokens !== undefined) {
+        argv.maxContextTokens = parsePositiveIntegerFlag(
+          '--max-context-tokens',
+          argv.maxContextTokens,
+        )
+      }
+
+      if (argv.contextOverflow !== undefined && !isContextOverflowStrategy(argv.contextOverflow)) {
+        throw new Error(
+          `--context-overflow must be one of: ${CONTEXT_OVERFLOW_STRATEGIES.join(', ')}.`,
+        )
+      }
+
+      return true
+    })
     .help('help')
     .alias('help', 'h')
     .exitProcess(false)
@@ -192,6 +238,9 @@ export const parseGenerateArgs = (argv: string[]): ParsedArgs => {
     contextTemplate?: string
     interactiveTransport?: string
     stream?: StreamMode
+    maxInputTokens?: number
+    maxContextTokens?: number
+    contextOverflow?: ContextOverflowStrategy
     _?: (string | number)[]
   }>
 
@@ -209,6 +258,9 @@ export const parseGenerateArgs = (argv: string[]): ParsedArgs => {
     showContext: parsed.showContext ?? false,
     contextFormat: parsed.contextFormat ?? 'text',
     help: helpRequested || Boolean(parsed.help),
+    ...(parsed.maxInputTokens !== undefined ? { maxInputTokens: parsed.maxInputTokens } : {}),
+    ...(parsed.maxContextTokens !== undefined ? { maxContextTokens: parsed.maxContextTokens } : {}),
+    ...(parsed.contextOverflow !== undefined ? { contextOverflow: parsed.contextOverflow } : {}),
     context: normalizeListArg(parsed.context),
     urls: normalizeListArg(parsed.url),
     images: normalizeListArg(parsed.image),
@@ -346,4 +398,23 @@ const normalizeListArg = (value: unknown): string[] => {
     return []
   }
   return [value.toString()]
+}
+
+const isContextOverflowStrategy = (value: unknown): value is ContextOverflowStrategy =>
+  typeof value === 'string' &&
+  CONTEXT_OVERFLOW_STRATEGIES.includes(value as ContextOverflowStrategy)
+
+const parsePositiveIntegerFlag = (flagName: string, value: unknown): number => {
+  const numeric =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && value.trim() !== ''
+        ? Number(value)
+        : Number.NaN
+
+  if (!Number.isFinite(numeric) || !Number.isInteger(numeric) || numeric <= 0) {
+    throw new Error(`${flagName} must be a positive integer.`)
+  }
+
+  return numeric
 }

@@ -19,6 +19,7 @@ type YargsApi = {
   parserConfiguration: (...args: unknown[]) => YargsApi
   strict: (...args: unknown[]) => YargsApi
   command: (_pattern: string, _desc: string, builder?: (cmd: Builder) => Builder) => YargsApi
+  check: (handler: (argv: Record<string, unknown>) => boolean | void) => YargsApi
   fail: (handler: (msg?: string, err?: Error) => void) => YargsApi
   showHelp: () => void
   parseSync: () => Record<string, unknown>
@@ -37,6 +38,8 @@ const BOOLEAN_OPTIONS = [
 
 const ARRAY_OPTIONS = ['context', 'image', 'video']
 
+const NUMBER_OPTIONS = ['max-input-tokens', 'max-context-tokens']
+
 const DEFAULTS: Record<string, unknown> = {
   context: [],
   image: [],
@@ -53,6 +56,7 @@ const ALIASES: Record<string, string> = {
 
 const createYargs = (argv: string[]): YargsApi => {
   const positionalDefaults: Record<string, unknown> = {}
+  const checkHandlers: Array<(argv: Record<string, unknown>) => boolean | void> = []
   let failHandler: ((msg?: string, err?: Error) => void) | undefined
 
   const api: YargsApi = {
@@ -65,6 +69,10 @@ const createYargs = (argv: string[]): YargsApi => {
     showHelpOnFail: () => api,
     parserConfiguration: () => api,
     strict: () => api,
+    check(handler: (argv: Record<string, unknown>) => boolean | void) {
+      checkHandlers.push(handler)
+      return api
+    },
     command(_pattern: string, _desc: string, builder?: (cmd: Builder) => Builder) {
       if (builder) {
         builder({
@@ -89,6 +97,7 @@ const createYargs = (argv: string[]): YargsApi => {
           alias: ALIASES,
           array: ARRAY_OPTIONS,
           boolean: BOOLEAN_OPTIONS,
+          number: NUMBER_OPTIONS,
           configuration: {
             'halt-at-non-option': true,
             'camel-case-expansion': true,
@@ -101,6 +110,13 @@ const createYargs = (argv: string[]): YargsApi => {
             parsed[name] = value
           }
         }
+
+        checkHandlers.forEach((handler) => {
+          const result = handler(parsed)
+          if (result === false) {
+            throw new Error('Invalid CLI arguments.')
+          }
+        })
 
         return parsed
       } catch (error) {

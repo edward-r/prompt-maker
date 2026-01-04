@@ -16,37 +16,61 @@ jest.mock('../../tui/AppContainer', () => ({
 describe('runTuiCommand exit clear', () => {
   const getInkMock = (): InkModule => jest.requireMock('ink') as InkModule
 
+  const mockStdoutIsTTY = (value: boolean): (() => void) => {
+    const proto = Object.getPrototypeOf(process.stdout) as object | null
+    const descriptor =
+      Object.getOwnPropertyDescriptor(process.stdout, 'isTTY') ??
+      (proto ? Object.getOwnPropertyDescriptor(proto, 'isTTY') : undefined)
+
+    if (descriptor?.get) {
+      const spy = jest
+        .spyOn(process.stdout as unknown as { isTTY: boolean }, 'isTTY', 'get')
+        .mockReturnValue(value)
+
+      return () => spy.mockRestore()
+    }
+
+    const original = process.stdout.isTTY
+    Object.defineProperty(process.stdout, 'isTTY', { value, configurable: true })
+
+    return () => {
+      Object.defineProperty(process.stdout, 'isTTY', { value: original, configurable: true })
+    }
+  }
+
   it('clears terminal after Ink exits', async () => {
     const stdoutWrite = jest.spyOn(process.stdout, 'write').mockImplementation(() => true)
-    const originalIsTTY = process.stdout.isTTY
-    process.stdout.isTTY = true
+    const restoreIsTTY = mockStdoutIsTTY(true)
 
-    const waitUntilExit = jest.fn(async () => {})
-    getInkMock().render.mockReturnValue({ waitUntilExit })
+    try {
+      const waitUntilExit = jest.fn(async () => {})
+      getInkMock().render.mockReturnValue({ waitUntilExit })
 
-    await runTuiCommand([])
+      await runTuiCommand([])
 
-    expect(waitUntilExit).toHaveBeenCalledTimes(1)
-    expect(stdoutWrite).toHaveBeenCalledWith('\u001b[0m\u001b[2J\u001b[H')
-
-    stdoutWrite.mockRestore()
-    process.stdout.isTTY = originalIsTTY
+      expect(waitUntilExit).toHaveBeenCalledTimes(1)
+      expect(stdoutWrite).toHaveBeenCalledWith('\u001b[0m\u001b[2J\u001b[H')
+    } finally {
+      stdoutWrite.mockRestore()
+      restoreIsTTY()
+    }
   })
 
   it('skips clear when not a TTY', async () => {
     const stdoutWrite = jest.spyOn(process.stdout, 'write').mockImplementation(() => true)
-    const originalIsTTY = process.stdout.isTTY
-    process.stdout.isTTY = false
+    const restoreIsTTY = mockStdoutIsTTY(false)
 
-    const waitUntilExit = jest.fn(async () => {})
-    getInkMock().render.mockReturnValue({ waitUntilExit })
+    try {
+      const waitUntilExit = jest.fn(async () => {})
+      getInkMock().render.mockReturnValue({ waitUntilExit })
 
-    await runTuiCommand([])
+      await runTuiCommand([])
 
-    expect(waitUntilExit).toHaveBeenCalledTimes(1)
-    expect(stdoutWrite).not.toHaveBeenCalled()
-
-    stdoutWrite.mockRestore()
-    process.stdout.isTTY = originalIsTTY
+      expect(waitUntilExit).toHaveBeenCalledTimes(1)
+      expect(stdoutWrite).not.toHaveBeenCalled()
+    } finally {
+      stdoutWrite.mockRestore()
+      restoreIsTTY()
+    }
   })
 })
