@@ -223,16 +223,16 @@ Shows the key handling priority order as an explicit routing gate.
 ```mermaid
 flowchart TD
   K[Keypress] --> H{Help overlay open?}
-  H -- Yes --> HNDH[Help overlay handles key\n(suppress everything else)]
+  H -- Yes --> HNDH["Help overlay handles key<br>(suppress everything else)"]
   H -- No --> P{Popup open?}
 
-  P -- Yes --> HNDP[Active popup handles key\n(no fallthrough)]
+  P -- Yes --> HNDP["Active popup handles key<br>(no fallthrough)"]
   P -- No --> S{Active screen handles key?}
 
-  S -- Yes --> HNDS[Screen handles key\n(e.g., history scroll, submit)]
+  S -- Yes --> HNDS["Screen handles key<br>(e.g., history scroll, submit)"]
   S -- No --> G{Global keybind?}
 
-  G -- Yes --> HNDG[AppContainer global key\n(exit, toggle views, help)]
+  G -- Yes --> HNDG["AppContainer global key<br>(exit, toggle views, help)"]
   G -- No --> IGN[Ignored]
 ```
 
