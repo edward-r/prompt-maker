@@ -178,6 +178,7 @@ prompt-maker-cli ui --interactive-transport /tmp/pmc.sock
 Important caveats:
 
 - **TTY required**: Ink needs raw-mode input. Running the TUI without a real TTY will throw an Ink “Raw mode is not supported” error.
+- **Platform/terminal support**: the TUI has only been tested on **macOS** using the **Kitty** terminal app. Running on Windows (or in other terminals) might pose problems.
 - **Minimal arg parsing**: `ui` only parses `--interactive-transport`. `prompt-maker-cli ui --help` is not implemented.
 - **FZF matching**: the TUI uses the npm `fzf` library for fuzzy matching (bundled via `npm install`; no separate `fzf` binary is required).
 
