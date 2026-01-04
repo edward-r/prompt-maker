@@ -370,20 +370,20 @@ Shows the lookup order used when multiple themes share a name.
 
 ```mermaid
 flowchart TD
-  A[Resolve theme name\n(from config: theme)] --> B[Search sources by precedence]
+  A["Resolve theme name<br>(from config: theme)"] --> B[Search sources by precedence]
 
-  B --> P1[1) Project-local themes\nnearest .prompt-maker-cli/themes]
+  B --> P1["1) Project-local themes<br>nearest .prompt-maker-cli/themes"]
   P1 --> M1{Found theme with name?}
   M1 -- Yes --> USE[Use that theme]
-  M1 -- No --> P2[2) Project-local themes\nancestor directories]
+  M1 -- No --> P2["2) Project-local themes<br>ancestor directories"]
 
   P2 --> M2{Found?}
   M2 -- Yes --> USE
-  M2 -- No --> G[3) Global themes\n~/.config/prompt-maker-cli/themes]
+  M2 -- No --> G["3) Global themes<br>~/.config/prompt-maker-cli/themes"]
 
   G --> M3{Found?}
   M3 -- Yes --> USE
-  M3 -- No --> BI[4) Built-in themes]
+  M3 -- No --> BI["4) Built-in themes"]
 
   BI --> USE
 ```
