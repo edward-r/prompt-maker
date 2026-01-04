@@ -130,6 +130,16 @@ type ContextTelemetryStreamEvent = StreamEventBase<
   { telemetry: TokenTelemetry }
 >
 
+type ContextOverflowStreamEvent = StreamEventBase<
+  'context.overflow',
+  {
+    strategy: ContextOverflowStrategy
+    before: TokenTelemetry
+    after: TokenTelemetry
+    droppedPaths: ContextPathMetadata[]
+  }
+>
+
 type ProgressStreamEvent = StreamEventBase<
   'progress.update',
   {
@@ -200,6 +210,7 @@ type GenerationFinalStreamEvent = StreamEventBase<
 
 type StreamEvent =
   | ContextTelemetryStreamEvent
+  | ContextOverflowStreamEvent
   | ProgressStreamEvent
   | UploadStreamEvent
   | GenerationIterationStartEvent
