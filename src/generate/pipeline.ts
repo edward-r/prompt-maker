@@ -2,6 +2,7 @@ import { stdin as input, stdout as output } from 'node:process'
 
 import chalk from 'chalk'
 
+import { loadCliConfig } from '../config'
 import { resolveFileContext, type FileContext } from '../file-context'
 import { appendToHistory } from '../history-logger'
 import { resolveSmartContextFiles } from '../smart-context-service'
@@ -15,6 +16,7 @@ import {
 
 import { maybeCopyToClipboard, maybeOpenChatGpt } from './actions'
 import { resolveContextTemplate, renderContextTemplate } from './context-templates'
+import { evaluateContextBudget, type ContextEntry, type ContextEntrySource } from './context-budget'
 import { displayContextFiles, writeContextFile } from './context-output'
 import { displayContextTemplatePrompt, displayPolishedPrompt } from './display'
 import { shouldTraceFlags } from './debug'
@@ -97,12 +99,45 @@ export const runGeneratePipeline = async (
 
   try {
     const intent = await resolveIntent(args)
+    const cliConfig = await loadCliConfig()
 
-    const contextPaths: ContextPathMetadata[] = []
+    let contextPaths: ContextPathMetadata[] = []
     const recordContextPaths = (entries: FileContext[], source: ContextPathSource): void => {
       entries.forEach((entry) => {
         contextPaths.push({ path: entry.path, source })
       })
+    }
+
+    const pruneContextPaths = (
+      paths: ContextPathMetadata[],
+      dropped: ContextPathMetadata[],
+    ): ContextPathMetadata[] => {
+      if (dropped.length === 0) {
+        return paths
+      }
+
+      const remainingDrops = new Map<string, number>()
+      dropped.forEach((entry) => {
+        const key = `${entry.source}:${entry.path}`
+        remainingDrops.set(key, (remainingDrops.get(key) ?? 0) + 1)
+      })
+
+      const next: ContextPathMetadata[] = []
+      paths.forEach((entry) => {
+        const key = `${entry.source}:${entry.path}`
+        const remaining = remainingDrops.get(key)
+        if (remaining !== undefined) {
+          if (remaining <= 1) {
+            remainingDrops.delete(key)
+          } else {
+            remainingDrops.set(key, remaining - 1)
+          }
+          return
+        }
+        next.push(entry)
+      })
+
+      return next
     }
 
     const intentMetadataPath = args.intentFile
@@ -114,6 +149,8 @@ export const runGeneratePipeline = async (
 
     let fileContext = await resolveFileContext(args.context)
     recordContextPaths(fileContext, 'file')
+
+    let contextEntrySources: ContextEntrySource[] = fileContext.map(() => 'file')
 
     const service = await createPromptGeneratorService()
     const defaultGenerateModel = await resolveDefaultGenerateModel()
@@ -218,6 +255,10 @@ export const runGeneratePipeline = async (
         const urlFiles = await resolveUrlContext(args.urls, urlOptions)
         if (urlFiles.length > 0) {
           fileContext = [...fileContext, ...urlFiles]
+          contextEntrySources = [
+            ...contextEntrySources,
+            ...urlFiles.map((): ContextEntrySource => 'url'),
+          ]
           recordContextPaths(urlFiles, 'url')
         }
       } catch (error) {
@@ -247,6 +288,10 @@ export const runGeneratePipeline = async (
 
         if (smartFiles.length > 0) {
           fileContext = [...fileContext, ...smartFiles]
+          contextEntrySources = [
+            ...contextEntrySources,
+            ...smartFiles.map((): ContextEntrySource => 'smart'),
+          ]
           recordContextPaths(smartFiles, 'smart')
         }
       } catch (error) {
@@ -262,6 +307,49 @@ export const runGeneratePipeline = async (
         emitProgress(label, 'stop', 'smart')
       }
     }
+
+    emitProgress('Resolving context', 'stop', 'generic')
+
+    const promptGeneratorConfig = cliConfig?.promptGenerator
+    const maxInputTokens = args.maxInputTokens ?? promptGeneratorConfig?.maxInputTokens
+    const maxContextTokens = args.maxContextTokens ?? promptGeneratorConfig?.maxContextTokens
+    const overflowStrategy = args.contextOverflow ?? promptGeneratorConfig?.contextOverflowStrategy
+
+    const contextEntries: ContextEntry[] = fileContext.map((entry, index) => {
+      const source = contextEntrySources[index]
+      if (!source) {
+        throw new Error(`Invariant violation: missing source for context entry ${entry.path}.`)
+      }
+      return { ...entry, source }
+    })
+
+    const budgetEvaluation = evaluateContextBudget({
+      intentText: intent,
+      metaInstructions: trimmedMetaInstructions,
+      contextEntries,
+      ...(maxInputTokens !== undefined ? { maxInputTokens } : {}),
+      ...(maxContextTokens !== undefined ? { maxContextTokens } : {}),
+      ...(overflowStrategy ? { strategy: overflowStrategy } : {}),
+      buildTelemetry: (intentText, files, metaInstructions) =>
+        buildTokenTelemetry(intentText, files, metaInstructions),
+    })
+
+    if (budgetEvaluation.droppedEntries.length > 0) {
+      fileContext = budgetEvaluation.keptEntries.map(({ path, content }) => ({ path, content }))
+      contextEntrySources = budgetEvaluation.keptEntries.map((entry) => entry.source)
+      contextPaths = pruneContextPaths(contextPaths, budgetEvaluation.droppedPaths)
+
+      emitEvent({
+        event: 'context.overflow',
+        strategy: budgetEvaluation.strategy ?? 'fail',
+        before: budgetEvaluation.before,
+        after: budgetEvaluation.after,
+        droppedPaths: budgetEvaluation.droppedPaths,
+      })
+    }
+
+    const telemetry = budgetEvaluation.after
+    emitEvent({ event: 'context.telemetry', telemetry })
 
     if (args.showContext) {
       const writeLine = args.json
@@ -280,11 +368,6 @@ export const runGeneratePipeline = async (
       await writeContextFile(args.contextFile, args.contextFormat, fileContext)
       outputPath = args.contextFile
     }
-
-    emitProgress('Resolving context', 'stop', 'generic')
-
-    const telemetry = buildTokenTelemetry(intent, fileContext, trimmedMetaInstructions)
-    emitEvent({ event: 'context.telemetry', telemetry })
 
     emitProgress('Generating prompt', 'start', 'generate')
     const generationSpinner = startSpinner('Generating prompt')

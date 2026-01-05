@@ -487,6 +487,91 @@ describe('runGenerateCommand', () => {
     )
   })
 
+  it('emits context.overflow and prunes contextPaths when budget exceeded', async () => {
+    mockResolveFileContext.mockResolvedValueOnce([
+      { path: 'ctx1.md', content: 'c1' },
+      { path: 'ctx2.md', content: 'c2' },
+      { path: 'ctx3.md', content: 'c3' },
+    ])
+
+    mockCountTokens.mockImplementation((value: string) => {
+      if (value === 'c1' || value === 'c2' || value === 'c3') {
+        return 10
+      }
+      return 0
+    })
+
+    const chunks: string[] = []
+    const writeSpy = jest.spyOn(process.stdout, 'write').mockImplementation(((
+      chunk: string | Uint8Array,
+      encoding?: BufferEncoding,
+      cb?: (err?: Error) => void,
+    ) => {
+      if (typeof chunk === 'string') {
+        chunks.push(chunk)
+      }
+      if (typeof cb === 'function') {
+        cb()
+      }
+      return true
+    }) as unknown as typeof process.stdout.write)
+
+    await runGenerateCommand([
+      'intent text',
+      '--stream',
+      'jsonl',
+      '--progress=false',
+      '--max-context-tokens',
+      '10',
+      '--context-overflow',
+      'drop-oldest',
+    ])
+
+    writeSpy.mockRestore()
+
+    const events = chunks
+      .map((chunk) => chunk.trim())
+      .filter((chunk) => chunk.startsWith('{') && chunk.endsWith('}'))
+      .map((chunk) => JSON.parse(chunk) as { event: string } & Record<string, unknown>)
+
+    const overflowEvent = events.find((event) => event.event === 'context.overflow') as
+      | {
+          strategy?: string
+          before?: { fileTokens?: number }
+          after?: { fileTokens?: number }
+          droppedPaths?: Array<{ path: string; source: string }>
+        }
+      | undefined
+
+    expect(overflowEvent?.strategy).toBe('drop-oldest')
+    expect(overflowEvent?.before?.fileTokens).toBe(30)
+    expect(overflowEvent?.after?.fileTokens).toBe(10)
+    expect(overflowEvent?.droppedPaths).toEqual([
+      { path: 'ctx1.md', source: 'file' },
+      { path: 'ctx2.md', source: 'file' },
+    ])
+
+    const finalEvent = events.find((event) => event.event === 'generation.final') as
+      | {
+          result?: {
+            contextPaths?: Array<{ path: string; source: string }>
+          }
+        }
+      | undefined
+
+    expect(finalEvent?.result?.contextPaths).toEqual(
+      expect.arrayContaining([
+        { path: 'inline-intent', source: 'intent' },
+        { path: 'ctx3.md', source: 'file' },
+      ]),
+    )
+
+    const droppedInFinal = finalEvent?.result?.contextPaths?.filter((entry) =>
+      ['ctx1.md', 'ctx2.md'].includes(entry.path),
+    )
+    expect(droppedInFinal).toEqual([])
+  })
+
   it('emits only jsonl lines when quiet streaming is requested', async () => {
     const chunks: string[] = []
     const writeSpy = jest.spyOn(process.stdout, 'write').mockImplementation(((
