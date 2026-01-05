@@ -861,7 +861,7 @@ ls -la ~/.config/prompt-maker-cli/history.jsonl
 
 ## Validation
 
-- `/tmp/pmc-run.json` parses as JSON and contains keys like `intent`, `model`, `targetModel`, and `prompt`.
+- `/tmp/pmc-run.json` parses as JSON and contains keys like `schemaVersion`, `intent`, `model`, `targetModel`, and `prompt`.
 - `/tmp/pmc-events.jsonl` contains multiple JSON objects separated by newlines.
 - `~/.config/prompt-maker-cli/history.jsonl` grows over time.
 

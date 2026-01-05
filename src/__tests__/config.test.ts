@@ -170,4 +170,48 @@ describe('config module', () => {
     )
     await expect(loadCliConfig()).rejects.toThrow(/"promptGenerator\.models" must be an array/)
   })
+
+  it('parses promptGenerator token budget settings when provided', async () => {
+    const { loadCliConfig } = await importConfigModule()
+    const fs = getFsMock()
+    fs.readFile.mockReset()
+    fs.readFile.mockResolvedValueOnce(
+      JSON.stringify({
+        promptGenerator: {
+          maxInputTokens: 10000,
+          maxContextTokens: 5000,
+          contextOverflowStrategy: 'drop-smart',
+        },
+      }),
+    )
+
+    const config = await loadCliConfig()
+    expect(config?.promptGenerator?.maxInputTokens).toBe(10000)
+    expect(config?.promptGenerator?.maxContextTokens).toBe(5000)
+    expect(config?.promptGenerator?.contextOverflowStrategy).toBe('drop-smart')
+  })
+
+  it('rejects negative promptGenerator.maxInputTokens with a descriptive error', async () => {
+    const { loadCliConfig } = await importConfigModule()
+    const fs = getFsMock()
+    fs.readFile.mockReset()
+    fs.readFile.mockResolvedValueOnce(JSON.stringify({ promptGenerator: { maxInputTokens: -1 } }))
+
+    await expect(loadCliConfig()).rejects.toThrow(
+      /promptGenerator\.maxInputTokens must be a positive integer/,
+    )
+  })
+
+  it('rejects unknown promptGenerator.contextOverflowStrategy values', async () => {
+    const { loadCliConfig } = await importConfigModule()
+    const fs = getFsMock()
+    fs.readFile.mockReset()
+    fs.readFile.mockResolvedValueOnce(
+      JSON.stringify({ promptGenerator: { contextOverflowStrategy: 'drop-new' } }),
+    )
+
+    await expect(loadCliConfig()).rejects.toThrow(
+      /promptGenerator\.contextOverflowStrategy must be one of: fail, drop-smart, drop-url, drop-largest, drop-oldest/,
+    )
+  })
 })

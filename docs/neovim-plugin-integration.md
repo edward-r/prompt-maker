@@ -8,7 +8,9 @@ _Comprehensive reference for building a NeoVim plugin that orchestrates prompt-m
 - Confirm `OPENAI_API_KEY`/`GEMINI_API_KEY` (plus optional `GITHUB_TOKEN`) are set or present in `~/.config/prompt-maker-cli/config.json`.
 - Capture intent via inline text, temp files, or buffer exports—never launch without validated intent input.
 - Attach context through `--context`, `--url`, `--image`/`--video`, and `--smart-context-root` as needed; guard against oversized or duplicate files.
-- Prefer `--json --quiet --stream jsonl` for editor integrations; parse `generation.final` and telemetry events to drive UI.
+- Prefer `--json --quiet --stream jsonl` for editor integrations; parse `generation.final`, `context.telemetry`, and `context.overflow` to drive UI.
+- Set token budgets via `--max-input-tokens` and/or `--max-context-tokens`, and choose an overflow strategy via `--context-overflow`.
+- Use `telemetry.totalTokens` and `telemetry.fileTokens` from the `context.telemetry` event as guardrails (warn early, and keep a safety margin).
 - Use `--interactive-transport <socket>` for refinement loops; send `{"type":"refine"}` / `{"type":"finish"}` messages and mirror streamed events.
 - Apply `--context-template nvim` (or user template) before writing to buffers; fall back to `polishedPrompt`/`prompt` if `renderedPrompt` absent.
 - Surface warnings/errors from stderr immediately (credentials, context fetch failures, upload issues) and offer corrective prompts.
@@ -37,6 +39,7 @@ _Comprehensive reference for building a NeoVim plugin that orchestrates prompt-m
   - Intent: inline argument, `--intent-file`, or stdin.
   - Context: repeated `--context` globs, `--url`, `--image`, `--video`, `--smart-context` (+ `--smart-context-root`).
   - Output controls: `--json`, `--copy`, `--open-chatgpt`, `--context-template`, `--context-file`, `--context-format`.
+  - Token budgets: `--max-input-tokens`, `--max-context-tokens`, `--context-overflow`.
   - Models: `--model <name>` (generation) and `--target <name>` (runtime optimization; recorded in JSON/history, not included in the generated prompt text by default).
   - Interaction: `-i/--interactive`, `--stream jsonl`, `--interactive-transport <path>`, `--quiet`, `--no-progress`.
   - Post-processing: `--polish`, `--polish-model`.
@@ -92,9 +95,11 @@ _Comprehensive reference for building a NeoVim plugin that orchestrates prompt-m
 ## 10. Streaming Events & IPC
 
 - **Modes**: `--stream none|jsonl` controls whether events print to stdout. Even with `none`, taps can receive events (e.g., interactive transport attaches as a tap).
-- **Schema** (see `StreamEvent` in `generate-command.ts`):
-  - `context.telemetry` → `{ files:[{path,tokens}], intentTokens, fileTokens, totalTokens }`
-  - `progress.update` → `{ label, state:'start|update|stop', scope:'url|smart|generate|polish|generic' }`
+- **Schema** (see `StreamEvent` in `src/generate/types.ts`):
+  - All stream events include `event` and `timestamp`.
+  - `context.telemetry` → `{ telemetry:{ files:[{path,tokens}], intentTokens, fileTokens, systemTokens, totalTokens } }`
+  - `context.overflow` → `{ strategy, before, after, droppedPaths:[{path, source}] }`
+  - `progress.update` → `{ label, state:'start|update|stop', scope?:'url|smart|generate|polish|generic' }`
   - `upload.state` → `{ state:'start|finish', detail:{kind:'image|video', filePath} }`
   - `generation.iteration.start` → `{ iteration, intent, model, interactive, inputTokens, refinements[], latestRefinement? }`
   - `generation.iteration.complete` → `{ iteration, prompt, tokens }`
@@ -106,14 +111,14 @@ _Comprehensive reference for building a NeoVim plugin that orchestrates prompt-m
 
 ## 11. Output Assembly & Delivery
 
-- **GenerateJsonPayload**: includes `intent`, `model` (generation model), `targetModel` (runtime model), `prompt`, `refinements`, `iterations`, `interactive`, `timestamp`, `contextPaths`, optional `outputPath`, `polishedPrompt`, `polishModel`, `contextTemplate`, `renderedPrompt`.
+- **GenerateJsonPayload**: includes `schemaVersion`, `intent`, `model` (generation model), `targetModel` (runtime model), `prompt`, `refinements`, `iterations`, `interactive`, `timestamp`, `contextPaths`, optional `outputPath`, `polishedPrompt`, `polishModel`, `contextTemplate`, `renderedPrompt`.
 - **Context templates**: built-in `nvim` template injects a header and instructions before inserting `{{prompt}}`. User-defined templates live under `contextTemplates` in `config.json`. Plugin should let users select templates per run or default to `nvim` when targeting scratch buffers.
 - **Clipboard/browser**: `--copy` uses `clipboardy`; `--open-chatgpt` opens `https://chatgpt.com/?q=...`. In headless editor environments these options should default to false unless explicitly enabled.
 - **History logging**: every run (JSON payload) appends to `$HOME/.config/prompt-maker-cli/history.jsonl`. Plugins can tail this file to show recent prompts or rehydrate drafts.
 
 ## 12. Telemetry & Status Presentation
 
-- **Token summaries**: highlight total, intent, and file tokens plus top 10 files with counts. When running `--quiet` the plugin should parse `context.telemetry` for the same data and render it in NeoVim (virtual text, floating window, etc.).
+- **Token summaries**: highlight total, intent, and file tokens plus top 10 files with counts. When running `--quiet` the plugin should parse the `telemetry` object from the `context.telemetry` event and render it in NeoVim (virtual text, floating window, etc.).
 - **Spinners**: `ora` spinners appear only when `--progress` is true and stdout is a TTY. Plugins using `--quiet --stream jsonl` get deterministic `progress.update` events instead of spinners.
 - **Reasoning**: setting `DEBUG=1` or `VERBOSE=1` prints `reasoning` text to stderr after each LLM call. Plugins can capture stderr to display reasoning logs or route them to a diagnostics pane.
 
@@ -145,30 +150,37 @@ _Comprehensive reference for building a NeoVim plugin that orchestrates prompt-m
    - Validate selected images/videos before invoking CLI (check extension + size).
    - Display upload progress based on `upload.state` events and prevent user from interrupting until finish.
 6. **Automated guardrails**
-   - Monitor `context.telemetry.totalTokens`; if above a threshold (e.g., 30k), warn the user or prompt to trim context.
+   - Monitor `telemetry.totalTokens` from the `context.telemetry` event; if above a threshold (e.g., 30k), warn the user or prompt to trim context.
+   - Set budgets proactively: start with `--max-context-tokens` (for predictable trimming), and add `--max-input-tokens` once you also account for system/intent overhead.
+   - Prefer `--context-overflow drop-smart` when using `--smart-context` so auto-attached files are dropped before user-selected context.
+   - Budgets apply only to text context entries (file/url/smart); images/videos are not trimmed by these strategies.
+   - React to `context.overflow` by showing a notice that lists `droppedPaths` (and consider offering a one-click re-run with a larger budget).
    - Enforce linear command queueing when multiple runs share the same socket path to avoid collisions.
 
 ## 15. Appendix
 
 ### A. High-value Flags
 
-| Flag                                       | Purpose                                           |
-| ------------------------------------------ | ------------------------------------------------- |
-| `<intent>` / `--intent-file` / stdin       | Provide rough intent text.                        |
-| `-c, --context <glob>`                     | Attach local files. Repeatable.                   |
-| `--url <https://…>`                        | Pull remote docs or GitHub repos.                 |
-| `--image <path>` / `--video <path>`        | Inline media (image Base64, video uploads).       |
-| `--smart-context` / `--smart-context-root` | Enable embedding-based file selection.            |
-| `-i, --interactive`                        | Enable TTY refinement loop.                       |
-| `--interactive-transport <path>`           | Socket/pipe commands + streaming events.          |
-| `--stream jsonl`                           | Emit newline-delimited structured events.         |
-| `--json`                                   | Print final payload for programmatic consumption. |
-| `--context-template <name>`                | Wrap final prompt (built-in `nvim`).              |
-| `--model <name>`                           | Generation model used by the CLI.                 |
-| `--target <name>`                          | Runtime model the prompt is optimized for.        |
-| `--copy`, `--open-chatgpt`                 | Clipboard/browser handoff.                        |
-| `--polish`, `--polish-model`               | Post-generation refinement.                       |
-| `--quiet`, `--no-progress`                 | Suppress UI spinners/banners.                     |
+| Flag                                       | Purpose                                                                                  |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `<intent>` / `--intent-file` / stdin       | Provide rough intent text.                                                               |
+| `-c, --context <glob>`                     | Attach local files. Repeatable.                                                          |
+| `--url <https://…>`                        | Pull remote docs or GitHub repos.                                                        |
+| `--image <path>` / `--video <path>`        | Inline media (image Base64, video uploads).                                              |
+| `--smart-context` / `--smart-context-root` | Enable embedding-based file selection.                                                   |
+| `-i, --interactive`                        | Enable TTY refinement loop.                                                              |
+| `--interactive-transport <path>`           | Socket/pipe commands + streaming events.                                                 |
+| `--stream jsonl`                           | Emit newline-delimited structured events.                                                |
+| `--max-input-tokens <n>`                   | Cap total input tokens (intent + system + text context).                                 |
+| `--max-context-tokens <n>`                 | Cap tokens reserved for text context entries.                                            |
+| `--context-overflow <strategy>`            | Handle budget overflow: `fail`, `drop-smart`, `drop-url`, `drop-largest`, `drop-oldest`. |
+| `--json`                                   | Print final payload for programmatic consumption.                                        |
+| `--context-template <name>`                | Wrap final prompt (built-in `nvim`).                                                     |
+| `--model <name>`                           | Generation model used by the CLI.                                                        |
+| `--target <name>`                          | Runtime model the prompt is optimized for.                                               |
+| `--copy`, `--open-chatgpt`                 | Clipboard/browser handoff.                                                               |
+| `--polish`, `--polish-model`               | Post-generation refinement.                                                              |
+| `--quiet`, `--no-progress`                 | Suppress UI spinners/banners.                                                            |
 
 ### B. Environment Variables & Config Keys
 
@@ -209,9 +221,11 @@ Config file example (`~/.config/prompt-maker-cli/config.json`):
 ### D. Event Handling Checklist
 
 1. Always parse stdout as JSONL when `--stream jsonl` is active.
-2. Treat stderr as human-readable diagnostics (warnings, reasoning, spinner fallbacks).
-3. Handle `transport.error` messages by notifying the user and prompting for corrected commands.
-4. When the CLI exits, stop sending commands, close socket handles, and clean up temp files.
+2. Ignore unknown `event` values (forward-compatible); treat them as informational unless your integration opts in.
+3. Treat stderr as human-readable diagnostics (warnings, reasoning, spinner fallbacks).
+4. Handle `context.overflow` by notifying the user and reconciling any UI “attached context” lists with `droppedPaths`.
+5. Handle `transport.error` messages by notifying the user and prompting for corrected commands.
+6. When the CLI exits, stop sending commands, close socket handles, and clean up temp files.
 
 ---
 

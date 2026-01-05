@@ -3,6 +3,15 @@ import type { UploadDetail, UploadState } from '../prompt-generator-service'
 
 export type StreamMode = 'none' | 'jsonl'
 
+export type ResumeMode = 'strict' | 'best-effort'
+
+export type ContextOverflowStrategy =
+  | 'fail'
+  | 'drop-smart'
+  | 'drop-url'
+  | 'drop-largest'
+  | 'drop-oldest'
+
 export type GenerateArgs = {
   intent?: string
   intentFile?: string
@@ -17,6 +26,13 @@ export type GenerateArgs = {
   quiet: boolean
   progress: boolean
   stream: StreamMode
+  resumeLast?: boolean
+  resume?: string
+  resumeFrom?: string
+  resumeMode?: ResumeMode
+  maxInputTokens?: number
+  maxContextTokens?: number
+  contextOverflow?: ContextOverflowStrategy
   showContext: boolean
   contextTemplate?: string
   contextFile?: string
@@ -40,12 +56,16 @@ export type ContextPathMetadata = {
 
 type ContextPathSource = 'intent' | 'file' | 'url' | 'smart'
 
+export const GENERATE_JSON_PAYLOAD_SCHEMA_VERSION = '1' as const
+
 export type GenerateJsonPayload = {
+  schemaVersion: typeof GENERATE_JSON_PAYLOAD_SCHEMA_VERSION
   intent: string
   model: string
   targetModel: string
   prompt: string
   reasoning?: string
+  metaInstructions?: string
   refinements: string[]
   iterations: number
   interactive: boolean
@@ -115,9 +135,28 @@ type StreamEventBase<EventName extends string, Payload extends object> = {
   timestamp: string
 } & Payload
 
+type ResumeLoadedStreamEvent = StreamEventBase<
+  'resume.loaded',
+  {
+    source: 'history' | 'file'
+    reusedContextPaths: GenerateJsonPayload['contextPaths']
+    missingContextPaths: GenerateJsonPayload['contextPaths']
+  }
+>
+
 type ContextTelemetryStreamEvent = StreamEventBase<
   'context.telemetry',
   { telemetry: TokenTelemetry }
+>
+
+type ContextOverflowStreamEvent = StreamEventBase<
+  'context.overflow',
+  {
+    strategy: ContextOverflowStrategy
+    before: TokenTelemetry
+    after: TokenTelemetry
+    droppedPaths: ContextPathMetadata[]
+  }
 >
 
 type ProgressStreamEvent = StreamEventBase<
@@ -189,7 +228,9 @@ type GenerationFinalStreamEvent = StreamEventBase<
 >
 
 type StreamEvent =
+  | ResumeLoadedStreamEvent
   | ContextTelemetryStreamEvent
+  | ContextOverflowStreamEvent
   | ProgressStreamEvent
   | UploadStreamEvent
   | GenerationIterationStartEvent

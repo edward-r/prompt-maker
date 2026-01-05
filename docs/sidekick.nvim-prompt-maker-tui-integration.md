@@ -51,6 +51,7 @@ The target result is a plugin/module in your Neovim repo that:
 - Use **JSONL events** to drive Neovim UI updates.
 - Must respect Prompt Maker constraints from `docs/neovim-plugin-integration.md`:
   - Prefer `--quiet --stream jsonl` for editor integrations.
+  - Set token budgets (`--max-input-tokens`/`--max-context-tokens`) and handle `context.overflow` for predictable behavior with large contexts.
   - `--json` **cannot** be used with interactive (`--interactive` or `--interactive-transport`).
   - `--interactive-transport` accepts newline-delimited JSON commands `{ "type": "refine", "instruction": "..." }` and `{ "type": "finish" }`.
   - When extracting the final prompt, use fallback: `renderedPrompt` → `polishedPrompt` → `prompt`.
@@ -160,6 +161,19 @@ prompt-maker-cli ui --interactive-transport <transport_path>
 Notes:
 
 - `ui` only parses `--interactive-transport` (see `docs/prompt-maker-cli-tui-encyclopedia.md`). Do not depend on `ui --help`.
+- Token budgets (`--max-input-tokens`, `--max-context-tokens`, `--context-overflow`) are **generate-mode flags** and are not parsed by `ui`.
+  - To use budgets with the TUI, set defaults via config under `promptGenerator`:
+
+    ```json
+    {
+      "promptGenerator": {
+        "maxInputTokens": 12000,
+        "maxContextTokens": 8000,
+        "contextOverflowStrategy": "drop-smart"
+      }
+    }
+    ```
+
 - The TUI requires a real TTY; sidekick.nvim’s terminal uses `term=true` (`folke/sidekick.nvim/lua/sidekick/cli/terminal.lua`).
 
 ### Mode B (Optional): Headless generate loop (no Ink), still inside Sidekick terminal
@@ -171,7 +185,9 @@ prompt-maker-cli "<intent>" \
   --quiet \
   --stream jsonl \
   --interactive-transport <transport_path> \
-  --context-template nvim
+  --context-template nvim \
+  --max-context-tokens 8000 \
+  --context-overflow drop-smart
 ```
 
 Important constraints from Prompt Maker:
@@ -267,6 +283,23 @@ Plugin actions:
 - Persist latest telemetry in session state.
 - If token counts exceed a threshold, show warning (see “Security & Safety”).
 - Optional: render top-N file token contributors in a floating window.
+
+#### `context.overflow`
+
+Emitted when token budgets are enabled and the CLI drops one or more **text** context entries to satisfy the budget.
+
+Payload includes:
+
+- `strategy`: `fail | drop-smart | drop-url | drop-largest | drop-oldest`
+- `before`: token telemetry before trimming
+- `after`: token telemetry after trimming
+- `droppedPaths`: `[{ path, source }]` describing removed context entries
+
+Plugin actions:
+
+- Notify the user that some context was dropped (this can materially change results).
+- Reconcile any “attached context” UI with `droppedPaths`.
+- Consider offering a one-click re-run with a larger budget or a different overflow strategy.
 
 #### `upload.state`
 
@@ -749,6 +782,7 @@ Fixtures
 - Token telemetry thresholds:
   - If `telemetry.totalTokens` exceeds `token_warn_threshold`, show a warning.
   - If it exceeds `token_error_threshold`, consider prompting user to trim context.
+  - If you observe `context.overflow`, show which files were dropped (`droppedPaths`) and consider offering a re-run with a higher budget.
 
 ---
 

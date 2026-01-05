@@ -6,7 +6,7 @@ Highlights:
 
 - **Generate workflow**: run from flags or from the TUI.
 - **Context ingestion**: file globs (`--context`), URLs (`--url`, including GitHub trees), optional smart context (`--smart-context`), and media (`--image`, `--video`).
-- **Auditable runs**: token telemetry, structured stream events (`--stream jsonl`), and JSONL history (`~/.config/prompt-maker-cli/history.jsonl`).
+- **Auditable runs**: token telemetry, token budgets (optional trimming), structured stream events (`--stream jsonl`), and JSONL history (`~/.config/prompt-maker-cli/history.jsonl`) with export + resume workflows.
 - **TUI-first**: `prompt-maker-cli` with no args launches the TUI.
 
 The project is **TUI-first**:
@@ -100,6 +100,12 @@ npm start -- "Draft a confident onboarding-bot spec" --model gpt-4o-mini
 # Explicit commands
 npm start -- ui
 npm start -- test prompt-tests.yaml
+
+# After at least one generate run, export the last payload
+npm start -- export --format json --out runs/last-run.json
+
+# Deterministic (non-LLM) composition scaffold
+npm start -- compose --recipe docs/tui-design.md --input "Draft a summary" > composed.txt
 ```
 
 Global install from a local checkout:
@@ -113,19 +119,28 @@ prompt-maker-cli
 
 ## CLI modes and routing
 
-`prompt-maker-cli` has three top-level modes:
+`prompt-maker-cli` has five top-level modes:
 
 - `ui`: Ink TUI
-- `generate` (default for non-`ui`/`test` args): prompt generation pipeline
+- `generate` (default for non-`ui`/`test`/`export`/`compose` args): prompt generation pipeline
 - `test`: prompt test runner
+- `export`: export a past generate payload from history
+- `compose`: deterministic (non-LLM) prompt composition scaffold
 
 Routing rules:
 
 - No args → `ui`
 - First arg `ui` → `ui`
 - First arg `test` → `test`
+- First arg `export` → `export`
+- First arg `compose` → `compose`
 - First arg `generate` or `expand` → `generate` (`expand` is an alias)
 - Anything else (including flags like `--json`) → `generate`
+
+Help behavior:
+
+- `prompt-maker-cli --help` shows **generate** help only.
+- Use `prompt-maker-cli export --help` / `prompt-maker-cli compose --help` for subcommand help.
 
 ### D1. CLI Routing Flow
 
@@ -133,22 +148,23 @@ Shows how argv maps to top-level modes.
 
 ```mermaid
 flowchart TD
-  A["Resolve theme name<br>(from config: theme)"] --> B[Search sources by precedence]
+  A[Start: argv] --> B{No args?}
+  B -- Yes --> UI[ui]
+  B -- No --> C[First token]
 
-  B --> P1["1) Project-local themes<br>nearest .prompt-maker-cli/themes"]
-  P1 --> M1{Found theme with name?}
-  M1 -- Yes --> USE[Use that theme]
-  M1 -- No --> P2["2) Project-local themes<br>ancestor directories"]
-
-  P2 --> M2{Found?}
-  M2 -- Yes --> USE
-  M2 -- No --> G["3) Global themes<br>~/.config/prompt-maker-cli/themes"]
-
-  G --> M3{Found?}
-  M3 -- Yes --> USE
-  M3 -- No --> BI["4) Built-in themes"]
-
-  BI --> USE
+  C --> T{first == "test"?}
+  T -- Yes --> TEST[test]
+  T -- No --> U{first == "ui"?}
+  U -- Yes --> UI
+  U -- No --> E{first == "export"?}
+  E -- Yes --> EXP[export]
+  E -- No --> P{first == "compose"?}
+  P -- Yes --> COM[compose]
+  P -- No --> G{first == "generate" or "expand"?}
+  G -- Yes --> GEN[generate]
+  G -- No --> F{first startsWith "-"?}
+  F -- Yes --> GEN
+  F -- No --> GEN
 ```
 
 ## TUI mode (recommended)
@@ -433,6 +449,12 @@ prompt-maker-cli "Explain this module" \
 # JSON payload capture (non-interactive only)
 prompt-maker-cli --intent-file drafts/travel.md --json > runs/travel.json
 
+# Export last payload from history (portable JSON/YAML)
+prompt-maker-cli export --format json --out runs/last-run.json
+
+# Resume from an exported payload (reuses prompt + refinements; best-effort on missing files)
+prompt-maker-cli "" --resume-from runs/last-run.json --resume-mode best-effort --quiet --stream jsonl --progress=false
+
 # Stream progress/events as JSONL (use --quiet to avoid mixing text output)
 prompt-maker-cli "Summarize" --stream jsonl --quiet > runs/events.jsonl
 ```
@@ -452,9 +474,16 @@ prompt-maker-cli "Summarize" --stream jsonl --quiet > runs/events.jsonl
 | `--target <name>`                           | Target/runtime model recorded in JSON/history (not included in prompt text).          |
 | `-i, --interactive`                         | Enable a TTY refinement loop (requires a TTY).                                        |
 | `--interactive-transport <path>`            | Listen on a Unix socket / Windows named pipe for `refine`/`finish` commands.          |
+| `--resume-last`                             | Resume from the last JSONL history entry.                                             |
+| `--resume <selector>`                       | Resume from history selector (`last`, `last:N`, or `N`-th from end).                  |
+| `--resume-from <path>`                      | Resume from an exported payload file (`.json` / `.yaml` / `.yml`).                    |
+| `--resume-mode strict\|best-effort`         | How to handle missing resumed context paths.                                          |
 | `--polish`, `--polish-model <name>`         | Run the finishing pass and optionally choose a different model.                       |
 | `--json`                                    | Emit machine-readable JSON (non-interactive only).                                    |
 | `--stream none\|jsonl`                      | Emit newline-delimited JSON events to stdout.                                         |
+| `--max-input-tokens <n>`                    | Cap total input tokens (intent + system + text context).                              |
+| `--max-context-tokens <n>`                  | Cap tokens reserved for text context entries (file/url/smart).                        |
+| `--context-overflow <strategy>`             | Overflow handling: `fail`, `drop-smart`, `drop-url`, `drop-largest`, `drop-oldest`.   |
 | `--quiet`                                   | Suppress human-oriented output (banners/telemetry/boxed prompts).                     |
 | `--progress/--no-progress`                  | Enable/disable progress spinners (spinners are disabled during interactive sessions). |
 | `--show-context`                            | Print resolved context payload before generation.                                     |
@@ -468,6 +497,7 @@ Notes:
 - `--json` cannot be combined with interactive refinement (`--interactive` or `--interactive-transport`).
 - `--show-context` prints to **stderr** when `--json` is enabled (so stdout stays machine-readable).
 - `--stream jsonl` is designed for machine consumption; for clean JSONL output on stdout use `--quiet` and avoid other human-output flags.
+- Token budgets apply only to **text** context entries (`--context`, `--url`, `--smart-context`); images/videos are not trimmed by these strategies.
 - `DEBUG=1` or `VERBOSE=1` prints the model’s `reasoning` (if provided) to stderr.
 
 ### Conceptual architecture
@@ -508,7 +538,13 @@ flowchart TD
   CM --> DEDUPE
 
   DEDUPE --> T["Token telemetry<br>(intent + context)"]
-  T --> G1[Generation iteration 1<br>PromptGeneratorService.generatePrompt]
+   T --> BUDGET{Token budgets enabled?<br>--max-* or config}
+
+   BUDGET -- No --> G1[Generation iteration 1<br>PromptGeneratorService.generatePrompt]
+   BUDGET -- Yes --> TRIM{Context exceeds budget?}
+   TRIM -- No --> G1
+   TRIM -- Yes --> PRUNE["Trim text context per strategy<br>(context.overflow)"]
+   PRUNE --> G1
 
   G1 --> INT{Interactive?<br>--interactive or --interactive-transport}
   INT -- No --> DONEITER[Stop refining]
@@ -753,7 +789,9 @@ flowchart TD
 
 Event types (integration-relevant highlights):
 
-- `context.telemetry` (intent/file/total token counts)
+- `resume.loaded` (emitted early when resuming from history or a payload file)
+- `context.telemetry` (intent/system/context/total token counts)
+- `context.overflow` (emitted when budgets force text-context trimming)
 - `progress.update` (machine-readable progress)
 - `upload.state` (image/video upload start/finish)
 - `generation.iteration.start` / `generation.iteration.complete`
@@ -776,6 +814,11 @@ sequenceDiagram
   participant Stream as stdout (--stream jsonl)
 
   User->>CLI: start generate (intent + flags)
+
+  opt Budgets enabled and overflow
+    CLI->>Stream: context.overflow
+  end
+
   CLI->>Stream: context.telemetry
 
   alt Remote context present
@@ -856,7 +899,7 @@ sequenceDiagram
   Client->>Sock: connect
   CLI->>Client: transport.client.connected
 
-  CLI->>Client: (mirrored stream events)\ncontext.telemetry, progress.update, ...
+  CLI->>Client: (mirrored stream events)\ncontext.telemetry, context.overflow, progress.update, ...
 
   loop Refinement cycle
     Client->>Sock: {"type":"refine","instruction":"..."}\n(newline-delimited JSON)
@@ -1097,6 +1140,7 @@ Env vars override config keys:
 - Token telemetry:
   - Printed as a summary in non-`--quiet` runs
   - Always emitted as a `context.telemetry` JSONL stream event
+  - When budgets force trimming, a `context.overflow` event is also emitted
 
 ---
 

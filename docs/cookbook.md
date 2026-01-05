@@ -2,7 +2,7 @@
 
 **prompt-maker-cli** is a terminal-first prompt generator with two faces:
 
-- A flag-driven CLI (`generate` + `test`)
+- A flag-driven CLI (`generate`, `test`, plus utility subcommands like `export` and `compose`)
 - An Ink-based TUI (default when you run with no args)
 
 Under the hood, the CLI routes commands via `src/index.ts` and the generate workflow runs through `src/generate/pipeline.ts` (context resolution → optional smart context → prompt generation → optional polishing/template → history logging). This cookbook focuses on practical “recipes” and flags you can combine to build repeatable prompt contracts.
@@ -113,7 +113,10 @@ You want `prompt-maker-cli` to run without re-exporting env vars every time, and
   "geminiApiKey": "gk-...",
   "promptGenerator": {
     "defaultModel": "gpt-4o-mini",
-    "defaultGeminiModel": "gemini-3-pro-preview"
+    "defaultGeminiModel": "gemini-3-pro-preview",
+    "maxInputTokens": 12000,
+    "maxContextTokens": 8000,
+    "contextOverflowStrategy": "drop-smart"
   },
   "contextTemplates": {
     "scratch": "# Scratch\n\n{{prompt}}"
@@ -318,6 +321,229 @@ Notes:
 - `--stream jsonl` writes newline-delimited JSON events to stdout (see `src/generate/stream.ts`).
 - Use `--quiet` if you want _only_ JSONL lines on stdout.
 
+### Recipe: Token budgets + deterministic overflow (and `context.overflow`)
+
+**When to use this**
+
+You’re automating prompt generation and need deterministic behavior when your text context is too large (instead of “sometimes it fits”).
+
+**Steps**
+
+```bash
+# Intentionally set a small context budget to force trimming.
+# Use --quiet + --stream jsonl so stdout stays machine-readable.
+prompt-maker-cli "Summarize the selected modules" \
+  -c "src/**/*.ts" \
+  --max-context-tokens 800 \
+  --context-overflow drop-largest \
+  --stream jsonl \
+  --quiet \
+  --progress=false > events.jsonl
+```
+
+**Expected output (snippet)**
+
+`events.jsonl` includes a `context.overflow` line before generation begins:
+
+```json
+{
+  "event": "context.overflow",
+  "strategy": "drop-largest",
+  "droppedPaths": [{ "path": "...", "source": "file" }]
+}
+```
+
+**Notes**
+
+- Budgets apply only to **text** context entries (`--context`, `--url`, `--smart-context`), not images/videos.
+- With `--stream jsonl`, the CLI treats stdout as a machine channel; combine with `--quiet` to avoid mixing human output.
+
+**Troubleshooting / pitfalls**
+
+- If no `context.overflow` appears, your context likely fit within the budget.
+- If you see a hard failure, you may have left `--context-overflow` unset (default is `fail` when budgets are enabled).
+
+---
+
+### Recipe: Export a generate payload (portable JSON/YAML)
+
+**When to use this**
+
+You want a portable artifact you can check into a repo, attach to a ticket, or diff in CI — without scraping `history.jsonl` manually.
+
+**Steps**
+
+```bash
+# Export the most recent generate payload from history.
+prompt-maker-cli export --format json --out runs/last-run.json
+
+# Export an older entry ("third from last") as YAML.
+prompt-maker-cli export --from-history last:3 --format yaml --out runs/third-from-last.yaml
+```
+
+**Expected output (snippet)**
+
+- Files are written to `runs/*.json` or `runs/*.yaml`.
+- The payload includes a `schemaVersion` field:
+
+```json
+{
+  "schemaVersion": "1",
+  "intent": "...",
+  "prompt": "..."
+}
+```
+
+**Notes (determinism + stdout/stderr)**
+
+- The export command writes **only** to the file path you provide.
+- Success messages are printed to **stderr** by default; pass `--quiet` to suppress them.
+
+**Troubleshooting / pitfalls**
+
+- “History file not found …”: run any generate command first; exports read from `~/.config/prompt-maker-cli/history.jsonl`.
+- “No valid generate payloads …”: your history file may contain non-payload JSONL; run a normal generate and try again.
+
+---
+
+### Recipe: Resume from history or an exported payload (`resume.loaded`)
+
+**When to use this**
+
+You want to iterate on a previous run (including refinements) without retyping intent/model/meta settings — and you want explicit, testable handling of missing context files.
+
+**Steps (resume from history)**
+
+```bash
+# Resume from the last history entry.
+# Note the explicit empty intent string: resume supplies the intent.
+prompt-maker-cli "" --resume-last --resume-mode best-effort \
+  --stream jsonl --quiet --progress=false > resume-events.jsonl
+
+# Resume from the 5th entry from the end.
+prompt-maker-cli "" --resume 5 --resume-mode best-effort --quiet
+```
+
+**Steps (resume from an exported payload file)**
+
+```bash
+# Export, then resume from the exported file.
+prompt-maker-cli export --format json --out runs/last-run.json
+
+# Strict mode fails if any resumed file context paths are missing.
+prompt-maker-cli "" --resume-from runs/last-run.json --resume-mode strict --quiet
+```
+
+**Expected output (snippet)**
+
+With `--stream jsonl`, the run emits `resume.loaded` early:
+
+```json
+{
+  "event": "resume.loaded",
+  "source": "history",
+  "reusedContextPaths": [{ "path": "notes/existing.md", "source": "file" }],
+  "missingContextPaths": [{ "path": "notes/missing.md", "source": "file" }]
+}
+```
+
+**Notes (precedence + machine-readable output)**
+
+- Explicit CLI flags override resumed payload values:
+  - `--model` overrides `payload.model`
+  - `--target` overrides `payload.targetModel`
+  - `metaInstructions` is reused from the payload when present (there is no generate-mode flag for it today)
+- Explicit `--context ...` overrides resumed `contextPaths`.
+- `--resume-mode best-effort` warns on missing files and continues.
+- `--resume-mode strict` fails fast if any resumed `source:"file"` paths are missing.
+
+**Troubleshooting / pitfalls**
+
+- If you pass both `--resume` and `--resume-last`, argument parsing fails (`--resume and --resume-last cannot be combined.`).
+- If you see interactive/JSON incompatibility errors, remember: `--json` cannot be combined with `--interactive` or `--interactive-transport`.
+
+---
+
+### Recipe: Compare two runs (export + diff)
+
+**When to use this**
+
+You want a simple, deterministic way to compare outputs across runs (prompt text, model choice, context paths) without adding a bespoke “compare” mode.
+
+**Steps**
+
+```bash
+mkdir -p runs
+
+# Export the last two runs.
+prompt-maker-cli export --from-history last --format json --out runs/run-a.json
+prompt-maker-cli export --from-history last:2 --format json --out runs/run-b.json
+
+# Extract just the prompt text for diffing (portable; no jq required).
+node --input-type=module -e "
+  import fs from 'node:fs/promises'
+  const a = JSON.parse(await fs.readFile('runs/run-a.json', 'utf8'))
+  const b = JSON.parse(await fs.readFile('runs/run-b.json', 'utf8'))
+  await fs.writeFile('runs/run-a.prompt.txt', a.renderedPrompt ?? a.polishedPrompt ?? a.prompt)
+  await fs.writeFile('runs/run-b.prompt.txt', b.renderedPrompt ?? b.polishedPrompt ?? b.prompt)
+"
+
+diff -u runs/run-b.prompt.txt runs/run-a.prompt.txt || true
+```
+
+**Expected output (snippet)**
+
+A unified diff showing prompt-level changes:
+
+```diff
+- Old wording...
++ New wording...
+```
+
+**Notes**
+
+- Prefer `renderedPrompt` over `polishedPrompt` over `prompt` (matches how integrations choose the final artifact).
+- This workflow is “comparative” by construction: the exported payloads are stable artifacts you can diff, review, or attach to tickets.
+
+**Troubleshooting / pitfalls**
+
+- If `diff` shows nothing, the final artifact text is identical.
+- If your last two runs used different templates/polish settings, compare both `prompt` and `renderedPrompt` fields to understand why.
+
+---
+
+### Recipe: Deterministic compose scaffold (no LLM)
+
+**When to use this**
+
+You want a deterministic, offline way to produce a prompt-like artifact from a “recipe” and some input (useful for scaffolding integrations).
+
+**Steps**
+
+```bash
+prompt-maker-cli compose --recipe docs/tui-design.md --input "Draft a summary" > composed.txt
+```
+
+**Expected output (snippet)**
+
+`composed.txt` is:
+
+```text
+<recipe file contents>
+---
+Draft a summary
+```
+
+**Notes (stdout/stderr)**
+
+- Compose writes successful output to **stdout** only; errors are on **stderr**.
+- Current behavior is deliberately simple: it normalizes newlines and joins recipe + input with a `---` delimiter.
+
+**Troubleshooting / pitfalls**
+
+- “Failed to read recipe file …”: check the path and permissions.
+- This command is scaffolding; it does not parse YAML/JSON recipes yet.
+
 ### Recipe: Where outputs are stored (history)
 
 **Problem**
@@ -377,6 +603,41 @@ A run fails or behaves unexpectedly.
 - `--json`: Emits the final payload as structured JSON; **cannot** be combined with `--interactive` or `--interactive-transport` (enforced in `src/generate/pipeline.ts`), so pick one output path.
 - `--stream jsonl`: Mirrors telemetry and lifecycle events to stdout—ideal for logging or UI bridges. Combine with `--quiet` to suppress boxed UI while still receiving machine-friendly events.
 
+### Token Budgets & Context Overflow
+
+When you attach lots of context, you may need deterministic trimming to stay within model limits.
+
+Flags (generate mode):
+
+- `--max-input-tokens <n>`: caps total input tokens (`intentTokens + systemTokens + fileTokens`).
+- `--max-context-tokens <n>`: caps tokens reserved for **text context entries** (`fileTokens`).
+- `--context-overflow <strategy>`: how to respond if budgets are exceeded.
+
+Strategies:
+
+- `fail`: throw and abort.
+- `drop-smart`: drop smart-context entries first, then oldest-first.
+- `drop-url`: drop URL context first, then oldest-first.
+- `drop-largest`: drop largest entries first.
+- `drop-oldest`: drop in original attachment order.
+
+Notes:
+
+- Budgets apply only to text context entries (`--context`, `--url`, `--smart-context`). Images/videos are not trimmed by these strategies.
+- If budgets are enabled and trimming happens, the CLI emits a `context.overflow` stream event and prunes `contextPaths` in the final JSON payload.
+
+Example (budgets + streaming):
+
+```bash
+prompt-maker-cli "Summarize the selected modules" \
+  -c "src/**/*.ts" \
+  --stream jsonl \
+  --quiet \
+  --progress=false \
+  --max-context-tokens 8000 \
+  --context-overflow drop-smart
+```
+
 ### Context Assembly Flags
 
 - `-c/--context <glob>`: Backed by `fast-glob`, supports includes/excludes (prefix with `!`), repeatable. Great for language- or folder-specific pulls.
@@ -415,7 +676,8 @@ A run fails or behaves unexpectedly.
 
 - **Trace Context Inputs**: Pair `--show-context` with `--context-format json` during dry runs to print the exact `<file>` payloads gathered by `resolveFileContext` and `resolveSmartContextFiles`. When you need an audit trail, add `--context-file tmp/context-dump.md` to persist the snapshot that fed the LLM.
 - **Watch Token Telemetry**: Every generation prints a Context Telemetry box sourced from `countTokens()`. Large spikes in `fileTokens` signal sloppy globs; tighten them or let `--smart-context` re-rank files automatically.
-- **Stream Everything**: `--stream jsonl` mirrors `progress.update`, `generation.iteration.*`, and `upload.state` events to stdout. If you want to pipe directly into `jq`, combine with `--quiet` so non-JSON output doesn’t interleave with the stream.
+- **Budget overflows**: If you enable `--max-input-tokens`/`--max-context-tokens` and choose a non-`fail` overflow strategy, the CLI may emit `context.overflow` (streaming) and drop some context entries. Treat this as a meaningful warning and consider re-running with a higher budget or tighter globs.
+- **Stream Everything**: `--stream jsonl` mirrors `progress.update`, `context.telemetry`, `context.overflow`, `generation.iteration.*`, and `upload.state` events to stdout. If you want to pipe directly into `jq`, combine with `--quiet` so non-JSON output doesn’t interleave with the stream.
 - **Replay with History Artifacts**: `--json` writes the final payload (intent, context paths, iterations, polish metadata) and `appendToHistory()` stores it locally. Diff these blobs to understand how refinements changed the contract over time.
 - **Interactive Diagnostics**: In TTY mode, each refinement is boxed via `displayPrompt()`. When headless, use `--interactive-transport /tmp/prompt.sock` and send JSON commands from another process; hook into the emitted `transport.*` events to orchestrate automated QA.
 - **Clipboard & Flag Tracing**: Set `PROMPT_MAKER_DEBUG_FLAGS=1` to log a JSON snapshot of parsed flags (copy, polish, quiet, json, etc.) right after argument parsing. Add `PROMPT_MAKER_COPY_TRACE=1` (or rely on the debug flag) to emit `[pmc:copy …]` diagnostics showing when clipboard writes are attempted, skipped, or fail. Example: `PROMPT_MAKER_DEBUG_FLAGS=1 PROMPT_MAKER_COPY_TRACE=1 prompt-maker-cli --polish --copy …` instantly proves whether the CLI saw `--copy` and what happened inside `clipboardy`.

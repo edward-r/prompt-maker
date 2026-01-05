@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
+import { runComposeCommand } from './compose-command'
+import { runExportCommand } from './export-command'
 import { runGenerateCommand } from './generate-command'
 import { runTestCommand } from './test-command'
 
-type CliCommand = 'generate' | 'test' | 'ui'
+type CliCommand = 'compose' | 'export' | 'generate' | 'test' | 'ui'
 
 const { command, args } = resolveCommand(process.argv.slice(2))
 
@@ -13,6 +15,12 @@ switch (command) {
     break
   case 'ui':
     void loadAndRunTui(args)
+    break
+  case 'export':
+    void runExportCommand(args)
+    break
+  case 'compose':
+    void runComposeCommand(args)
     break
   case 'generate':
   default:
@@ -40,6 +48,14 @@ function resolveCommand(args: string[]): { command: CliCommand; args: string[] }
 
   if (first === 'ui') {
     return { command: 'ui', args: rest }
+  }
+
+  if (first === 'export') {
+    return { command: 'export', args: rest }
+  }
+
+  if (first === 'compose') {
+    return { command: 'compose', args: rest }
   }
 
   if (!first.startsWith('-') && (first === 'generate' || first === 'expand')) {

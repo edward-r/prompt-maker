@@ -13,17 +13,19 @@ Where possible, each behavior links back to an implementation file under `src/`.
 ## Table of Contents
 
 - [1. CLI Entry Points & Modes](#1-cli-entry-points--modes)
-- [2. Generate Mode (CLI)](#2-generate-mode-cli)
-- [3. Context Ingestion](#3-context-ingestion)
-- [4. Interactive Refinement (TTY and Transport)](#4-interactive-refinement-tty-and-transport)
-- [5. Outputs, Streaming, Telemetry, and Persistence](#5-outputs-streaming-telemetry-and-persistence)
-- [6. Test Runner (CLI)](#6-test-runner-cli)
-- [7. TUI Overview](#7-tui-overview)
-- [8. TUI Keybindings](#8-tui-keybindings)
-- [9. TUI Commands (`/command` palette)](#9-tui-commands-command-palette)
-- [10. TUI Themes](#10-tui-themes)
-- [11. TUI Architecture Map (for maintainers)](#11-tui-architecture-map-for-maintainers)
-- [12. TODOs / Known Quirks](#12-todos--known-quirks)
+- [2. Export Mode (CLI)](#2-export-mode-cli)
+- [3. Compose Mode (CLI)](#3-compose-mode-cli)
+- [4. Generate Mode (CLI)](#4-generate-mode-cli)
+- [5. Context Ingestion](#5-context-ingestion)
+- [6. Interactive Refinement (TTY and Transport)](#6-interactive-refinement-tty-and-transport)
+- [7. Outputs, Streaming, Telemetry, and Persistence](#7-outputs-streaming-telemetry-and-persistence)
+- [8. Test Runner (CLI)](#8-test-runner-cli)
+- [9. TUI Overview](#9-tui-overview)
+- [10. TUI Keybindings](#10-tui-keybindings)
+- [11. TUI Commands (`/command` palette)](#11-tui-commands-command-palette)
+- [12. TUI Themes](#12-tui-themes)
+- [13. TUI Architecture Map (for maintainers)](#13-tui-architecture-map-for-maintainers)
+- [14. TODOs / Known Quirks](#14-todos--known-quirks)
 
 ---
 
@@ -33,19 +35,28 @@ Routing is implemented in `src/index.ts`.
 
 ### Commands and routing rules
 
-`prompt-maker-cli` has three top-level modes:
+`prompt-maker-cli` has five top-level modes:
 
 - `ui`: Ink TUI
+- `generate`: prompt generation pipeline (default)
 - `test`: prompt test runner
-- `generate`: prompt generation pipeline
+- `export`: export a past generate payload from history
+- `compose`: deterministic (non-LLM) prompt composition scaffold
 
 Routing rules (`src/index.ts`):
 
 - No args → `ui`
 - First arg `ui` → `ui`
 - First arg `test` → `test`
+- First arg `export` → `export`
+- First arg `compose` → `compose`
 - First arg `generate` or `expand` → `generate` (alias)
 - Anything else (including flags like `--json`) → `generate`
+
+Help behavior:
+
+- `prompt-maker-cli --help` shows **generate** help only.
+- Use `prompt-maker-cli export --help` / `prompt-maker-cli compose --help` for subcommand help.
 
 ### Practical examples
 
@@ -65,11 +76,78 @@ prompt-maker-cli generate "Draft an onboarding prompt"
 # Tests
 prompt-maker-cli test
 prompt-maker-cli test prompt-tests.yaml
+
+# Export the last run from history
+prompt-maker-cli export --format json --out runs/last-run.json
+
+# Deterministic (non-LLM) composition scaffold
+prompt-maker-cli compose --recipe recipes/triage.txt --input "Hello"
 ```
 
 ---
 
-## 2. Generate Mode (CLI)
+## 2. Export Mode (CLI)
+
+Export pulls a previously-generated `GenerateJsonPayload` from the JSONL history log and writes it to disk as JSON or YAML.
+
+Implementation: `src/export-command.ts`.
+
+### Usage
+
+```bash
+prompt-maker-cli export --format json --out runs/last-run.json
+prompt-maker-cli export --format yaml --out runs/last-run.yaml
+
+# Select an older entry from history
+prompt-maker-cli export --from-history last:3 --format json --out runs/third-from-last.json
+prompt-maker-cli export --from-history 10 --format yaml --out runs/tenth-from-last.yaml
+```
+
+### Flags
+
+- `--from-history <selector>`: which entry to export (`last`, `last:N`, or `N`-th from end). Default: `last`.
+- `--format json|yaml`: required output format.
+- `--out <path>`: required output file path (directories are created).
+- `--quiet`: suppresses human-readable **stderr** logs.
+
+### Stdout/stderr
+
+- Export does not print payloads to stdout. It writes the payload to `--out`.
+- Success messages are printed to **stderr** unless `--quiet` is set.
+
+---
+
+## 3. Compose Mode (CLI)
+
+Compose is a deterministic, non-LLM scaffold for building a prompt-like artifact from a "recipe" file plus an input string.
+
+Implementation: `src/compose-command.ts`.
+
+### Usage
+
+```bash
+prompt-maker-cli compose --recipe recipes/triage.txt --input "Summarize this diff"
+```
+
+### Output behavior (current scaffold)
+
+- Reads the recipe file as plain text.
+- Prints a deterministic composition to **stdout**:
+
+```text
+<recipe file contents>
+---
+<input>
+```
+
+Notes:
+
+- This is scaffolding (no recipe semantics yet): it does not parse YAML, expand templates, or call any LLM.
+- All successful output is written to **stdout** (safe for piping); errors are written to **stderr**.
+
+---
+
+## 4. Generate Mode (CLI)
 
 Generate-mode argument parsing lives in `src/generate/args.ts` and the main pipeline is `src/generate/pipeline.ts`.
 
@@ -87,31 +165,38 @@ Implementation: `src/generate/intent.ts` (called from `src/generate/pipeline.ts`
 
 The `--help` output for generate is produced by yargs in `src/generate/args.ts` and matches `node dist/index.js --help`.
 
-| Flag                      |          Type | Default | Notes                                                                        |
-| ------------------------- | ------------: | ------: | ---------------------------------------------------------------------------- |
-| `-f, --intent-file`       |        string |       - | Read intent from file                                                        |
-| `--model`                 |        string |       - | Generation model override                                                    |
-| `--target`                |        string |       - | Target/runtime model for optimization guidance (not included in prompt text) |
-| `--polish-model`          |        string |       - | Model used for polish pass                                                   |
-| `-i, --interactive`       |       boolean | `false` | Enables interactive refinement if a TTY is available                         |
-| `--interactive-transport` |        string |       - | Local socket/pipe to drive refinements remotely                              |
-| `--polish`                |       boolean | `false` | Run polish pass after generation                                             |
-| `--json`                  |       boolean | `false` | Emit JSON payload to stdout (non-interactive only)                           |
-| `--stream`                | `none\|jsonl` |  `none` | Emit JSONL event stream to stdout                                            |
-| `--quiet`                 |       boolean | `false` | Suppress human-oriented output (banners/telemetry)                           |
-| `--progress`              |       boolean |  `true` | Show progress spinner (non-interactive only)                                 |
-| `--copy`                  |       boolean | `false` | Copy final prompt to clipboard                                               |
-| `--open-chatgpt`          |       boolean | `false` | Open a ChatGPT URL prefilled with the prompt                                 |
-| `--context-template`      |        string |       - | Wrap final prompt using a named template                                     |
-| `--show-context`          |       boolean | `false` | Print resolved context files before generation                               |
-| `-c, --context`           |      string[] |    `[]` | File glob patterns (repeatable)                                              |
-| `--url`                   |      string[] |    `[]` | URL context entries (repeatable)                                             |
-| `--image`                 |      string[] |    `[]` | Image file paths (repeatable)                                                |
-| `--video`                 |      string[] |    `[]` | Video file paths (repeatable)                                                |
-| `--context-file`          |        string |       - | Write resolved context to a file                                             |
-| `--context-format`        |  `text\|json` |  `text` | Format used by `--show-context` and `--context-file`                         |
-| `--smart-context`         |       boolean | `false` | Auto-attach relevant local files via embeddings                              |
-| `--smart-context-root`    |        string |       - | Base directory for smart-context scan                                        |
+| Flag                      |                  Type |       Default | Notes                                                                              |
+| ------------------------- | --------------------: | ------------: | ---------------------------------------------------------------------------------- |
+| `-f, --intent-file`       |                string |             - | Read intent from file                                                              |
+| `--model`                 |                string |             - | Generation model override                                                          |
+| `--target`                |                string |             - | Target/runtime model for optimization guidance (not included in prompt text)       |
+| `--polish-model`          |                string |             - | Model used for polish pass                                                         |
+| `-i, --interactive`       |               boolean |       `false` | Enables interactive refinement if a TTY is available                               |
+| `--interactive-transport` |                string |             - | Local socket/pipe to drive refinements remotely                                    |
+| `--polish`                |               boolean |       `false` | Run polish pass after generation                                                   |
+| `--json`                  |               boolean |       `false` | Emit JSON payload to stdout (non-interactive only)                                 |
+| `--stream`                |         `none\|jsonl` |        `none` | Emit JSONL event stream to stdout                                                  |
+| `--quiet`                 |               boolean |       `false` | Suppress human-oriented output (banners/telemetry)                                 |
+| `--progress`              |               boolean |        `true` | Show progress spinner (non-interactive only)                                       |
+| `--copy`                  |               boolean |       `false` | Copy final prompt to clipboard                                                     |
+| `--open-chatgpt`          |               boolean |       `false` | Open a ChatGPT URL prefilled with the prompt                                       |
+| `--resume-last`           |               boolean |       `false` | Resume from the last history entry                                                 |
+| `--resume`                |                string |             - | Resume from history selector (`last`, `last:N`, or `N`-th from end)                |
+| `--resume-from`           |                string |             - | Resume from an exported payload file (`.json` / `.yaml` / `.yml`)                  |
+| `--resume-mode`           | `strict\|best-effort` | `best-effort` | How to handle missing resumed context file paths                                   |
+| `--context-template`      |                string |             - | Wrap final prompt using a named template                                           |
+| `--show-context`          |               boolean |       `false` | Print resolved context files before generation                                     |
+| `-c, --context`           |              string[] |          `[]` | File glob patterns (repeatable)                                                    |
+| `--url`                   |              string[] |          `[]` | URL context entries (repeatable)                                                   |
+| `--image`                 |              string[] |          `[]` | Image file paths (repeatable)                                                      |
+| `--video`                 |              string[] |          `[]` | Video file paths (repeatable)                                                      |
+| `--context-file`          |                string |             - | Write resolved context to a file                                                   |
+| `--context-format`        |          `text\|json` |        `text` | Format used by `--show-context` and `--context-file`                               |
+| `--smart-context`         |               boolean |       `false` | Auto-attach relevant local files via embeddings                                    |
+| `--smart-context-root`    |                string |             - | Base directory for smart-context scan                                              |
+| `--max-input-tokens`      |                number |             - | Enforce a maximum input budget (intent + system + text context)                    |
+| `--max-context-tokens`    |                number |             - | Enforce a maximum budget for text context entries (file/url/smart)                 |
+| `--context-overflow`      |                string |             - | Overflow handling: `fail`, `drop-smart`, `drop-url`, `drop-largest`, `drop-oldest` |
 
 ### Flag incompatibilities
 
@@ -142,7 +227,7 @@ prompt-maker-cli "Summarize" --url https://example.com \
 
 ---
 
-## 3. Context Ingestion
+## 5. Context Ingestion
 
 ### 3.1 File context (`--context`)
 
@@ -232,9 +317,41 @@ Behavior:
 - If videos are provided and the selected generation model is not Gemini, the CLI switches to a Gemini model that supports video input:
   - It prefers `gemini-2.5-pro` when available, otherwise falls back (see `src/generate/models.ts`).
 
+### 3.7 Token budgets and context overflow
+
+Token budgets are applied after all text context is resolved (files, URLs, smart context) and before generation begins.
+
+Flags (or config equivalents) are consumed in `src/generate/pipeline.ts` and evaluated by `src/generate/context-budget.ts`:
+
+- `--max-input-tokens`: caps total input tokens (`intentTokens + systemTokens + fileTokens`).
+- `--max-context-tokens`: caps tokens reserved for text context entries (`fileTokens`).
+- `--context-overflow`: chooses how to respond when `fileTokens` exceeds the allowed budget.
+
+Notes:
+
+- Budgets apply only to **text context entries** (`--context`, `--url`, `--smart-context`).
+  - Images/videos are not included in the token budget model and are never trimmed by these strategies.
+- If both `--max-input-tokens` and `--max-context-tokens` are set, the effective allowance for text context is:
+  - `allowedFileTokens = min(maxContextTokens, maxInputTokens - intentTokens - systemTokens)`
+- If budgets are set but `--context-overflow` is omitted, the default strategy is `fail`.
+- If no budgets are set, overflow strategy is ignored and no trimming occurs.
+
+Overflow strategies (`ContextOverflowStrategy` in `src/generate/types.ts`):
+
+- `fail`: throw an error and abort generation.
+- `drop-smart`: drop smart-context entries first, then drop remaining entries oldest-first.
+- `drop-url`: drop URL entries first, then drop remaining entries oldest-first.
+- `drop-largest`: drop the largest token entries first (ties break by age).
+- `drop-oldest`: drop entries in original attachment order (oldest-first).
+
+When trimming drops any text context entries:
+
+- `contextPaths` in the final JSON payload is pruned to match the kept entries.
+- A `context.overflow` stream event is emitted (see Streaming below).
+
 ---
 
-## 4. Interactive Refinement (TTY and Transport)
+## 6. Interactive Refinement (TTY and Transport)
 
 Interactive logic is in `src/generate/interactive.ts`.
 
@@ -266,14 +383,14 @@ Constraint:
 
 ---
 
-## 5. Outputs, Streaming, Telemetry, and Persistence
+## 7. Outputs, Streaming, Telemetry, and Persistence
 
 ### 5.1 JSON output (`--json`)
 
 When `--json` is enabled, the CLI prints a JSON payload to **stdout**:
 
 - Shape: `GenerateJsonPayload` (`src/generate/types.ts`)
-- Includes: `intent`, `model`, `targetModel`, `prompt`, optional `polishedPrompt`, `iterations`, `refinements`, `contextPaths`, timestamps, etc.
+- Includes: `schemaVersion`, `intent`, `model`, `targetModel`, `prompt`, optional `polishedPrompt`, `iterations`, `refinements`, `contextPaths`, timestamps, etc.
 
 `--show-context` behavior when combined with `--json`:
 
@@ -286,9 +403,22 @@ Implementation: `src/generate/stream.ts` and event types in `src/generate/types.
 When enabled:
 
 - The CLI writes newline-delimited JSON events to **stdout**.
+
+Example (streaming + budgets):
+
+```bash
+prompt-maker-cli "Summarize these files" \
+  --context src/**/*.ts \
+  --stream jsonl \
+  --progress=false \
+  --max-context-tokens 8000 \
+  --context-overflow drop-smart
+```
+
 - Event names include (non-exhaustive):
   - `progress.update`
   - `context.telemetry`
+  - `context.overflow`
   - `upload.state`
   - `generation.iteration.start`
   - `generation.iteration.complete`
@@ -296,6 +426,66 @@ When enabled:
   - `interactive.awaiting`
   - `transport.*`
   - `generation.final`
+
+#### `resume.loaded` event
+
+Emitted early in a run when `--resume-last`, `--resume`, or `--resume-from` successfully loads a previous payload.
+
+Shape (`src/generate/types.ts`):
+
+- `event`: `"resume.loaded"`
+- `timestamp`: ISO-8601 string
+- `source`: `"history" | "file"`
+- `reusedContextPaths`: subset of context paths that were successfully reloaded (today this is limited to `source: "file"` entries)
+- `missingContextPaths`: context paths that could not be reused (missing files, plus any non-file sources like `url`/`smart`)
+
+Notes:
+
+- **Explicit `--context` overrides** resumed `contextPaths`.
+- **Explicit flags override** resumed payload values (e.g. `--model` overrides `payload.model`).
+- `--resume-mode best-effort` warns and continues if some file paths are missing.
+- `--resume-mode strict` throws if any resumed `source: "file"` paths are missing.
+
+#### `context.overflow` event
+
+Emitted when token budgets are enabled and the CLI drops one or more text context entries to satisfy the budget.
+
+Shape (`src/generate/types.ts`):
+
+- `event`: `"context.overflow"`
+- `timestamp`: ISO-8601 string
+- `strategy`: `fail | drop-smart | drop-url | drop-largest | drop-oldest`
+- `before`: token telemetry before trimming
+- `after`: token telemetry after trimming
+- `droppedPaths`: array of `{ path, source }` entries removed from context
+
+Example JSONL line (formatted for readability):
+
+```json
+{
+  "event": "context.overflow",
+  "timestamp": "2026-01-04T16:33:17.000Z",
+  "strategy": "drop-smart",
+  "before": {
+    "files": [
+      { "path": "src/a.ts", "tokens": 1200 },
+      { "path": "src/b.ts", "tokens": 900 }
+    ],
+    "intentTokens": 200,
+    "fileTokens": 2100,
+    "systemTokens": 700,
+    "totalTokens": 3000
+  },
+  "after": {
+    "files": [{ "path": "src/a.ts", "tokens": 1200 }],
+    "intentTokens": 200,
+    "fileTokens": 1200,
+    "systemTokens": 700,
+    "totalTokens": 2100
+  },
+  "droppedPaths": [{ "path": "src/b.ts", "source": "smart" }]
+}
+```
 
 ### 5.3 Token telemetry
 
@@ -351,7 +541,7 @@ Implementation: `src/tui/command-history.ts`.
 
 ---
 
-## 6. Test Runner (CLI)
+## 8. Test Runner (CLI)
 
 Implementation: `src/test-command.ts`.
 
@@ -367,7 +557,7 @@ prompt-maker-cli test prompt-tests.yaml
 
 ---
 
-## 7. TUI Overview
+## 9. TUI Overview
 
 The Ink TUI is implemented under `src/tui/` and launched via `src/tui/index.tsx`.
 
@@ -400,7 +590,7 @@ TTY requirement:
 
 ---
 
-## 8. TUI Keybindings
+## 10. TUI Keybindings
 
 Authoritative sources:
 
@@ -438,7 +628,7 @@ Verified in `src/tui/screens/test-runner/TestRunnerScreen.tsx`:
 
 ---
 
-## 9. TUI Commands (`/command` palette)
+## 11. TUI Commands (`/command` palette)
 
 Commands are listed in the palette via `src/tui/config.ts`.
 
@@ -484,7 +674,7 @@ Notes:
 
 ---
 
-## 10. TUI Themes
+## 12. TUI Themes
 
 Theme implementation lives under `src/tui/theme/`.
 
@@ -537,7 +727,7 @@ The theme provider loads and saves this selection via `src/tui/theme/theme-setti
 
 ---
 
-## 11. TUI Architecture Map (for maintainers)
+## 13. TUI Architecture Map (for maintainers)
 
 High-level module boundaries:
 
@@ -556,7 +746,7 @@ Key design invariants (reinforced by `AGENTS.md`):
 
 ---
 
-## 12. TODOs / Known Quirks
+## 14. TODOs / Known Quirks
 
 These are verified behaviors that may surprise users:
 

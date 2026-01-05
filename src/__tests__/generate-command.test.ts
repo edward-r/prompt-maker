@@ -62,7 +62,19 @@ jest.mock('../smart-context-service', () => ({
 jest.mock('../url-context', () => ({
   resolveUrlContext: jest.fn().mockResolvedValue([]),
 }))
-jest.mock('../history-logger', () => ({ appendToHistory: jest.fn().mockResolvedValue(undefined) }))
+jest.mock('../history-logger', () => {
+  const os = jest.requireActual('node:os') as typeof import('node:os')
+  const path = jest.requireActual('node:path') as typeof import('node:path')
+
+  return {
+    appendToHistory: jest.fn().mockResolvedValue(undefined),
+    resolveHistoryFilePath: jest.fn(() => {
+      const envHome = process.env.HOME?.trim()
+      const homeDir = envHome && envHome.length > 0 ? envHome : os.homedir()
+      return path.join(homeDir, '.config', 'prompt-maker-cli', 'history.jsonl')
+    }),
+  }
+})
 jest.mock('../io', () => ({ readFromStdin: jest.fn().mockResolvedValue(null) }))
 jest.mock('../image-loader', () => ({ resolveImageParts: jest.fn().mockResolvedValue([]) }))
 jest.mock('../media-loader', () => ({ resolveVideoParts: jest.fn().mockResolvedValue([]) }))
@@ -480,11 +492,99 @@ describe('runGenerateCommand', () => {
     expect(iterationStart?.inputTokens).toBeGreaterThan(0)
 
     const finalEvent = events.find((event) => event.event === 'generation.final') as
-      | { result?: { contextPaths?: Array<{ source: string }> } }
+      | { result?: { schemaVersion?: string; contextPaths?: Array<{ source: string }> } }
       | undefined
+    expect(finalEvent?.result?.schemaVersion).toBe('1')
     expect(finalEvent?.result?.contextPaths).toEqual(
       expect.arrayContaining([expect.objectContaining({ source: 'intent' })]),
     )
+  })
+
+  it('emits context.overflow and prunes contextPaths when budget exceeded', async () => {
+    mockResolveFileContext.mockResolvedValueOnce([
+      { path: 'ctx1.md', content: 'c1' },
+      { path: 'ctx2.md', content: 'c2' },
+      { path: 'ctx3.md', content: 'c3' },
+    ])
+
+    mockCountTokens.mockImplementation((value: string) => {
+      if (value === 'c1' || value === 'c2' || value === 'c3') {
+        return 10
+      }
+      return 0
+    })
+
+    const chunks: string[] = []
+    const writeSpy = jest.spyOn(process.stdout, 'write').mockImplementation(((
+      chunk: string | Uint8Array,
+      encoding?: BufferEncoding,
+      cb?: (err?: Error) => void,
+    ) => {
+      if (typeof chunk === 'string') {
+        chunks.push(chunk)
+      }
+      if (typeof cb === 'function') {
+        cb()
+      }
+      return true
+    }) as unknown as typeof process.stdout.write)
+
+    await runGenerateCommand([
+      'intent text',
+      '--stream',
+      'jsonl',
+      '--progress=false',
+      '--max-context-tokens',
+      '10',
+      '--context-overflow',
+      'drop-oldest',
+    ])
+
+    writeSpy.mockRestore()
+
+    const events = chunks
+      .map((chunk) => chunk.trim())
+      .filter((chunk) => chunk.startsWith('{') && chunk.endsWith('}'))
+      .map((chunk) => JSON.parse(chunk) as { event: string } & Record<string, unknown>)
+
+    const overflowEvent = events.find((event) => event.event === 'context.overflow') as
+      | {
+          strategy?: string
+          before?: { fileTokens?: number }
+          after?: { fileTokens?: number }
+          droppedPaths?: Array<{ path: string; source: string }>
+        }
+      | undefined
+
+    expect(overflowEvent?.strategy).toBe('drop-oldest')
+    expect(overflowEvent?.before?.fileTokens).toBe(30)
+    expect(overflowEvent?.after?.fileTokens).toBe(10)
+    expect(overflowEvent?.droppedPaths).toEqual([
+      { path: 'ctx1.md', source: 'file' },
+      { path: 'ctx2.md', source: 'file' },
+    ])
+
+    const finalEvent = events.find((event) => event.event === 'generation.final') as
+      | {
+          result?: {
+            schemaVersion?: string
+            contextPaths?: Array<{ path: string; source: string }>
+          }
+        }
+      | undefined
+
+    expect(finalEvent?.result?.schemaVersion).toBe('1')
+    expect(finalEvent?.result?.contextPaths).toEqual(
+      expect.arrayContaining([
+        { path: 'inline-intent', source: 'intent' },
+        { path: 'ctx3.md', source: 'file' },
+      ]),
+    )
+
+    const droppedInFinal = finalEvent?.result?.contextPaths?.filter((entry) =>
+      ['ctx1.md', 'ctx2.md'].includes(entry.path),
+    )
+    expect(droppedInFinal).toEqual([])
   })
 
   it('emits only jsonl lines when quiet streaming is requested', async () => {
@@ -529,6 +629,7 @@ describe('runGenerateCommand', () => {
     const log = jest.spyOn(console, 'log').mockImplementation(() => undefined)
     await runGenerateCommand(['intent text', '--quiet', '--json'])
     expect(log).toHaveBeenCalledTimes(1)
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('"schemaVersion": "1"'))
     expect(log).toHaveBeenCalledWith(expect.stringContaining('"intent": "intent text"'))
     jest.useRealTimers()
     log.mockRestore()
@@ -552,8 +653,10 @@ describe('runGenerateCommand', () => {
       throw new Error('Expected JSON output to be logged')
     }
     const payload = JSON.parse(firstCall[0] as string) as {
+      schemaVersion?: string
       contextPaths: Array<{ path: string; source: string }>
     }
+    expect(payload.schemaVersion).toBe('1')
     expect(payload.contextPaths).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ source: 'url', path: 'url:https://example.com' }),
@@ -570,7 +673,11 @@ describe('runGenerateCommand', () => {
     if (!firstCall) {
       throw new Error('Expected JSON output to be logged')
     }
-    const payload = JSON.parse(firstCall[0] as string) as { outputPath?: string }
+    const payload = JSON.parse(firstCall[0] as string) as {
+      schemaVersion?: string
+      outputPath?: string
+    }
+    expect(payload.schemaVersion).toBe('1')
     expect(payload.outputPath).toBe('/tmp/out.json')
     log.mockRestore()
   })
@@ -661,9 +768,11 @@ describe('runGenerateCommand', () => {
     }
     const [jsonOutput] = firstCall as [string]
     const payload = JSON.parse(jsonOutput) as {
+      schemaVersion?: string
       contextTemplate?: string
       renderedPrompt?: string
     }
+    expect(payload.schemaVersion).toBe('1')
     expect(payload.contextTemplate).toBe('nvim')
     expect(payload.renderedPrompt).toContain('NeoVim Prompt Buffer')
     expect(payload.renderedPrompt).toContain('prompt v1')
@@ -683,10 +792,170 @@ describe('runGenerateCommand', () => {
       throw new Error('console.log was not called')
     }
     const [jsonOutput] = firstCall as [string]
-    const payload = JSON.parse(jsonOutput) as { renderedPrompt?: string }
+    const payload = JSON.parse(jsonOutput) as { schemaVersion?: string; renderedPrompt?: string }
+    expect(payload.schemaVersion).toBe('1')
     expect(payload.renderedPrompt).toContain('Paste into scratch buffer for review')
     expect(payload.renderedPrompt?.trim().endsWith('prompt v1')).toBe(true)
     log.mockRestore()
+  })
+
+  it('resumes from history in best-effort mode and emits resume.loaded', async () => {
+    const originalHome = process.env.HOME
+    process.env.HOME = '/tmp/pmc-resume-home'
+
+    try {
+      const historyPath = `${process.env.HOME}/.config/prompt-maker-cli/history.jsonl`
+
+      const resumedPayload = {
+        schemaVersion: '1',
+        intent: 'resumed intent',
+        model: 'gpt-4o-mini',
+        targetModel: 'gpt-4o-mini',
+        prompt: 'previous prompt',
+        polishedPrompt: 'previous polished',
+        polishModel: 'polish-model',
+        metaInstructions: 'Be concise',
+        refinements: ['prior refinement'],
+        iterations: 2,
+        interactive: true,
+        timestamp: '2025-01-01T00:00:00.000Z',
+        contextPaths: [
+          { path: 'existing.md', source: 'file' },
+          { path: 'missing.md', source: 'file' },
+          { path: 'url:https://example.com', source: 'url' },
+        ],
+      }
+
+      fs.readFile.mockImplementation(async (filePath: string) => {
+        if (filePath === historyPath) {
+          return `${JSON.stringify(resumedPayload)}\n`
+        }
+        if (filePath === 'existing.md') {
+          return 'existing content'
+        }
+        const error = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+        throw error
+      })
+
+      mockReadFromStdin.mockResolvedValue(null)
+
+      const chunks: string[] = []
+      const writeSpy = jest.spyOn(process.stdout, 'write').mockImplementation(((
+        chunk: string | Uint8Array,
+        encoding?: BufferEncoding,
+        cb?: (err?: Error) => void,
+      ) => {
+        if (typeof chunk === 'string') {
+          chunks.push(chunk)
+        }
+        if (typeof cb === 'function') {
+          cb()
+        }
+        return true
+      }) as unknown as typeof process.stdout.write)
+
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+      await runGenerateCommand([
+        '',
+        '--resume-last',
+        '--resume-mode',
+        'best-effort',
+        '--stream',
+        'jsonl',
+        '--quiet',
+        '--progress=false',
+      ])
+
+      writeSpy.mockRestore()
+
+      const events = chunks
+        .join('')
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => JSON.parse(line) as { event: string } & Record<string, unknown>)
+
+      const resumeEvent = events.find((event) => event.event === 'resume.loaded') as
+        | {
+            reusedContextPaths?: Array<{ path: string; source: string }>
+            missingContextPaths?: Array<{ path: string; source: string }>
+          }
+        | undefined
+
+      expect(resumeEvent).toBeDefined()
+      expect(resumeEvent?.reusedContextPaths).toEqual([{ path: 'existing.md', source: 'file' }])
+      expect(resumeEvent?.missingContextPaths).toEqual(
+        expect.arrayContaining([
+          { path: 'missing.md', source: 'file' },
+          { path: 'url:https://example.com', source: 'url' },
+        ]),
+      )
+
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('Resume skipped missing context'))
+      warn.mockRestore()
+
+      expect(promptService.generatePrompt).toHaveBeenCalledTimes(0)
+      expect(appendToHistory).toHaveBeenCalledWith(
+        expect.objectContaining({ intent: 'resumed intent', prompt: 'previous polished' }),
+      )
+    } finally {
+      if (originalHome === undefined) {
+        delete process.env.HOME
+      } else {
+        process.env.HOME = originalHome
+      }
+    }
+  })
+
+  it('fails in strict resume mode when a context path is missing', async () => {
+    const originalHome = process.env.HOME
+    process.env.HOME = '/tmp/pmc-resume-home'
+
+    try {
+      const historyPath = `${process.env.HOME}/.config/prompt-maker-cli/history.jsonl`
+
+      const resumedPayload = {
+        schemaVersion: '1',
+        intent: 'resumed intent',
+        model: 'gpt-4o-mini',
+        targetModel: 'gpt-4o-mini',
+        prompt: 'previous prompt',
+        refinements: [],
+        iterations: 1,
+        interactive: false,
+        timestamp: '2025-01-01T00:00:00.000Z',
+        contextPaths: [
+          { path: 'existing.md', source: 'file' },
+          { path: 'missing.md', source: 'file' },
+        ],
+      }
+
+      fs.readFile.mockImplementation(async (filePath: string) => {
+        if (filePath === historyPath) {
+          return `${JSON.stringify(resumedPayload)}\n`
+        }
+        if (filePath === 'existing.md') {
+          return 'existing content'
+        }
+        const error = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+        throw error
+      })
+
+      mockReadFromStdin.mockResolvedValue(null)
+
+      await expect(
+        runGenerateCommand(['', '--resume-last', '--resume-mode', 'strict', '--quiet']),
+      ).rejects.toThrow(/Missing required resumed context file/i)
+
+      expect(appendToHistory).not.toHaveBeenCalled()
+    } finally {
+      if (originalHome === undefined) {
+        delete process.env.HOME
+      } else {
+        process.env.HOME = originalHome
+      }
+    }
   })
 
   it('throws when --json and --interactive are combined', async () => {
