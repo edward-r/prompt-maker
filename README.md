@@ -6,7 +6,7 @@ Highlights:
 
 - **Generate workflow**: run from flags or from the TUI.
 - **Context ingestion**: file globs (`--context`), URLs (`--url`, including GitHub trees), optional smart context (`--smart-context`), and media (`--image`, `--video`).
-- **Auditable runs**: token telemetry, structured stream events (`--stream jsonl`), and JSONL history (`~/.config/prompt-maker-cli/history.jsonl`).
+- **Auditable runs**: token telemetry, token budgets (optional trimming), structured stream events (`--stream jsonl`), and JSONL history (`~/.config/prompt-maker-cli/history.jsonl`).
 - **TUI-first**: `prompt-maker-cli` with no args launches the TUI.
 
 The project is **TUI-first**:
@@ -455,6 +455,9 @@ prompt-maker-cli "Summarize" --stream jsonl --quiet > runs/events.jsonl
 | `--polish`, `--polish-model <name>`         | Run the finishing pass and optionally choose a different model.                       |
 | `--json`                                    | Emit machine-readable JSON (non-interactive only).                                    |
 | `--stream none\|jsonl`                      | Emit newline-delimited JSON events to stdout.                                         |
+| `--max-input-tokens <n>`                    | Cap total input tokens (intent + system + text context).                              |
+| `--max-context-tokens <n>`                  | Cap tokens reserved for text context entries (file/url/smart).                        |
+| `--context-overflow <strategy>`             | Overflow handling: `fail`, `drop-smart`, `drop-url`, `drop-largest`, `drop-oldest`.   |
 | `--quiet`                                   | Suppress human-oriented output (banners/telemetry/boxed prompts).                     |
 | `--progress/--no-progress`                  | Enable/disable progress spinners (spinners are disabled during interactive sessions). |
 | `--show-context`                            | Print resolved context payload before generation.                                     |
@@ -468,6 +471,7 @@ Notes:
 - `--json` cannot be combined with interactive refinement (`--interactive` or `--interactive-transport`).
 - `--show-context` prints to **stderr** when `--json` is enabled (so stdout stays machine-readable).
 - `--stream jsonl` is designed for machine consumption; for clean JSONL output on stdout use `--quiet` and avoid other human-output flags.
+- Token budgets apply only to **text** context entries (`--context`, `--url`, `--smart-context`); images/videos are not trimmed by these strategies.
 - `DEBUG=1` or `VERBOSE=1` prints the model’s `reasoning` (if provided) to stderr.
 
 ### Conceptual architecture
@@ -508,7 +512,13 @@ flowchart TD
   CM --> DEDUPE
 
   DEDUPE --> T["Token telemetry<br>(intent + context)"]
-  T --> G1[Generation iteration 1<br>PromptGeneratorService.generatePrompt]
+   T --> BUDGET{Token budgets enabled?\n--max-* or config}
+
+   BUDGET -- No --> G1[Generation iteration 1<br>PromptGeneratorService.generatePrompt]
+   BUDGET -- Yes --> TRIM{Context exceeds budget?}
+   TRIM -- No --> G1
+   TRIM -- Yes --> PRUNE[Trim text context per strategy\n(context.overflow)]
+   PRUNE --> G1
 
   G1 --> INT{Interactive?<br>--interactive or --interactive-transport}
   INT -- No --> DONEITER[Stop refining]
@@ -753,7 +763,8 @@ flowchart TD
 
 Event types (integration-relevant highlights):
 
-- `context.telemetry` (intent/file/total token counts)
+- `context.telemetry` (intent/system/context/total token counts)
+- `context.overflow` (emitted when budgets force text-context trimming)
 - `progress.update` (machine-readable progress)
 - `upload.state` (image/video upload start/finish)
 - `generation.iteration.start` / `generation.iteration.complete`
@@ -776,6 +787,11 @@ sequenceDiagram
   participant Stream as stdout (--stream jsonl)
 
   User->>CLI: start generate (intent + flags)
+
+  opt Budgets enabled and overflow
+    CLI->>Stream: context.overflow
+  end
+
   CLI->>Stream: context.telemetry
 
   alt Remote context present
@@ -856,7 +872,7 @@ sequenceDiagram
   Client->>Sock: connect
   CLI->>Client: transport.client.connected
 
-  CLI->>Client: (mirrored stream events)\ncontext.telemetry, progress.update, ...
+  CLI->>Client: (mirrored stream events)\ncontext.telemetry, context.overflow, progress.update, ...
 
   loop Refinement cycle
     Client->>Sock: {"type":"refine","instruction":"..."}\n(newline-delimited JSON)
@@ -1097,6 +1113,7 @@ Env vars override config keys:
 - Token telemetry:
   - Printed as a summary in non-`--quiet` runs
   - Always emitted as a `context.telemetry` JSONL stream event
+  - When budgets force trimming, a `context.overflow` event is also emitted
 
 ---
 

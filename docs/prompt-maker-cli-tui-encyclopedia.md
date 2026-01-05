@@ -87,31 +87,34 @@ Implementation: `src/generate/intent.ts` (called from `src/generate/pipeline.ts`
 
 The `--help` output for generate is produced by yargs in `src/generate/args.ts` and matches `node dist/index.js --help`.
 
-| Flag                      |          Type | Default | Notes                                                                        |
-| ------------------------- | ------------: | ------: | ---------------------------------------------------------------------------- |
-| `-f, --intent-file`       |        string |       - | Read intent from file                                                        |
-| `--model`                 |        string |       - | Generation model override                                                    |
-| `--target`                |        string |       - | Target/runtime model for optimization guidance (not included in prompt text) |
-| `--polish-model`          |        string |       - | Model used for polish pass                                                   |
-| `-i, --interactive`       |       boolean | `false` | Enables interactive refinement if a TTY is available                         |
-| `--interactive-transport` |        string |       - | Local socket/pipe to drive refinements remotely                              |
-| `--polish`                |       boolean | `false` | Run polish pass after generation                                             |
-| `--json`                  |       boolean | `false` | Emit JSON payload to stdout (non-interactive only)                           |
-| `--stream`                | `none\|jsonl` |  `none` | Emit JSONL event stream to stdout                                            |
-| `--quiet`                 |       boolean | `false` | Suppress human-oriented output (banners/telemetry)                           |
-| `--progress`              |       boolean |  `true` | Show progress spinner (non-interactive only)                                 |
-| `--copy`                  |       boolean | `false` | Copy final prompt to clipboard                                               |
-| `--open-chatgpt`          |       boolean | `false` | Open a ChatGPT URL prefilled with the prompt                                 |
-| `--context-template`      |        string |       - | Wrap final prompt using a named template                                     |
-| `--show-context`          |       boolean | `false` | Print resolved context files before generation                               |
-| `-c, --context`           |      string[] |    `[]` | File glob patterns (repeatable)                                              |
-| `--url`                   |      string[] |    `[]` | URL context entries (repeatable)                                             |
-| `--image`                 |      string[] |    `[]` | Image file paths (repeatable)                                                |
-| `--video`                 |      string[] |    `[]` | Video file paths (repeatable)                                                |
-| `--context-file`          |        string |       - | Write resolved context to a file                                             |
-| `--context-format`        |  `text\|json` |  `text` | Format used by `--show-context` and `--context-file`                         |
-| `--smart-context`         |       boolean | `false` | Auto-attach relevant local files via embeddings                              |
-| `--smart-context-root`    |        string |       - | Base directory for smart-context scan                                        |
+| Flag                      |          Type | Default | Notes                                                                              |
+| ------------------------- | ------------: | ------: | ---------------------------------------------------------------------------------- |
+| `-f, --intent-file`       |        string |       - | Read intent from file                                                              |
+| `--model`                 |        string |       - | Generation model override                                                          |
+| `--target`                |        string |       - | Target/runtime model for optimization guidance (not included in prompt text)       |
+| `--polish-model`          |        string |       - | Model used for polish pass                                                         |
+| `-i, --interactive`       |       boolean | `false` | Enables interactive refinement if a TTY is available                               |
+| `--interactive-transport` |        string |       - | Local socket/pipe to drive refinements remotely                                    |
+| `--polish`                |       boolean | `false` | Run polish pass after generation                                                   |
+| `--json`                  |       boolean | `false` | Emit JSON payload to stdout (non-interactive only)                                 |
+| `--stream`                | `none\|jsonl` |  `none` | Emit JSONL event stream to stdout                                                  |
+| `--quiet`                 |       boolean | `false` | Suppress human-oriented output (banners/telemetry)                                 |
+| `--progress`              |       boolean |  `true` | Show progress spinner (non-interactive only)                                       |
+| `--copy`                  |       boolean | `false` | Copy final prompt to clipboard                                                     |
+| `--open-chatgpt`          |       boolean | `false` | Open a ChatGPT URL prefilled with the prompt                                       |
+| `--context-template`      |        string |       - | Wrap final prompt using a named template                                           |
+| `--show-context`          |       boolean | `false` | Print resolved context files before generation                                     |
+| `-c, --context`           |      string[] |    `[]` | File glob patterns (repeatable)                                                    |
+| `--url`                   |      string[] |    `[]` | URL context entries (repeatable)                                                   |
+| `--image`                 |      string[] |    `[]` | Image file paths (repeatable)                                                      |
+| `--video`                 |      string[] |    `[]` | Video file paths (repeatable)                                                      |
+| `--context-file`          |        string |       - | Write resolved context to a file                                                   |
+| `--context-format`        |  `text\|json` |  `text` | Format used by `--show-context` and `--context-file`                               |
+| `--smart-context`         |       boolean | `false` | Auto-attach relevant local files via embeddings                                    |
+| `--smart-context-root`    |        string |       - | Base directory for smart-context scan                                              |
+| `--max-input-tokens`      |        number |       - | Enforce a maximum input budget (intent + system + text context)                    |
+| `--max-context-tokens`    |        number |       - | Enforce a maximum budget for text context entries (file/url/smart)                 |
+| `--context-overflow`      |        string |       - | Overflow handling: `fail`, `drop-smart`, `drop-url`, `drop-largest`, `drop-oldest` |
 
 ### Flag incompatibilities
 
@@ -232,6 +235,38 @@ Behavior:
 - If videos are provided and the selected generation model is not Gemini, the CLI switches to a Gemini model that supports video input:
   - It prefers `gemini-2.5-pro` when available, otherwise falls back (see `src/generate/models.ts`).
 
+### 3.7 Token budgets and context overflow
+
+Token budgets are applied after all text context is resolved (files, URLs, smart context) and before generation begins.
+
+Flags (or config equivalents) are consumed in `src/generate/pipeline.ts` and evaluated by `src/generate/context-budget.ts`:
+
+- `--max-input-tokens`: caps total input tokens (`intentTokens + systemTokens + fileTokens`).
+- `--max-context-tokens`: caps tokens reserved for text context entries (`fileTokens`).
+- `--context-overflow`: chooses how to respond when `fileTokens` exceeds the allowed budget.
+
+Notes:
+
+- Budgets apply only to **text context entries** (`--context`, `--url`, `--smart-context`).
+  - Images/videos are not included in the token budget model and are never trimmed by these strategies.
+- If both `--max-input-tokens` and `--max-context-tokens` are set, the effective allowance for text context is:
+  - `allowedFileTokens = min(maxContextTokens, maxInputTokens - intentTokens - systemTokens)`
+- If budgets are set but `--context-overflow` is omitted, the default strategy is `fail`.
+- If no budgets are set, overflow strategy is ignored and no trimming occurs.
+
+Overflow strategies (`ContextOverflowStrategy` in `src/generate/types.ts`):
+
+- `fail`: throw an error and abort generation.
+- `drop-smart`: drop smart-context entries first, then drop remaining entries oldest-first.
+- `drop-url`: drop URL entries first, then drop remaining entries oldest-first.
+- `drop-largest`: drop the largest token entries first (ties break by age).
+- `drop-oldest`: drop entries in original attachment order (oldest-first).
+
+When trimming drops any text context entries:
+
+- `contextPaths` in the final JSON payload is pruned to match the kept entries.
+- A `context.overflow` stream event is emitted (see Streaming below).
+
 ---
 
 ## 4. Interactive Refinement (TTY and Transport)
@@ -286,9 +321,22 @@ Implementation: `src/generate/stream.ts` and event types in `src/generate/types.
 When enabled:
 
 - The CLI writes newline-delimited JSON events to **stdout**.
+
+Example (streaming + budgets):
+
+```bash
+prompt-maker-cli "Summarize these files" \
+  --context src/**/*.ts \
+  --stream jsonl \
+  --progress=false \
+  --max-context-tokens 8000 \
+  --context-overflow drop-smart
+```
+
 - Event names include (non-exhaustive):
   - `progress.update`
   - `context.telemetry`
+  - `context.overflow`
   - `upload.state`
   - `generation.iteration.start`
   - `generation.iteration.complete`
@@ -296,6 +344,47 @@ When enabled:
   - `interactive.awaiting`
   - `transport.*`
   - `generation.final`
+
+#### `context.overflow` event
+
+Emitted when token budgets are enabled and the CLI drops one or more text context entries to satisfy the budget.
+
+Shape (`src/generate/types.ts`):
+
+- `event`: `"context.overflow"`
+- `timestamp`: ISO-8601 string
+- `strategy`: `fail | drop-smart | drop-url | drop-largest | drop-oldest`
+- `before`: token telemetry before trimming
+- `after`: token telemetry after trimming
+- `droppedPaths`: array of `{ path, source }` entries removed from context
+
+Example JSONL line (formatted for readability):
+
+```json
+{
+  "event": "context.overflow",
+  "timestamp": "2026-01-04T16:33:17.000Z",
+  "strategy": "drop-smart",
+  "before": {
+    "files": [
+      { "path": "src/a.ts", "tokens": 1200 },
+      { "path": "src/b.ts", "tokens": 900 }
+    ],
+    "intentTokens": 200,
+    "fileTokens": 2100,
+    "systemTokens": 700,
+    "totalTokens": 3000
+  },
+  "after": {
+    "files": [{ "path": "src/a.ts", "tokens": 1200 }],
+    "intentTokens": 200,
+    "fileTokens": 1200,
+    "systemTokens": 700,
+    "totalTokens": 2100
+  },
+  "droppedPaths": [{ "path": "src/b.ts", "source": "smart" }]
+}
+```
 
 ### 5.3 Token telemetry
 

@@ -109,3 +109,18 @@ Use this to test counters and UI gating while uploads are active.
 {"event":"progress.update","timestamp":"2026-01-03T12:30:01.100Z","label":"Uploading video...","state":"update","scope":"generic"}
 {"event":"upload.state","timestamp":"2026-01-03T12:30:03.500Z","state":"finish","detail":{"kind":"video","filePath":"media/demo.mp4"}}
 ```
+
+---
+
+## Fixture E: Context budget trimming (`context.overflow`)
+
+This simulates budgets being enabled (via CLI flags `--max-input-tokens`/`--max-context-tokens` or config defaults) and the CLI dropping one or more **text** context entries to satisfy the budget.
+
+Important ordering note:
+
+- When trimming occurs, the CLI emits `context.overflow` and then emits `context.telemetry` for the post-trim telemetry.
+
+```jsonl
+{"event":"context.overflow","timestamp":"2026-01-03T12:40:00.000Z","strategy":"drop-smart","before":{"files":[{"path":"src/core.ts","tokens":1200},{"path":"docs/auto.md","tokens":1800}],"intentTokens":200,"fileTokens":3000,"systemTokens":700,"totalTokens":3900},"after":{"files":[{"path":"src/core.ts","tokens":1200}],"intentTokens":200,"fileTokens":1200,"systemTokens":700,"totalTokens":2100},"droppedPaths":[{"path":"docs/auto.md","source":"smart"}]}
+{"event":"context.telemetry","timestamp":"2026-01-03T12:40:00.010Z","telemetry":{"files":[{"path":"src/core.ts","tokens":1200}],"intentTokens":200,"fileTokens":1200,"systemTokens":700,"totalTokens":2100}}
+```

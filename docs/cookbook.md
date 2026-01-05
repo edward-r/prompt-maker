@@ -113,7 +113,10 @@ You want `prompt-maker-cli` to run without re-exporting env vars every time, and
   "geminiApiKey": "gk-...",
   "promptGenerator": {
     "defaultModel": "gpt-4o-mini",
-    "defaultGeminiModel": "gemini-3-pro-preview"
+    "defaultGeminiModel": "gemini-3-pro-preview",
+    "maxInputTokens": 12000,
+    "maxContextTokens": 8000,
+    "contextOverflowStrategy": "drop-smart"
   },
   "contextTemplates": {
     "scratch": "# Scratch\n\n{{prompt}}"
@@ -377,6 +380,41 @@ A run fails or behaves unexpectedly.
 - `--json`: Emits the final payload as structured JSON; **cannot** be combined with `--interactive` or `--interactive-transport` (enforced in `src/generate/pipeline.ts`), so pick one output path.
 - `--stream jsonl`: Mirrors telemetry and lifecycle events to stdout—ideal for logging or UI bridges. Combine with `--quiet` to suppress boxed UI while still receiving machine-friendly events.
 
+### Token Budgets & Context Overflow
+
+When you attach lots of context, you may need deterministic trimming to stay within model limits.
+
+Flags (generate mode):
+
+- `--max-input-tokens <n>`: caps total input tokens (`intentTokens + systemTokens + fileTokens`).
+- `--max-context-tokens <n>`: caps tokens reserved for **text context entries** (`fileTokens`).
+- `--context-overflow <strategy>`: how to respond if budgets are exceeded.
+
+Strategies:
+
+- `fail`: throw and abort.
+- `drop-smart`: drop smart-context entries first, then oldest-first.
+- `drop-url`: drop URL context first, then oldest-first.
+- `drop-largest`: drop largest entries first.
+- `drop-oldest`: drop in original attachment order.
+
+Notes:
+
+- Budgets apply only to text context entries (`--context`, `--url`, `--smart-context`). Images/videos are not trimmed by these strategies.
+- If budgets are enabled and trimming happens, the CLI emits a `context.overflow` stream event and prunes `contextPaths` in the final JSON payload.
+
+Example (budgets + streaming):
+
+```bash
+prompt-maker-cli "Summarize the selected modules" \
+  -c "src/**/*.ts" \
+  --stream jsonl \
+  --quiet \
+  --progress=false \
+  --max-context-tokens 8000 \
+  --context-overflow drop-smart
+```
+
 ### Context Assembly Flags
 
 - `-c/--context <glob>`: Backed by `fast-glob`, supports includes/excludes (prefix with `!`), repeatable. Great for language- or folder-specific pulls.
@@ -415,7 +453,8 @@ A run fails or behaves unexpectedly.
 
 - **Trace Context Inputs**: Pair `--show-context` with `--context-format json` during dry runs to print the exact `<file>` payloads gathered by `resolveFileContext` and `resolveSmartContextFiles`. When you need an audit trail, add `--context-file tmp/context-dump.md` to persist the snapshot that fed the LLM.
 - **Watch Token Telemetry**: Every generation prints a Context Telemetry box sourced from `countTokens()`. Large spikes in `fileTokens` signal sloppy globs; tighten them or let `--smart-context` re-rank files automatically.
-- **Stream Everything**: `--stream jsonl` mirrors `progress.update`, `generation.iteration.*`, and `upload.state` events to stdout. If you want to pipe directly into `jq`, combine with `--quiet` so non-JSON output doesn’t interleave with the stream.
+- **Budget overflows**: If you enable `--max-input-tokens`/`--max-context-tokens` and choose a non-`fail` overflow strategy, the CLI may emit `context.overflow` (streaming) and drop some context entries. Treat this as a meaningful warning and consider re-running with a higher budget or tighter globs.
+- **Stream Everything**: `--stream jsonl` mirrors `progress.update`, `context.telemetry`, `context.overflow`, `generation.iteration.*`, and `upload.state` events to stdout. If you want to pipe directly into `jq`, combine with `--quiet` so non-JSON output doesn’t interleave with the stream.
 - **Replay with History Artifacts**: `--json` writes the final payload (intent, context paths, iterations, polish metadata) and `appendToHistory()` stores it locally. Diff these blobs to understand how refinements changed the contract over time.
 - **Interactive Diagnostics**: In TTY mode, each refinement is boxed via `displayPrompt()`. When headless, use `--interactive-transport /tmp/prompt.sock` and send JSON commands from another process; hook into the emitted `transport.*` events to orchestrate automated QA.
 - **Clipboard & Flag Tracing**: Set `PROMPT_MAKER_DEBUG_FLAGS=1` to log a JSON snapshot of parsed flags (copy, polish, quiet, json, etc.) right after argument parsing. Add `PROMPT_MAKER_COPY_TRACE=1` (or rely on the debug flag) to emit `[pmc:copy …]` diagnostics showing when clipboard writes are attempted, skipped, or fail. Example: `PROMPT_MAKER_DEBUG_FLAGS=1 PROMPT_MAKER_COPY_TRACE=1 prompt-maker-cli --polish --copy …` instantly proves whether the CLI saw `--copy` and what happened inside `clipboardy`.
