@@ -152,17 +152,17 @@ flowchart TD
   B -- Yes --> UI[ui]
   B -- No --> C[First token]
 
-  C --> T{first == "test"?}
+  C --> T{"first == 'test'?"}
   T -- Yes --> TEST[test]
-  T -- No --> U{first == "ui"?}
+  T -- No --> U{"first == 'ui'?"}
   U -- Yes --> UI
-  U -- No --> E{first == "export"?}
+  U -- No --> E{"first == 'export'?"}
   E -- Yes --> EXP[export]
-  E -- No --> P{first == "compose"?}
+  E -- No --> P{first == 'compose'?}
   P -- Yes --> COM[compose]
-  P -- No --> G{first == "generate" or "expand"?}
+  P -- No --> G{first == 'generate' or 'expand'?}
   G -- Yes --> GEN[generate]
-  G -- No --> F{first startsWith "-"?}
+  G -- No --> F{first startsWith '-'?}
   F -- Yes --> GEN
   F -- No --> GEN
 ```
