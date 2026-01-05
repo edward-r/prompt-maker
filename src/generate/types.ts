@@ -134,6 +134,15 @@ type StreamEventBase<EventName extends string, Payload extends object> = {
   timestamp: string
 } & Payload
 
+type ResumeLoadedStreamEvent = StreamEventBase<
+  'resume.loaded',
+  {
+    source: 'history' | 'file'
+    reusedContextPaths: GenerateJsonPayload['contextPaths']
+    missingContextPaths: GenerateJsonPayload['contextPaths']
+  }
+>
+
 type ContextTelemetryStreamEvent = StreamEventBase<
   'context.telemetry',
   { telemetry: TokenTelemetry }
@@ -218,6 +227,7 @@ type GenerationFinalStreamEvent = StreamEventBase<
 >
 
 type StreamEvent =
+  | ResumeLoadedStreamEvent
   | ContextTelemetryStreamEvent
   | ContextOverflowStreamEvent
   | ProgressStreamEvent
