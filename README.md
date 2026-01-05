@@ -512,12 +512,12 @@ flowchart TD
   CM --> DEDUPE
 
   DEDUPE --> T["Token telemetry<br>(intent + context)"]
-   T --> BUDGET{Token budgets enabled?\n--max-* or config}
+   T --> BUDGET{Token budgets enabled?<br>--max-* or config}
 
    BUDGET -- No --> G1[Generation iteration 1<br>PromptGeneratorService.generatePrompt]
    BUDGET -- Yes --> TRIM{Context exceeds budget?}
    TRIM -- No --> G1
-   TRIM -- Yes --> PRUNE[Trim text context per strategy\n(context.overflow)]
+   TRIM -- Yes --> PRUNE["Trim text context per strategy<br>(context.overflow)"]
    PRUNE --> G1
 
   G1 --> INT{Interactive?<br>--interactive or --interactive-transport}
