@@ -119,8 +119,39 @@ This simulates budgets being enabled (via CLI flags `--max-input-tokens`/`--max-
 Important ordering note:
 
 - When trimming occurs, the CLI emits `context.overflow` and then emits `context.telemetry` for the post-trim telemetry.
+- `context.overflow` happens **before** any `generation.iteration.*` events.
 
 ```jsonl
-{"event":"context.overflow","timestamp":"2026-01-03T12:40:00.000Z","strategy":"drop-smart","before":{"files":[{"path":"src/core.ts","tokens":1200},{"path":"docs/auto.md","tokens":1800}],"intentTokens":200,"fileTokens":3000,"systemTokens":700,"totalTokens":3900},"after":{"files":[{"path":"src/core.ts","tokens":1200}],"intentTokens":200,"fileTokens":1200,"systemTokens":700,"totalTokens":2100},"droppedPaths":[{"path":"docs/auto.md","source":"smart"}]}
-{"event":"context.telemetry","timestamp":"2026-01-03T12:40:00.010Z","telemetry":{"files":[{"path":"src/core.ts","tokens":1200}],"intentTokens":200,"fileTokens":1200,"systemTokens":700,"totalTokens":2100}}
+{"event":"progress.update","timestamp":"2026-01-03T12:40:00.000Z","label":"Resolving context","state":"start","scope":"generic"}
+{"event":"progress.update","timestamp":"2026-01-03T12:40:00.450Z","label":"Resolving context","state":"stop","scope":"generic"}
+
+{"event":"context.overflow","timestamp":"2026-01-03T12:40:00.500Z","strategy":"drop-largest","before":{"files":[{"path":"src/core.ts","tokens":1200},{"path":"docs/huge.md","tokens":4800},{"path":"url:https://example.com","tokens":2600}],"intentTokens":220,"fileTokens":8600,"systemTokens":800,"totalTokens":9620},"after":{"files":[{"path":"src/core.ts","tokens":1200},{"path":"docs/brief.md","tokens":900}],"intentTokens":220,"fileTokens":2100,"systemTokens":800,"totalTokens":3120},"droppedPaths":[{"path":"docs/huge.md","source":"file"},{"path":"url:https://example.com","source":"url"}]}
+{"event":"context.telemetry","timestamp":"2026-01-03T12:40:00.510Z","telemetry":{"files":[{"path":"src/core.ts","tokens":1200},{"path":"docs/brief.md","tokens":900}],"intentTokens":220,"fileTokens":2100,"systemTokens":800,"totalTokens":3120}}
+
+{"event":"progress.update","timestamp":"2026-01-03T12:40:00.600Z","label":"Generating prompt","state":"start","scope":"generate"}
+{"event":"generation.iteration.start","timestamp":"2026-01-03T12:40:00.610Z","iteration":1,"intent":"Draft a prompt with strict context budget","model":"gpt-4o-mini","interactive":false,"inputTokens":3120,"refinements":[]}
+{"event":"generation.iteration.complete","timestamp":"2026-01-03T12:40:01.100Z","iteration":1,"prompt":"# Prompt\n\nUse only the provided context.","tokens":220}
+{"event":"progress.update","timestamp":"2026-01-03T12:40:01.120Z","label":"Generating prompt","state":"stop","scope":"generate"}
+
+{"event":"generation.final","timestamp":"2026-01-03T12:40:01.150Z","result":{"schemaVersion":"1","intent":"Draft a prompt with strict context budget","model":"gpt-4o-mini","targetModel":"gpt-4o-mini","prompt":"# Prompt\n\nUse only the provided context.","refinements":[],"iterations":1,"interactive":false,"timestamp":"2026-01-03T12:40:01.150Z","contextPaths":[{"path":"inline-intent","source":"intent"},{"path":"src/core.ts","source":"file"},{"path":"docs/brief.md","source":"file"}]}}
+```
+
+---
+
+## Fixture F: Resume early in run (`resume.loaded`)
+
+This simulates a run that loads a previous payload from history, reuses one context path successfully, and reports a missing context file. The `resume.loaded` event is emitted before context resolution telemetry and generation.
+
+```jsonl
+{"event":"resume.loaded","timestamp":"2026-01-03T12:50:00.000Z","source":"history","reusedContextPaths":[{"path":"notes/existing.md","source":"file"}],"missingContextPaths":[{"path":"notes/missing.md","source":"file"}]}
+
+{"event":"progress.update","timestamp":"2026-01-03T12:50:00.050Z","label":"Resolving context","state":"start","scope":"generic"}
+{"event":"progress.update","timestamp":"2026-01-03T12:50:00.250Z","label":"Resolving context","state":"stop","scope":"generic"}
+
+{"event":"context.telemetry","timestamp":"2026-01-03T12:50:00.300Z","telemetry":{"files":[{"path":"notes/existing.md","tokens":640}],"intentTokens":160,"fileTokens":640,"systemTokens":780,"totalTokens":1580}}
+
+{"event":"generation.iteration.start","timestamp":"2026-01-03T12:50:00.350Z","iteration":3,"intent":"Resumed intent","model":"gpt-4o-mini","interactive":false,"inputTokens":1580,"refinements":["prior refinement"]}
+{"event":"generation.iteration.complete","timestamp":"2026-01-03T12:50:00.900Z","iteration":3,"prompt":"# Prompt\n\nContinue from the previous run.","tokens":260}
+
+{"event":"generation.final","timestamp":"2026-01-03T12:50:00.950Z","result":{"schemaVersion":"1","intent":"Resumed intent","model":"gpt-4o-mini","targetModel":"gpt-4o-mini","prompt":"# Prompt\n\nContinue from the previous run.","refinements":["prior refinement"],"iterations":3,"interactive":false,"timestamp":"2026-01-03T12:50:00.950Z","contextPaths":[{"path":"inline-intent","source":"intent"},{"path":"notes/existing.md","source":"file"}]}}
 ```
