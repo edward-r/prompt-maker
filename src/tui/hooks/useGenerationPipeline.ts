@@ -284,6 +284,44 @@ export const useGenerationPipeline = ({
 
           return
         }
+        case 'resume.loaded': {
+          dispatch({ type: 'set-resume-loaded', details: event })
+
+          const reusedCount = event.reusedContextPaths.length
+          const missingCount = event.missingContextPaths.length
+          bufferedHistory.pushBuffered(
+            `Resume loaded (${event.source}) · reused ${reusedCount} · missing ${missingCount}`,
+            'progress',
+          )
+          return
+        }
+
+        case 'context.overflow': {
+          dispatch({ type: 'set-context-overflow', details: event })
+
+          const droppedCount = event.droppedPaths.length
+          bufferedHistory.pushBuffered(
+            `Warning: context overflow (${event.strategy}) · dropped ${droppedCount}`,
+            'system',
+          )
+
+          const previewLimit = 8
+          const droppedPreview = event.droppedPaths
+            .slice(0, previewLimit)
+            .map((entry) => entry.path)
+          const remaining = droppedCount - droppedPreview.length
+
+          if (droppedPreview.length > 0) {
+            const previewSuffix = remaining > 0 ? ` …(+${remaining} more)` : ''
+            const previewLine = `Dropped: ${droppedPreview.join(', ')}${previewSuffix}`
+            wrapTextForHistory(previewLine, wrapWidth).forEach((line) => {
+              bufferedHistory.pushBuffered(line, 'system')
+            })
+          }
+
+          return
+        }
+
         case 'context.telemetry': {
           const telemetry = event.telemetry
           setLatestTelemetry(telemetry)
