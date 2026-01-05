@@ -6,7 +6,7 @@ Highlights:
 
 - **Generate workflow**: run from flags or from the TUI.
 - **Context ingestion**: file globs (`--context`), URLs (`--url`, including GitHub trees), optional smart context (`--smart-context`), and media (`--image`, `--video`).
-- **Auditable runs**: token telemetry, token budgets (optional trimming), structured stream events (`--stream jsonl`), and JSONL history (`~/.config/prompt-maker-cli/history.jsonl`).
+- **Auditable runs**: token telemetry, token budgets (optional trimming), structured stream events (`--stream jsonl`), and JSONL history (`~/.config/prompt-maker-cli/history.jsonl`) with export + resume workflows.
 - **TUI-first**: `prompt-maker-cli` with no args launches the TUI.
 
 The project is **TUI-first**:
@@ -100,6 +100,12 @@ npm start -- "Draft a confident onboarding-bot spec" --model gpt-4o-mini
 # Explicit commands
 npm start -- ui
 npm start -- test prompt-tests.yaml
+
+# After at least one generate run, export the last payload
+npm start -- export --format json --out runs/last-run.json
+
+# Deterministic (non-LLM) composition scaffold
+npm start -- compose --recipe docs/tui-design.md --input "Draft a summary" > composed.txt
 ```
 
 Global install from a local checkout:
@@ -113,19 +119,28 @@ prompt-maker-cli
 
 ## CLI modes and routing
 
-`prompt-maker-cli` has three top-level modes:
+`prompt-maker-cli` has five top-level modes:
 
 - `ui`: Ink TUI
-- `generate` (default for non-`ui`/`test` args): prompt generation pipeline
+- `generate` (default for non-`ui`/`test`/`export`/`compose` args): prompt generation pipeline
 - `test`: prompt test runner
+- `export`: export a past generate payload from history
+- `compose`: deterministic (non-LLM) prompt composition scaffold
 
 Routing rules:
 
 - No args → `ui`
 - First arg `ui` → `ui`
 - First arg `test` → `test`
+- First arg `export` → `export`
+- First arg `compose` → `compose`
 - First arg `generate` or `expand` → `generate` (`expand` is an alias)
 - Anything else (including flags like `--json`) → `generate`
+
+Help behavior:
+
+- `prompt-maker-cli --help` shows **generate** help only.
+- Use `prompt-maker-cli export --help` / `prompt-maker-cli compose --help` for subcommand help.
 
 ### D1. CLI Routing Flow
 
@@ -133,22 +148,23 @@ Shows how argv maps to top-level modes.
 
 ```mermaid
 flowchart TD
-  A["Resolve theme name<br>(from config: theme)"] --> B[Search sources by precedence]
+  A[Start: argv] --> B{No args?}
+  B -- Yes --> UI[ui]
+  B -- No --> C[First token]
 
-  B --> P1["1) Project-local themes<br>nearest .prompt-maker-cli/themes"]
-  P1 --> M1{Found theme with name?}
-  M1 -- Yes --> USE[Use that theme]
-  M1 -- No --> P2["2) Project-local themes<br>ancestor directories"]
-
-  P2 --> M2{Found?}
-  M2 -- Yes --> USE
-  M2 -- No --> G["3) Global themes<br>~/.config/prompt-maker-cli/themes"]
-
-  G --> M3{Found?}
-  M3 -- Yes --> USE
-  M3 -- No --> BI["4) Built-in themes"]
-
-  BI --> USE
+  C --> T{first == "test"?}
+  T -- Yes --> TEST[test]
+  T -- No --> U{first == "ui"?}
+  U -- Yes --> UI
+  U -- No --> E{first == "export"?}
+  E -- Yes --> EXP[export]
+  E -- No --> P{first == "compose"?}
+  P -- Yes --> COM[compose]
+  P -- No --> G{first == "generate" or "expand"?}
+  G -- Yes --> GEN[generate]
+  G -- No --> F{first startsWith "-"?}
+  F -- Yes --> GEN
+  F -- No --> GEN
 ```
 
 ## TUI mode (recommended)
@@ -433,6 +449,12 @@ prompt-maker-cli "Explain this module" \
 # JSON payload capture (non-interactive only)
 prompt-maker-cli --intent-file drafts/travel.md --json > runs/travel.json
 
+# Export last payload from history (portable JSON/YAML)
+prompt-maker-cli export --format json --out runs/last-run.json
+
+# Resume from an exported payload (reuses prompt + refinements; best-effort on missing files)
+prompt-maker-cli "" --resume-from runs/last-run.json --resume-mode best-effort --quiet --stream jsonl --progress=false
+
 # Stream progress/events as JSONL (use --quiet to avoid mixing text output)
 prompt-maker-cli "Summarize" --stream jsonl --quiet > runs/events.jsonl
 ```
@@ -452,6 +474,10 @@ prompt-maker-cli "Summarize" --stream jsonl --quiet > runs/events.jsonl
 | `--target <name>`                           | Target/runtime model recorded in JSON/history (not included in prompt text).          |
 | `-i, --interactive`                         | Enable a TTY refinement loop (requires a TTY).                                        |
 | `--interactive-transport <path>`            | Listen on a Unix socket / Windows named pipe for `refine`/`finish` commands.          |
+| `--resume-last`                             | Resume from the last JSONL history entry.                                             |
+| `--resume <selector>`                       | Resume from history selector (`last`, `last:N`, or `N`-th from end).                  |
+| `--resume-from <path>`                      | Resume from an exported payload file (`.json` / `.yaml` / `.yml`).                    |
+| `--resume-mode strict\|best-effort`         | How to handle missing resumed context paths.                                          |
 | `--polish`, `--polish-model <name>`         | Run the finishing pass and optionally choose a different model.                       |
 | `--json`                                    | Emit machine-readable JSON (non-interactive only).                                    |
 | `--stream none\|jsonl`                      | Emit newline-delimited JSON events to stdout.                                         |
@@ -763,6 +789,7 @@ flowchart TD
 
 Event types (integration-relevant highlights):
 
+- `resume.loaded` (emitted early when resuming from history or a payload file)
 - `context.telemetry` (intent/system/context/total token counts)
 - `context.overflow` (emitted when budgets force text-context trimming)
 - `progress.update` (machine-readable progress)
