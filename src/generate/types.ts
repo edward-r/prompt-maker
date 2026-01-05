@@ -50,7 +50,10 @@ export type ContextPathMetadata = {
 
 type ContextPathSource = 'intent' | 'file' | 'url' | 'smart'
 
+export const GENERATE_JSON_PAYLOAD_SCHEMA_VERSION = '1' as const
+
 export type GenerateJsonPayload = {
+  schemaVersion: typeof GENERATE_JSON_PAYLOAD_SCHEMA_VERSION
   intent: string
   model: string
   targetModel: string

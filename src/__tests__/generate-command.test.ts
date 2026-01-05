@@ -480,8 +480,9 @@ describe('runGenerateCommand', () => {
     expect(iterationStart?.inputTokens).toBeGreaterThan(0)
 
     const finalEvent = events.find((event) => event.event === 'generation.final') as
-      | { result?: { contextPaths?: Array<{ source: string }> } }
+      | { result?: { schemaVersion?: string; contextPaths?: Array<{ source: string }> } }
       | undefined
+    expect(finalEvent?.result?.schemaVersion).toBe('1')
     expect(finalEvent?.result?.contextPaths).toEqual(
       expect.arrayContaining([expect.objectContaining({ source: 'intent' })]),
     )
@@ -554,11 +555,13 @@ describe('runGenerateCommand', () => {
     const finalEvent = events.find((event) => event.event === 'generation.final') as
       | {
           result?: {
+            schemaVersion?: string
             contextPaths?: Array<{ path: string; source: string }>
           }
         }
       | undefined
 
+    expect(finalEvent?.result?.schemaVersion).toBe('1')
     expect(finalEvent?.result?.contextPaths).toEqual(
       expect.arrayContaining([
         { path: 'inline-intent', source: 'intent' },
@@ -614,6 +617,7 @@ describe('runGenerateCommand', () => {
     const log = jest.spyOn(console, 'log').mockImplementation(() => undefined)
     await runGenerateCommand(['intent text', '--quiet', '--json'])
     expect(log).toHaveBeenCalledTimes(1)
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('"schemaVersion": "1"'))
     expect(log).toHaveBeenCalledWith(expect.stringContaining('"intent": "intent text"'))
     jest.useRealTimers()
     log.mockRestore()
@@ -637,8 +641,10 @@ describe('runGenerateCommand', () => {
       throw new Error('Expected JSON output to be logged')
     }
     const payload = JSON.parse(firstCall[0] as string) as {
+      schemaVersion?: string
       contextPaths: Array<{ path: string; source: string }>
     }
+    expect(payload.schemaVersion).toBe('1')
     expect(payload.contextPaths).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ source: 'url', path: 'url:https://example.com' }),
@@ -655,7 +661,11 @@ describe('runGenerateCommand', () => {
     if (!firstCall) {
       throw new Error('Expected JSON output to be logged')
     }
-    const payload = JSON.parse(firstCall[0] as string) as { outputPath?: string }
+    const payload = JSON.parse(firstCall[0] as string) as {
+      schemaVersion?: string
+      outputPath?: string
+    }
+    expect(payload.schemaVersion).toBe('1')
     expect(payload.outputPath).toBe('/tmp/out.json')
     log.mockRestore()
   })
@@ -746,9 +756,11 @@ describe('runGenerateCommand', () => {
     }
     const [jsonOutput] = firstCall as [string]
     const payload = JSON.parse(jsonOutput) as {
+      schemaVersion?: string
       contextTemplate?: string
       renderedPrompt?: string
     }
+    expect(payload.schemaVersion).toBe('1')
     expect(payload.contextTemplate).toBe('nvim')
     expect(payload.renderedPrompt).toContain('NeoVim Prompt Buffer')
     expect(payload.renderedPrompt).toContain('prompt v1')
@@ -768,7 +780,8 @@ describe('runGenerateCommand', () => {
       throw new Error('console.log was not called')
     }
     const [jsonOutput] = firstCall as [string]
-    const payload = JSON.parse(jsonOutput) as { renderedPrompt?: string }
+    const payload = JSON.parse(jsonOutput) as { schemaVersion?: string; renderedPrompt?: string }
+    expect(payload.schemaVersion).toBe('1')
     expect(payload.renderedPrompt).toContain('Paste into scratch buffer for review')
     expect(payload.renderedPrompt?.trim().endsWith('prompt v1')).toBe(true)
     log.mockRestore()

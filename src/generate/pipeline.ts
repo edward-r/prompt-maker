@@ -28,15 +28,16 @@ import { polishPrompt } from './polish'
 import { createUploadStateTracker, startProgress, type ProgressHandle } from './progress'
 import { createStreamDispatcher, type StreamDispatcher } from './stream'
 import { buildTokenTelemetry } from './token-telemetry'
-import type {
-  ContextPathMetadata,
-  GenerateArgs,
-  GenerateJsonPayload,
-  GeneratePipelineOptions,
-  GeneratePipelineResult,
-  InteractiveMode,
-  ProgressScope,
-  StreamEventInput,
+import {
+  GENERATE_JSON_PAYLOAD_SCHEMA_VERSION,
+  type ContextPathMetadata,
+  type GenerateArgs,
+  type GenerateJsonPayload,
+  type GeneratePipelineOptions,
+  type GeneratePipelineResult,
+  type InteractiveMode,
+  type ProgressScope,
+  type StreamEventInput,
 } from './types'
 
 const logFlagSnapshot = (args: GenerateArgs): void => {
@@ -430,6 +431,7 @@ export const runGeneratePipeline = async (
     await maybeOpenChatGpt(args.openChatGpt, finalArtifact, shouldDisplay)
 
     const payload: GenerateJsonPayload = {
+      schemaVersion: GENERATE_JSON_PAYLOAD_SCHEMA_VERSION,
       intent,
       model,
       targetModel,

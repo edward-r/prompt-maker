@@ -57,7 +57,7 @@ This simulates:
 {"event":"interactive.awaiting","timestamp":"2026-01-03T12:00:05.620Z","mode":"transport"}
 {"event":"interactive.state","timestamp":"2026-01-03T12:00:06.200Z","phase":"complete","iteration":2}
 
-{"event":"generation.final","timestamp":"2026-01-03T12:00:06.250Z","result":{"intent":"Draft a prompt for a code review agent","model":"gpt-4o-mini","targetModel":"gpt-4o-mini","prompt":"# Prompt\n\nYou are a code review agent...","refinements":["Make it shorter and add a checklist"],"iterations":2,"interactive":true,"timestamp":"2026-01-03T12:00:06.250Z","contextPaths":[{"path":"src/main.ts","source":"file"},{"path":"docs/spec.md","source":"file"}],"contextTemplate":"nvim","renderedPrompt":"## NeoVim Prompt Buffer\n\n# Prompt\n\nYou are a code review agent. Follow this checklist..."}}
+{"event":"generation.final","timestamp":"2026-01-03T12:00:06.250Z","result":{"schemaVersion":"1","intent":"Draft a prompt for a code review agent","model":"gpt-4o-mini","targetModel":"gpt-4o-mini","prompt":"# Prompt\n\nYou are a code review agent...","refinements":["Make it shorter and add a checklist"],"iterations":2,"interactive":true,"timestamp":"2026-01-03T12:00:06.250Z","contextPaths":[{"path":"src/main.ts","source":"file"},{"path":"docs/spec.md","source":"file"}],"contextTemplate":"nvim","renderedPrompt":"## NeoVim Prompt Buffer\n\n# Prompt\n\nYou are a code review agent. Follow this checklist..."}}
 
 {"event":"transport.client.disconnected","timestamp":"2026-01-03T12:00:06.300Z","status":"disconnected"}
 ```
@@ -81,7 +81,7 @@ This simulates the server sending `transport.error` due to a bad refine instruct
 {"event":"generation.iteration.start","timestamp":"2026-01-03T12:10:03.000Z","iteration":2,"intent":"Draft a prompt","model":"gpt-4o-mini","interactive":true,"inputTokens":1200,"refinements":["Add explicit output format"],"latestRefinement":"Add explicit output format"}
 {"event":"generation.iteration.complete","timestamp":"2026-01-03T12:10:03.500Z","iteration":2,"prompt":"# Prompt\n\nOutput format: ...","tokens":400}
 
-{"event":"generation.final","timestamp":"2026-01-03T12:10:04.000Z","result":{"intent":"Draft a prompt","model":"gpt-4o-mini","targetModel":"gpt-4o-mini","prompt":"# Prompt\n\nOutput format: ...","refinements":["Add explicit output format"],"iterations":2,"interactive":true,"timestamp":"2026-01-03T12:10:04.000Z","contextPaths":[],"polishedPrompt":"# Prompt (Polished)\n\nOutput format: ..."}}
+{"event":"generation.final","timestamp":"2026-01-03T12:10:04.000Z","result":{"schemaVersion":"1","intent":"Draft a prompt","model":"gpt-4o-mini","targetModel":"gpt-4o-mini","prompt":"# Prompt\n\nOutput format: ...","refinements":["Add explicit output format"],"iterations":2,"interactive":true,"timestamp":"2026-01-03T12:10:04.000Z","contextPaths":[],"polishedPrompt":"# Prompt (Polished)\n\nOutput format: ..."}}
 ```
 
 ---

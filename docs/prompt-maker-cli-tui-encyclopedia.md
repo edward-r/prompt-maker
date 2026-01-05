@@ -308,7 +308,7 @@ Constraint:
 When `--json` is enabled, the CLI prints a JSON payload to **stdout**:
 
 - Shape: `GenerateJsonPayload` (`src/generate/types.ts`)
-- Includes: `intent`, `model`, `targetModel`, `prompt`, optional `polishedPrompt`, `iterations`, `refinements`, `contextPaths`, timestamps, etc.
+- Includes: `schemaVersion`, `intent`, `model`, `targetModel`, `prompt`, optional `polishedPrompt`, `iterations`, `refinements`, `contextPaths`, timestamps, etc.
 
 `--show-context` behavior when combined with `--json`:
 

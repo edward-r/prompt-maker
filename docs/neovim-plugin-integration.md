@@ -111,7 +111,7 @@ _Comprehensive reference for building a NeoVim plugin that orchestrates prompt-m
 
 ## 11. Output Assembly & Delivery
 
-- **GenerateJsonPayload**: includes `intent`, `model` (generation model), `targetModel` (runtime model), `prompt`, `refinements`, `iterations`, `interactive`, `timestamp`, `contextPaths`, optional `outputPath`, `polishedPrompt`, `polishModel`, `contextTemplate`, `renderedPrompt`.
+- **GenerateJsonPayload**: includes `schemaVersion`, `intent`, `model` (generation model), `targetModel` (runtime model), `prompt`, `refinements`, `iterations`, `interactive`, `timestamp`, `contextPaths`, optional `outputPath`, `polishedPrompt`, `polishModel`, `contextTemplate`, `renderedPrompt`.
 - **Context templates**: built-in `nvim` template injects a header and instructions before inserting `{{prompt}}`. User-defined templates live under `contextTemplates` in `config.json`. Plugin should let users select templates per run or default to `nvim` when targeting scratch buffers.
 - **Clipboard/browser**: `--copy` uses `clipboardy`; `--open-chatgpt` opens `https://chatgpt.com/?q=...`. In headless editor environments these options should default to false unless explicitly enabled.
 - **History logging**: every run (JSON payload) appends to `$HOME/.config/prompt-maker-cli/history.jsonl`. Plugins can tail this file to show recent prompts or rehydrate drafts.
