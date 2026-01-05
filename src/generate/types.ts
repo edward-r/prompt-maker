@@ -3,6 +3,8 @@ import type { UploadDetail, UploadState } from '../prompt-generator-service'
 
 export type StreamMode = 'none' | 'jsonl'
 
+export type ResumeMode = 'strict' | 'best-effort'
+
 export type ContextOverflowStrategy =
   | 'fail'
   | 'drop-smart'
@@ -24,6 +26,10 @@ export type GenerateArgs = {
   quiet: boolean
   progress: boolean
   stream: StreamMode
+  resumeLast?: boolean
+  resume?: string
+  resumeFrom?: string
+  resumeMode?: ResumeMode
   maxInputTokens?: number
   maxContextTokens?: number
   contextOverflow?: ContextOverflowStrategy
