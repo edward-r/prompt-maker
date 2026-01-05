@@ -1,7 +1,10 @@
+jest.mock('../compose-command', () => ({ runComposeCommand: jest.fn() }))
 jest.mock('../generate-command', () => ({ runGenerateCommand: jest.fn() }))
 jest.mock('../test-command', () => ({ runTestCommand: jest.fn() }))
 jest.mock('../tui', () => ({ runTuiCommand: jest.fn() }))
 
+const getComposeMock = () =>
+  (jest.requireMock('../compose-command') as { runComposeCommand: jest.Mock }).runComposeCommand
 const getGenerateMock = () =>
   (jest.requireMock('../generate-command') as { runGenerateCommand: jest.Mock }).runGenerateCommand
 const getTestMock = () =>
@@ -46,6 +49,14 @@ describe('CLI entrypoint command routing', () => {
     process.argv = ['node', 'cli', 'test', '--watch']
     await importCli()
     expect(runTestCommand).toHaveBeenCalledWith(['--watch'])
+  })
+
+  it('routes to compose subcommand', async () => {
+    const runComposeCommand = getComposeMock()
+    runComposeCommand.mockClear()
+    process.argv = ['node', 'cli', 'compose', '--recipe', 'recipe.yaml', '--input', 'hello']
+    await importCli()
+    expect(runComposeCommand).toHaveBeenCalledWith(['--recipe', 'recipe.yaml', '--input', 'hello'])
   })
 
   it('treats generate alias as generate command', async () => {
