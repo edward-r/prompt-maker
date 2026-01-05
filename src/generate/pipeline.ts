@@ -25,6 +25,7 @@ import { runGenerationWorkflow } from './interactive'
 import { InteractiveTransport } from './interactive-transport'
 import { resolveIntent } from './intent'
 import { resolveGeminiVideoModel, resolveTargetModel } from './models'
+import { loadGeneratePayloadFromFile } from './payload-io'
 import { polishPrompt } from './polish'
 import { createUploadStateTracker, startProgress, type ProgressHandle } from './progress'
 import { createStreamDispatcher, type StreamDispatcher } from './stream'
@@ -195,11 +196,7 @@ const loadResumePayload = async (args: GenerateArgs): Promise<ResumeLoadResult |
 
   if (args.resumeFrom) {
     const filePath = args.resumeFrom
-    const entries = await readJsonlPayloads(filePath)
-    const payload = entries[entries.length - 1]
-    if (!payload) {
-      throw new Error(`No valid generate payloads found in resume file ${filePath}.`)
-    }
+    const payload = await loadGeneratePayloadFromFile(filePath)
     return { payload, source: 'file' }
   }
 
@@ -390,6 +387,9 @@ export const runGeneratePipeline = async (
 
     let fileContext: FileContext[]
 
+    // Precedence: explicit `--context` file paths override resumed context paths.
+    // When no explicit context is provided, we attempt to reuse contextPaths from the resume payload
+    // (and enforce `--resume-mode` for missing files).
     if (args.context.length > 0 || !resume) {
       fileContext = await resolveFileContext(args.context)
       recordContextPaths(fileContext, 'file')
@@ -404,6 +404,7 @@ export const runGeneratePipeline = async (
     const service = await createPromptGeneratorService()
     const defaultGenerateModel = await resolveDefaultGenerateModel()
 
+    // Precedence: explicit CLI flags override resumed payload values, which override defaults.
     let model = args.model ?? resume?.payload.model ?? defaultGenerateModel
     const targetModel = await resolveTargetModel({
       defaultTargetModel: resume?.payload.targetModel ?? defaultGenerateModel,
