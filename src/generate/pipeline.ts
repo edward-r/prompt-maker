@@ -1,10 +1,11 @@
+import fs from 'node:fs/promises'
 import { stdin as input, stdout as output } from 'node:process'
 
 import chalk from 'chalk'
 
 import { loadCliConfig } from '../config'
 import { resolveFileContext, type FileContext } from '../file-context'
-import { appendToHistory } from '../history-logger'
+import { appendToHistory, resolveHistoryFilePath } from '../history-logger'
 import { resolveSmartContextFiles } from '../smart-context-service'
 import type { ResolveUrlContextOptions } from '../url-context'
 import { resolveUrlContext } from '../url-context'
@@ -20,9 +21,9 @@ import { evaluateContextBudget, type ContextEntry, type ContextEntrySource } fro
 import { displayContextFiles, writeContextFile } from './context-output'
 import { displayContextTemplatePrompt, displayPolishedPrompt } from './display'
 import { shouldTraceFlags } from './debug'
-import { resolveIntent } from './intent'
 import { runGenerationWorkflow } from './interactive'
 import { InteractiveTransport } from './interactive-transport'
+import { resolveIntent } from './intent'
 import { resolveGeminiVideoModel, resolveTargetModel } from './models'
 import { polishPrompt } from './polish'
 import { createUploadStateTracker, startProgress, type ProgressHandle } from './progress'
@@ -37,8 +38,217 @@ import {
   type GeneratePipelineResult,
   type InteractiveMode,
   type ProgressScope,
+  type ResumeMode,
   type StreamEventInput,
 } from './types'
+
+type ResumePayload = GenerateJsonPayload & {
+  metaInstructions?: string
+}
+
+type ResumeLoadResult = {
+  payload: ResumePayload
+  source: 'history' | 'file'
+}
+
+type HistorySelector = {
+  fromEnd: number
+  label: string
+}
+
+type ResumeContextResult = {
+  fileContext: FileContext[]
+  reusedContextPaths: GenerateJsonPayload['contextPaths']
+  missingContextPaths: GenerateJsonPayload['contextPaths']
+}
+
+const parseHistorySelector = (selector: string): HistorySelector => {
+  const trimmed = selector.trim()
+  if (trimmed === 'last') {
+    return { fromEnd: 1, label: 'last' }
+  }
+
+  const lastMatch = trimmed.match(/^last:(\d+)$/)
+  if (lastMatch) {
+    return { fromEnd: Number(lastMatch[1]), label: trimmed }
+  }
+
+  const numericMatch = trimmed.match(/^(\d+)$/)
+  if (numericMatch) {
+    return { fromEnd: Number(numericMatch[1]), label: trimmed }
+  }
+
+  throw new Error(
+    `Invalid resume selector "${selector}". Use "last", "last:N", or "N" (N-th from end).`,
+  )
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const isStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((entry) => typeof entry === 'string')
+
+const isContextPaths = (value: unknown): value is GenerateJsonPayload['contextPaths'] =>
+  Array.isArray(value) &&
+  value.every(
+    (entry) =>
+      isRecord(entry) && typeof entry.path === 'string' && typeof entry.source === 'string',
+  )
+
+const isGenerateJsonPayload = (value: unknown): value is ResumePayload => {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  if (value.schemaVersion !== GENERATE_JSON_PAYLOAD_SCHEMA_VERSION) {
+    return false
+  }
+
+  return (
+    typeof value.intent === 'string' &&
+    typeof value.model === 'string' &&
+    typeof value.targetModel === 'string' &&
+    typeof value.prompt === 'string' &&
+    isStringArray(value.refinements) &&
+    typeof value.iterations === 'number' &&
+    Number.isFinite(value.iterations) &&
+    typeof value.interactive === 'boolean' &&
+    typeof value.timestamp === 'string' &&
+    isContextPaths(value.contextPaths)
+  )
+}
+
+const selectFromEnd = <T>(entries: T[], fromEnd: number): T => {
+  const index = entries.length - fromEnd
+  if (index < 0 || index >= entries.length) {
+    const noun = entries.length === 1 ? 'entry' : 'entries'
+    throw new Error(
+      `History selector is out of range. Requested ${fromEnd} from end but only ${entries.length} ${noun} available.`,
+    )
+  }
+
+  const selected = entries[index]
+  if (!selected) {
+    throw new Error('Invariant violation: selected history entry is missing.')
+  }
+
+  return selected
+}
+
+const readJsonlPayloads = async (filePath: string): Promise<ResumePayload[]> => {
+  let raw: string
+
+  try {
+    raw = await fs.readFile(filePath, 'utf8')
+  } catch (error) {
+    const code =
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      typeof (error as { code?: unknown }).code === 'string'
+        ? (error as { code: string }).code
+        : null
+
+    if (code === 'ENOENT') {
+      throw new Error(
+        `History file not found at ${filePath}. Run a generate command first to create it.`,
+      )
+    }
+
+    const message = error instanceof Error ? error.message : 'Unknown file error.'
+    throw new Error(`Failed to read history file ${filePath}: ${message}`)
+  }
+
+  if (raw.trim().length === 0) {
+    throw new Error(`History file ${filePath} is empty.`)
+  }
+
+  const entries: ResumePayload[] = []
+
+  raw
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .forEach((line) => {
+      try {
+        const parsed = JSON.parse(line) as unknown
+        if (isGenerateJsonPayload(parsed)) {
+          entries.push(parsed)
+        }
+      } catch {
+        // ignore invalid json
+      }
+    })
+
+  if (entries.length === 0) {
+    throw new Error(`No valid generate payloads found in history file ${filePath}.`)
+  }
+
+  return entries
+}
+
+const loadResumePayload = async (args: GenerateArgs): Promise<ResumeLoadResult | null> => {
+  if (!args.resume && !args.resumeLast && !args.resumeFrom) {
+    return null
+  }
+
+  if (args.resumeFrom) {
+    const filePath = args.resumeFrom
+    const entries = await readJsonlPayloads(filePath)
+    const payload = entries[entries.length - 1]
+    if (!payload) {
+      throw new Error(`No valid generate payloads found in resume file ${filePath}.`)
+    }
+    return { payload, source: 'file' }
+  }
+
+  const selector = args.resumeLast ? 'last' : (args.resume ?? 'last')
+  const parsedSelector = parseHistorySelector(selector)
+  const historyPath = resolveHistoryFilePath()
+  const entries = await readJsonlPayloads(historyPath)
+  const payload = selectFromEnd(entries, parsedSelector.fromEnd)
+  return { payload, source: 'history' }
+}
+
+const resolveResumeContext = async (
+  payload: ResumePayload,
+  mode: ResumeMode,
+): Promise<ResumeContextResult> => {
+  const reused: GenerateJsonPayload['contextPaths'] = []
+  const missing: GenerateJsonPayload['contextPaths'] = []
+  const fileContext: FileContext[] = []
+
+  const contextCandidates = payload.contextPaths.filter((entry) => entry.source !== 'intent')
+
+  for (const entry of contextCandidates) {
+    if (entry.source !== 'file') {
+      missing.push(entry)
+      continue
+    }
+
+    try {
+      const content = await fs.readFile(entry.path, 'utf8')
+      fileContext.push({ path: entry.path, content })
+      reused.push(entry)
+    } catch {
+      missing.push(entry)
+    }
+  }
+
+  if (missing.length > 0 && mode === 'best-effort') {
+    const fileMissing = missing.filter((entry) => entry.source === 'file')
+    if (fileMissing.length > 0) {
+      const paths = fileMissing.map((entry) => entry.path).join(', ')
+      console.warn(chalk.yellow(`Resume skipped missing context file(s): ${paths}`))
+    }
+  }
+
+  return { fileContext, reusedContextPaths: reused, missingContextPaths: missing }
+}
+
+const isMissingIntentError = (error: unknown): boolean =>
+  error instanceof Error && error.message.startsWith('Intent text is required.')
 
 const logFlagSnapshot = (args: GenerateArgs): void => {
   if (!shouldTraceFlags()) {
@@ -99,7 +309,38 @@ export const runGeneratePipeline = async (
     : null
 
   try {
-    const intent = await resolveIntent(args)
+    const resume = await loadResumePayload(args)
+
+    let intent: string
+    let intentMetadataPath: string
+
+    if (resume) {
+      // Precedence: if the user provides a new intent (inline, --intent-file, or stdin), it wins.
+      // Otherwise, fall back to the resumed payload intent.
+      try {
+        intent = await resolveIntent(args)
+        intentMetadataPath = args.intentFile
+          ? args.intentFile
+          : args.intent?.trim()
+            ? 'inline-intent'
+            : 'stdin-intent'
+      } catch (error) {
+        if (!isMissingIntentError(error)) {
+          throw error
+        }
+
+        intent = resume.payload.intent
+        intentMetadataPath = resume.source === 'history' ? 'history-intent' : 'resume-file-intent'
+      }
+    } else {
+      intent = await resolveIntent(args)
+      intentMetadataPath = args.intentFile
+        ? args.intentFile
+        : args.intent?.trim()
+          ? 'inline-intent'
+          : 'stdin-intent'
+    }
+
     const cliConfig = await loadCliConfig()
 
     let contextPaths: ContextPathMetadata[] = []
@@ -141,24 +382,31 @@ export const runGeneratePipeline = async (
       return next
     }
 
-    const intentMetadataPath = args.intentFile
-      ? args.intentFile
-      : args.intent?.trim()
-        ? 'inline-intent'
-        : 'stdin-intent'
     contextPaths.push({ path: intentMetadataPath, source: 'intent' })
 
-    let fileContext = await resolveFileContext(args.context)
-    recordContextPaths(fileContext, 'file')
+    const resumeMode = args.resumeMode ?? 'best-effort'
+
+    let resumeContext: ResumeContextResult | null = null
+
+    let fileContext: FileContext[]
+
+    if (args.context.length > 0 || !resume) {
+      fileContext = await resolveFileContext(args.context)
+      recordContextPaths(fileContext, 'file')
+    } else {
+      resumeContext = await resolveResumeContext(resume.payload, resumeMode)
+      fileContext = resumeContext.fileContext
+      recordContextPaths(fileContext, 'file')
+    }
 
     let contextEntrySources: ContextEntrySource[] = fileContext.map(() => 'file')
 
     const service = await createPromptGeneratorService()
     const defaultGenerateModel = await resolveDefaultGenerateModel()
 
-    let model = args.model ?? defaultGenerateModel
+    let model = args.model ?? resume?.payload.model ?? defaultGenerateModel
     const targetModel = await resolveTargetModel({
-      defaultTargetModel: defaultGenerateModel,
+      defaultTargetModel: resume?.payload.targetModel ?? defaultGenerateModel,
       ...(args.target !== undefined ? { explicitTarget: args.target } : {}),
     })
 
@@ -175,8 +423,13 @@ export const runGeneratePipeline = async (
       ? await resolveContextTemplate(contextTemplateName)
       : null
 
-    const refinements: string[] = []
-    const trimmedMetaInstructions = args.metaInstructions?.trim() ?? ''
+    const refinements: string[] = resume ? [...resume.payload.refinements] : []
+    // Precedence: explicit CLI meta instructions override resumed meta instructions.
+    const trimmedMetaInstructions = (
+      args.metaInstructions ??
+      resume?.payload.metaInstructions ??
+      ''
+    ).trim()
     const streamDispatcher = createStreamDispatcher(args.stream, {
       ...(interactiveTransport ? { taps: [interactiveTransport.getEventWriter()] } : {}),
     })
@@ -195,6 +448,29 @@ export const runGeneratePipeline = async (
     const streamProxy: StreamDispatcher = {
       mode: streamDispatcher.mode,
       emit: emitEvent,
+    }
+
+    if (
+      resumeContext &&
+      (resumeContext.reusedContextPaths.length > 0 || resumeContext.missingContextPaths.length > 0)
+    ) {
+      emitEvent({
+        event: 'resume.loaded',
+        source: resume?.source ?? 'history',
+        reusedContextPaths: resumeContext.reusedContextPaths,
+        missingContextPaths: resumeContext.missingContextPaths,
+      })
+
+      if (
+        resumeMode === 'strict' &&
+        resumeContext.missingContextPaths.some((entry) => entry.source === 'file')
+      ) {
+        const missingFiles = resumeContext.missingContextPaths
+          .filter((entry) => entry.source === 'file')
+          .map((entry) => entry.path)
+          .join(', ')
+        throw new Error(`Missing required resumed context file(s): ${missingFiles}`)
+      }
     }
 
     interactiveTransport?.setEventEmitter((event) => {
@@ -378,6 +654,13 @@ export const runGeneratePipeline = async (
       streamProxy,
     )
 
+    const resumeState = resume
+      ? {
+          prompt: resume.payload.polishedPrompt ?? resume.payload.prompt,
+          iterations: resume.payload.iterations,
+        }
+      : undefined
+
     const {
       prompt: generatedPrompt,
       reasoning: generationReasoning,
@@ -401,12 +684,17 @@ export const runGeneratePipeline = async (
       display: shouldDisplay,
       stream: streamProxy,
       onUploadStateChange: handleUploadStateChange,
+      ...(resumeState ? { resume: resumeState } : {}),
     })
 
     generationSpinner?.stop('Generated prompt ✓')
     emitProgress('Generating prompt', 'stop', 'generate')
 
-    const polishModel = args.polishModel ?? process.env.PROMPT_MAKER_POLISH_MODEL ?? model
+    const polishModel =
+      args.polishModel ??
+      resume?.payload.polishModel ??
+      process.env.PROMPT_MAKER_POLISH_MODEL ??
+      model
     let polishedPrompt: string | undefined
 
     if (args.polish) {
@@ -437,6 +725,7 @@ export const runGeneratePipeline = async (
       targetModel,
       prompt: generatedPrompt,
       ...(typeof generationReasoning === 'string' ? { reasoning: generationReasoning } : {}),
+      ...(trimmedMetaInstructions ? { metaInstructions: trimmedMetaInstructions } : {}),
       refinements: [...refinements],
       iterations,
       interactive: interactiveMode !== 'none',
@@ -448,6 +737,9 @@ export const runGeneratePipeline = async (
     if (polishedPrompt) {
       payload.polishedPrompt = polishedPrompt
       payload.polishModel = polishModel
+    } else if (resume?.payload.polishedPrompt && resume?.payload.polishModel && !args.polish) {
+      payload.polishedPrompt = resume.payload.polishedPrompt
+      payload.polishModel = resume.payload.polishModel
     }
 
     if (contextTemplateName && renderedPrompt) {

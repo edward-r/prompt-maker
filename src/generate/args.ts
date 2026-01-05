@@ -25,6 +25,7 @@ const VALUE_FLAGS = new Set([
   '--resume',
   '--resume-from',
   '--resume-mode',
+  '--stream',
 ])
 
 const HELP_FLAGS = new Set(['--help', '-h'])
@@ -401,7 +402,7 @@ export const extractIntentArg = (
       continue
     }
 
-    if (!positionalIntent) {
+    if (positionalIntent === undefined) {
       positionalIntent = token
       positionalIntentAfterInteractive = awaitingInteractiveIntent
       awaitingInteractiveIntent = false
@@ -412,7 +413,7 @@ export const extractIntentArg = (
     optionArgs.push(token)
   }
 
-  return positionalIntent
+  return positionalIntent !== undefined
     ? { optionArgs, positionalIntent, positionalIntentAfterInteractive }
     : { optionArgs }
 }

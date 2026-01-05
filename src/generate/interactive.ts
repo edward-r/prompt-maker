@@ -34,6 +34,7 @@ export const runGenerationWorkflow = async ({
   display,
   stream,
   onUploadStateChange,
+  resume,
 }: {
   service: PromptGenerator
   context: LoopContext
@@ -44,6 +45,7 @@ export const runGenerationWorkflow = async ({
   display: boolean
   stream: StreamDispatcher
   onUploadStateChange?: UploadStateChange
+  resume?: { prompt: string; iterations: number } | undefined
 }): Promise<{ prompt: string; reasoning?: string; iterations: number }> => {
   let iteration = 0
   let currentPrompt = ''
@@ -55,18 +57,28 @@ export const runGenerationWorkflow = async ({
 
   const inputTokens = telemetry.totalTokens
 
-  iteration += 1
-  const initialGeneration = await generateAndMaybeDisplay(
-    service,
-    { ...context, iteration },
-    display,
-    stream,
-    inputTokens,
-    interactiveMode !== 'none',
-    onUploadStateChange,
-  )
-  currentPrompt = initialGeneration.prompt
-  currentReasoning = initialGeneration.reasoning
+  if (resume) {
+    currentPrompt = resume.prompt
+    iteration = Math.max(0, resume.iterations)
+
+    if (display) {
+      const displayedIteration = iteration > 0 ? iteration : 1
+      displayPrompt(currentPrompt, displayedIteration, countTokens(currentPrompt))
+    }
+  } else {
+    iteration += 1
+    const initialGeneration = await generateAndMaybeDisplay(
+      service,
+      { ...context, iteration },
+      display,
+      stream,
+      inputTokens,
+      interactiveMode !== 'none',
+      onUploadStateChange,
+    )
+    currentPrompt = initialGeneration.prompt
+    currentReasoning = initialGeneration.reasoning
+  }
 
   if (interactiveMode !== 'none') {
     stream.emit({ event: 'interactive.state', phase: 'start', iteration })

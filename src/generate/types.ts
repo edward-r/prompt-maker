@@ -65,6 +65,7 @@ export type GenerateJsonPayload = {
   targetModel: string
   prompt: string
   reasoning?: string
+  metaInstructions?: string
   refinements: string[]
   iterations: number
   interactive: boolean
