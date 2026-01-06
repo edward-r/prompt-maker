@@ -41,8 +41,11 @@ type OpenPopupStep = {
     | 'image'
     | 'video'
     | 'history'
+    | 'resume'
+    | 'export'
     | 'smart-root'
     | 'tokens'
+    | 'budgets'
     | 'settings'
     | 'theme'
     | 'theme-mode'
@@ -447,6 +450,15 @@ export const mapPopupCommandSelection = ({
         ],
       }
 
+    case 'budgets':
+      return {
+        kind: 'steps',
+        steps: [
+          { type: 'open-popup', popup: 'budgets' },
+          { type: 'set-input', value: '' },
+        ],
+      }
+
     case 'settings':
       return {
         kind: 'steps',
@@ -488,6 +500,24 @@ export const mapPopupCommandSelection = ({
         kind: 'steps',
         steps: [
           { type: 'open-popup', popup: 'history' },
+          { type: 'set-input', value: '' },
+        ],
+      }
+
+    case 'resume':
+      return {
+        kind: 'steps',
+        steps: [
+          { type: 'open-popup', popup: 'resume' },
+          { type: 'set-input', value: '' },
+        ],
+      }
+
+    case 'export':
+      return {
+        kind: 'steps',
+        steps: [
+          { type: 'open-popup', popup: 'export' },
           { type: 'set-input', value: '' },
         ],
       }

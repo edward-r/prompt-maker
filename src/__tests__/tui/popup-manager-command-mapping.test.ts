@@ -56,6 +56,54 @@ describe('popup manager command mapping', () => {
     ])
   })
 
+  it('opens budgets popup from /budgets', () => {
+    const result = mapPopupCommandSelection({
+      commandId: 'budgets',
+      argsRaw: undefined,
+      context: baseContext,
+    })
+
+    expect(result).toEqual({
+      kind: 'steps',
+      steps: [
+        { type: 'open-popup', popup: 'budgets' },
+        { type: 'set-input', value: '' },
+      ],
+    })
+  })
+
+  it('opens resume popup from /resume', () => {
+    const result = mapPopupCommandSelection({
+      commandId: 'resume',
+      argsRaw: undefined,
+      context: baseContext,
+    })
+
+    expect(result).toEqual({
+      kind: 'steps',
+      steps: [
+        { type: 'open-popup', popup: 'resume' },
+        { type: 'set-input', value: '' },
+      ],
+    })
+  })
+
+  it('opens export popup from /export', () => {
+    const result = mapPopupCommandSelection({
+      commandId: 'export',
+      argsRaw: undefined,
+      context: baseContext,
+    })
+
+    expect(result).toEqual({
+      kind: 'steps',
+      steps: [
+        { type: 'open-popup', popup: 'export' },
+        { type: 'set-input', value: '' },
+      ],
+    })
+  })
+
   it('clears smart root when disabling smart context', () => {
     const result = mapPopupCommandSelection({
       commandId: 'smart',

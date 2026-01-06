@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1",
+  "intent": "test prompt",
+  "model": "gpt-5.2",
+  "targetModel": "gpt-5.2",
+  "prompt": "# Title\nTest Prompt Contract: Produce a Simple Demonstration Output\n\n## Role\n- Act as a helpful assistant executing a minimal “test” task to verify instruction-following, formatting, and completeness.\n\n## Context\n- The requester provided only: **“test prompt”**.\n- No domain, audience, or deliverable type was specified; treat this as a generic prompt-contract validation.\n\n## Goals & Tasks\n- Create a small, self-contained demonstration output that proves you can:\n  - Follow instructions precisely.\n  - Ask for missing details only when necessary.\n  - Produce a clear, structured response.\n- Tasks:\n  - (1) Interpret “test prompt” as a request for a minimal sample deliverable.\n  - (2) Produce a short sample output (see Output Format) using a neutral topic.\n  - (3) Include a brief checklist confirming what you did.\n\n## Inputs\n- Primary input:\n  - User intent text: `test prompt`\n- Optional inputs (not provided):\n  - Intended audience, tone, length, topic, constraints.\n\n## Constraints\n- Do not request additional clarification unless it is required to proceed.\n- Keep the output brief and deterministic (avoid open-ended brainstorming).\n- Avoid sensitive content.\n- Do not mention internal policies or hidden reasoning.\n\n## Execution Plan\n- Step 1: Assume a neutral topic (e.g., “benefits of daily walks”) if none is provided.\n- Step 2: Produce a concise sample deliverable using the required structure.\n- Step 3: Add a completion checklist indicating compliance with the contract.\n\n## Output Format\nReturn content in the following exact structure:\n\n1) **Sample Output**\n- A 5–7 sentence paragraph on the assumed neutral topic.\n\n2) **Completion Checklist**\n- Bullets confirming:\n  - Followed structure\n  - Kept brevity\n  - Avoided sensitive content\n  - Did not ask unnecessary questions\n\n## Quality Checks\n- Verify the response includes both required sections: “Sample Output” and “Completion Checklist”.\n- Ensure the paragraph is 5–7 sentences.\n- Ensure the checklist has at least 4 bullets.\n- Confirm the topic is neutral and non-sensitive.\n- Confirm wording is clear and free of contradictions.",
+  "refinements": [],
+  "iterations": 1,
+  "interactive": true,
+  "timestamp": "2026-01-06T14:51:24.264Z",
+  "contextPaths": [
+    {
+      "path": "history-intent",
+      "source": "intent"
+    }
+  ]
+}

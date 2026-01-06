@@ -12,6 +12,7 @@ import type { ComponentProps } from 'react'
 import { ListPopup } from '../../../components/popups/ListPopup'
 import { ModelPopup } from '../../../components/popups/ModelPopup'
 import { SmartPopup } from '../../../components/popups/SmartPopup'
+import { BudgetsPopup } from '../../../components/popups/BudgetsPopup'
 import { TokenUsagePopup } from '../../../components/popups/TokenUsagePopup'
 import { SettingsPopup } from '../../../components/popups/SettingsPopup'
 import { ReasoningPopup } from '../../../components/popups/ReasoningPopup'
@@ -22,6 +23,8 @@ import { InstructionsPopup } from '../../../components/popups/InstructionsPopup'
 import { SeriesIntentPopup } from '../../../components/popups/SeriesIntentPopup'
 import { ThemePickerPopup } from '../../../components/popups/ThemePickerPopup'
 import { ThemeModePopup } from '../../../components/popups/ThemeModePopup'
+import { ResumePopup } from '../../../components/popups/ResumePopup'
+import { ExportPopup } from '../../../components/popups/ExportPopup'
 import type { HistoryEntry, ModelOption, PopupState, ProviderStatusMap } from '../../../types'
 import type { TokenUsageBreakdown, TokenUsageRun } from '../../../token-usage-store'
 
@@ -75,6 +78,14 @@ export type PopupAreaProps = {
   onHistoryPopupDraftChange: (next: string) => void
   onHistoryPopupSubmit: (value: string) => void
 
+  // Resume popup
+  onResumePayloadPathDraftChange: (next: string) => void
+  onResumeSubmit: () => void
+
+  // Export popup
+  onExportOutPathDraftChange: (next: string) => void
+  onExportSubmit: () => void
+
   // Intent popup
   intentPopupSuggestions: string[]
   intentPopupSuggestionSelectionIndex: number
@@ -99,6 +110,17 @@ export type PopupAreaProps = {
   // Tokens
   tokenUsageRun: TokenUsageRun | null
   tokenUsageBreakdown: TokenUsageBreakdown | null
+  maxContextTokens: number | null
+  maxInputTokens: number | null
+  contextOverflowStrategy: import('../../../../config').ContextOverflowStrategy | null
+  latestContextOverflow:
+    | import('../../../generation-pipeline-reducer').ContextOverflowDetails
+    | null
+
+  // Budgets
+  onBudgetsMaxContextTokensDraftChange: (next: string) => void
+  onBudgetsMaxInputTokensDraftChange: (next: string) => void
+  onBudgetsSubmit: () => void
 
   // Settings
   statusChips: string[]
@@ -245,17 +267,52 @@ const renderVideoPopup = (props: PopupAreaProps, popupState: PopupStateFor<'vide
 const renderHistoryPopup = (props: PopupAreaProps, popupState: PopupStateFor<'history'>) => {
   const viewModel = {
     title: 'History',
-    placeholder: 'Search commands & intents',
+    placeholder: 'Type to filter…',
     draft: popupState.draft,
     items: props.historyPopupItems,
     selectedIndex: popupState.selectionIndex,
-    emptyLabel: 'No history saved',
-    instructions: 'Enter to reuse · ↑/↓ navigate · Esc to close',
+    selectedFocused: true,
+    emptyLabel: 'No history entries',
+    instructions: '↑/↓ select · Enter paste · Esc close',
     onDraftChange: props.onHistoryPopupDraftChange,
     onSubmitDraft: props.onHistoryPopupSubmit,
   } satisfies ComponentProps<typeof ListPopup>
 
   return <ListPopup {...viewModel} />
+}
+
+const renderResumePopup = (props: PopupAreaProps, popupState: PopupStateFor<'resume'>) => {
+  const viewModel = {
+    selectionIndex: popupState.selectionIndex,
+    sourceKind: popupState.sourceKind,
+    mode: popupState.mode,
+    historyItems: popupState.historyItems,
+    historySelectionIndex: popupState.historySelectionIndex,
+    historyErrorMessage: popupState.historyErrorMessage,
+    payloadPathDraft: popupState.payloadPathDraft,
+    suggestedItems: popupState.suggestedItems,
+    suggestedSelectionIndex: popupState.suggestedSelectionIndex,
+    suggestedFocused: popupState.suggestedFocused,
+    onPayloadPathChange: props.onResumePayloadPathDraftChange,
+    onSubmit: props.onResumeSubmit,
+  } satisfies ComponentProps<typeof ResumePopup>
+
+  return <ResumePopup {...viewModel} />
+}
+
+const renderExportPopup = (props: PopupAreaProps, popupState: PopupStateFor<'export'>) => {
+  const viewModel = {
+    selectionIndex: popupState.selectionIndex,
+    format: popupState.format,
+    outPathDraft: popupState.outPathDraft,
+    historyItems: popupState.historyItems,
+    historySelectionIndex: popupState.historySelectionIndex,
+    historyErrorMessage: popupState.historyErrorMessage,
+    onOutPathChange: props.onExportOutPathDraftChange,
+    onSubmit: props.onExportSubmit,
+  } satisfies ComponentProps<typeof ExportPopup>
+
+  return <ExportPopup {...viewModel} />
 }
 
 const renderIntentPopup = (props: PopupAreaProps, popupState: PopupStateFor<'intent'>) => {
@@ -337,9 +394,30 @@ const renderTokenUsagePopup = (props: PopupAreaProps) => {
   const viewModel = {
     run: props.tokenUsageRun,
     breakdown: props.tokenUsageBreakdown,
+    budgets: {
+      maxContextTokens: props.maxContextTokens,
+      maxInputTokens: props.maxInputTokens,
+      contextOverflowStrategy: props.contextOverflowStrategy,
+    },
+    latestContextOverflow: props.latestContextOverflow,
   } satisfies ComponentProps<typeof TokenUsagePopup>
 
   return <TokenUsagePopup {...viewModel} />
+}
+
+const renderBudgetsPopup = (props: PopupAreaProps, popupState: PopupStateFor<'budgets'>) => {
+  const viewModel = {
+    selectionIndex: popupState.selectionIndex,
+    maxContextTokensDraft: popupState.maxContextTokensDraft,
+    maxInputTokensDraft: popupState.maxInputTokensDraft,
+    contextOverflowStrategyDraft: popupState.contextOverflowStrategyDraft,
+    errorMessage: popupState.errorMessage,
+    onMaxContextTokensChange: props.onBudgetsMaxContextTokensDraftChange,
+    onMaxInputTokensChange: props.onBudgetsMaxInputTokensDraftChange,
+    onSubmit: props.onBudgetsSubmit,
+  } satisfies ComponentProps<typeof BudgetsPopup>
+
+  return <BudgetsPopup {...viewModel} />
 }
 
 const renderSettingsPopup = (props: PopupAreaProps) => {
@@ -393,6 +471,12 @@ export const PopupArea = (props: PopupAreaProps) => {
     case 'history':
       return renderHistoryPopup(props, popupState)
 
+    case 'resume':
+      return renderResumePopup(props, popupState)
+
+    case 'export':
+      return renderExportPopup(props, popupState)
+
     case 'intent':
       return renderIntentPopup(props, popupState)
     case 'smart':
@@ -409,6 +493,8 @@ export const PopupArea = (props: PopupAreaProps) => {
       return renderReasoningPopup(props, popupState)
     case 'tokens':
       return renderTokenUsagePopup(props)
+    case 'budgets':
+      return renderBudgetsPopup(props, popupState)
     case 'settings':
       return renderSettingsPopup(props)
 

@@ -76,6 +76,16 @@ export type UseCommandScreenViewModelOptions = {
       onHistoryPopupSubmit: (value: string) => void
     }
 
+    resume: {
+      onResumePayloadPathDraftChange: (next: string) => void
+      onResumeSubmit: () => void
+    }
+
+    export: {
+      onExportOutPathDraftChange: (next: string) => void
+      onExportSubmit: () => void
+    }
+
     intent: {
       intentPopupSuggestions: string[]
       intentPopupSuggestionSelectionIndex: number
@@ -104,6 +114,18 @@ export type UseCommandScreenViewModelOptions = {
     tokens: {
       tokenUsageRun: TokenUsageRun | null
       tokenUsageBreakdown: TokenUsageBreakdown | null
+      maxContextTokens: number | null
+      maxInputTokens: number | null
+      contextOverflowStrategy: import('../../../../config').ContextOverflowStrategy | null
+      latestContextOverflow:
+        | import('../../../generation-pipeline-reducer').ContextOverflowDetails
+        | null
+    }
+
+    budgets: {
+      onBudgetsMaxContextTokensDraftChange: (next: string) => void
+      onBudgetsMaxInputTokensDraftChange: (next: string) => void
+      onBudgetsSubmit: () => void
     }
 
     settings: {
@@ -167,11 +189,14 @@ export const useCommandScreenViewModel = ({
       ...popup.model,
       ...popup.context,
       ...popup.history,
+      ...popup.resume,
+      ...popup.export,
       ...popup.intent,
       ...popup.instructions,
       ...popup.series,
       ...popup.test,
       ...popup.tokens,
+      ...popup.budgets,
       ...popup.settings,
       ...popup.reasoning,
     }),
@@ -179,6 +204,8 @@ export const useCommandScreenViewModel = ({
       popup.base,
       popup.context,
       popup.history,
+      popup.resume,
+      popup.export,
       popup.instructions,
       popup.intent,
       popup.model,
@@ -187,6 +214,7 @@ export const useCommandScreenViewModel = ({
       popup.settings,
       popup.test,
       popup.tokens,
+      popup.budgets,
     ],
   )
 

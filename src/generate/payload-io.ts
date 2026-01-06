@@ -5,7 +5,7 @@ import yaml from 'js-yaml'
 
 import { GENERATE_JSON_PAYLOAD_SCHEMA_VERSION, type GenerateJsonPayload } from './types'
 
-type PayloadFormat = 'json' | 'yaml'
+export type PayloadFormat = 'json' | 'yaml'
 
 type JsonRecord = Record<string, unknown>
 
@@ -87,10 +87,13 @@ const parseGeneratePayload = (raw: string, format: PayloadFormat, filePath: stri
   }
 }
 
-const validateGeneratePayload = (value: unknown, filePath: string): GenerateJsonPayload => {
+export const validateGeneratePayloadObject = (
+  value: unknown,
+  sourceLabel: string,
+): GenerateJsonPayload => {
   if (!isGenerateJsonPayload(value)) {
     throw new Error(
-      `Invalid generate payload in ${formatDisplayPath(filePath)}. Expected schemaVersion=${GENERATE_JSON_PAYLOAD_SCHEMA_VERSION} and required fields (intent, model, targetModel, prompt, refinements, iterations, interactive, timestamp, contextPaths).`,
+      `Invalid generate payload in ${sourceLabel}. Expected schemaVersion=${GENERATE_JSON_PAYLOAD_SCHEMA_VERSION} and required fields (intent, model, targetModel, prompt, refinements, iterations, interactive, timestamp, contextPaths).`,
     )
   }
 
@@ -114,7 +117,7 @@ export const loadGeneratePayloadFromFile = async (
 
   const format = getPayloadFormatForPath(filePath)
   const parsed = parseGeneratePayload(raw, format, filePath)
-  return validateGeneratePayload(parsed, filePath)
+  return validateGeneratePayloadObject(parsed, formatDisplayPath(filePath))
 }
 
 export const serializeGeneratePayload = (

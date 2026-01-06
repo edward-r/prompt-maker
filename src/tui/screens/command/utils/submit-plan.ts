@@ -10,7 +10,14 @@ export type SubmitPlanAction =
   | { type: 'add-command-history'; value: string }
   | { type: 'set-last-user-intent'; value: string }
   | { type: 'submit-refinement'; value: string }
-  | { type: 'run-generation'; intent?: string; intentFile?: string }
+  | {
+      type: 'run-generation'
+      intent?: string
+      intentFile?: string
+      resume?:
+        | { kind: 'history'; selector: string; mode: import('../../../types').ResumeMode }
+        | { kind: 'file'; payloadPath: string; mode: import('../../../types').ResumeMode }
+    }
   | { type: 'run-new'; argsRaw: string }
   | { type: 'run-reuse' }
   | { type: 'run-command'; commandId: CommandDescriptor['id']; argsRaw: string }

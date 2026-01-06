@@ -3,6 +3,93 @@ import type { PopupState } from '../../tui/types'
 import { INITIAL_POPUP_MANAGER_STATE, popupReducer } from '../../tui/popup-reducer'
 
 describe('popupReducer', () => {
+  it('opens budgets popup with seeded drafts', () => {
+    const next = popupReducer(INITIAL_POPUP_MANAGER_STATE, {
+      type: 'open-budgets',
+      maxContextTokens: 120,
+      maxInputTokens: null,
+      contextOverflowStrategy: 'drop-oldest',
+    })
+
+    expect(next.popupState).toEqual({
+      type: 'budgets',
+      selectionIndex: 0,
+      maxContextTokensDraft: '120',
+      maxInputTokensDraft: '',
+      contextOverflowStrategyDraft: 'drop-oldest',
+      errorMessage: null,
+    })
+    expect(next.activeScan).toBeNull()
+  })
+
+  it('opens resume popup with seeded defaults', () => {
+    const next = popupReducer(INITIAL_POPUP_MANAGER_STATE, {
+      type: 'open-resume',
+      scanId: 123,
+      sourceKind: 'history',
+      mode: 'best-effort',
+      payloadPathDraft: '',
+      historyItems: [{ selector: 'last', title: 't', detail: 'd' }],
+      historySelectionIndex: 0,
+      historyErrorMessage: null,
+    })
+
+    expect(next.popupState).toEqual({
+      type: 'resume',
+      selectionIndex: 0,
+      sourceKind: 'history',
+      mode: 'best-effort',
+      historyItems: [{ selector: 'last', title: 't', detail: 'd' }],
+      historySelectionIndex: 0,
+      historyErrorMessage: null,
+      payloadPathDraft: '',
+      suggestedItems: [],
+      suggestedSelectionIndex: 0,
+      suggestedFocused: false,
+    })
+
+    expect(next.activeScan).toEqual({ kind: 'resume', id: 123 })
+  })
+
+  it('opens export popup with seeded defaults', () => {
+    const next = popupReducer(INITIAL_POPUP_MANAGER_STATE, {
+      type: 'open-export',
+      format: 'json',
+      outPathDraft: 'prompt-export.json',
+      historyItems: [
+        {
+          selector: 'last',
+          title: 't',
+          detail: 'd',
+          schemaVersion: 'v1',
+          supported: false,
+        },
+      ],
+      historySelectionIndex: 0,
+      historyErrorMessage: null,
+    })
+
+    expect(next.popupState).toEqual({
+      type: 'export',
+      selectionIndex: 0,
+      historyItems: [
+        {
+          selector: 'last',
+          title: 't',
+          detail: 'd',
+          schemaVersion: 'v1',
+          supported: false,
+        },
+      ],
+      historySelectionIndex: 0,
+      historyErrorMessage: null,
+      format: 'json',
+      outPathDraft: 'prompt-export.json',
+    })
+
+    expect(next.activeScan).toBeNull()
+  })
+
   describe('scan-suggestions-success staleness gating', () => {
     it('does not apply suggestions when kind mismatches', () => {
       const state = popupReducer(INITIAL_POPUP_MANAGER_STATE, { type: 'open-file', scanId: 123 })

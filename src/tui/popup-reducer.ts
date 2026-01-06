@@ -15,14 +15,21 @@
  * - Async scan results must not overwrite newer popups.
  */
 
-import type { PopupState, ToggleField } from './types'
+import type {
+  PopupState,
+  ResumeMode,
+  ResumeSourceKind,
+  ResumeHistoryItem,
+  ExportHistoryItem,
+  ToggleField,
+} from './types'
 import type { ThemeMode } from './theme/theme-types'
 
 // Lightweight replacement for React's SetStateAction type.
 // Keeping it local avoids importing React into a pure helper.
 export type SetStateAction<State> = State | ((prev: State) => State)
 
-export type PopupScanKind = 'file' | 'image' | 'video' | 'smart' | 'intent'
+export type PopupScanKind = 'file' | 'image' | 'video' | 'smart' | 'intent' | 'resume'
 
 export type PopupManagerState = {
   popupState: PopupState
@@ -44,8 +51,32 @@ export type PopupAction =
   | { type: 'open-image'; scanId: number }
   | { type: 'open-video'; scanId: number }
   | { type: 'open-history' }
+  | {
+      type: 'open-resume'
+      scanId: number | null
+      sourceKind: ResumeSourceKind
+      mode: ResumeMode
+      payloadPathDraft: string
+      historyItems: ResumeHistoryItem[]
+      historySelectionIndex: number
+      historyErrorMessage: string | null
+    }
+  | {
+      type: 'open-export'
+      format: 'json' | 'yaml'
+      outPathDraft: string
+      historyItems: ExportHistoryItem[]
+      historySelectionIndex: number
+      historyErrorMessage: string | null
+    }
   | { type: 'open-smart'; scanId: number; draft: string }
   | { type: 'open-tokens' }
+  | {
+      type: 'open-budgets'
+      maxContextTokens: number | null
+      maxInputTokens: number | null
+      contextOverflowStrategy: import('../config').ContextOverflowStrategy | null
+    }
   | { type: 'open-settings' }
   | { type: 'open-theme'; selectionIndex: number; initialThemeName: string }
   | {
@@ -158,6 +189,15 @@ const applySuggestions = (
     }
   }
 
+  if (kind === 'resume' && popupState?.type === 'resume') {
+    return {
+      ...popupState,
+      suggestedItems: suggestions,
+      suggestedSelectionIndex: 0,
+      suggestedFocused: false,
+    }
+  }
+
   return popupState
 }
 
@@ -229,6 +269,38 @@ export const popupReducer = (state: PopupManagerState, action: PopupAction): Pop
     case 'open-history':
       return { popupState: { type: 'history', draft: '', selectionIndex: 0 }, activeScan: null }
 
+    case 'open-resume':
+      return {
+        popupState: {
+          type: 'resume',
+          selectionIndex: 0,
+          sourceKind: action.sourceKind,
+          mode: action.mode,
+          historyItems: action.historyItems,
+          historySelectionIndex: action.historySelectionIndex,
+          historyErrorMessage: action.historyErrorMessage,
+          payloadPathDraft: action.payloadPathDraft,
+          suggestedItems: [],
+          suggestedSelectionIndex: 0,
+          suggestedFocused: false,
+        },
+        activeScan: action.scanId === null ? null : { kind: 'resume', id: action.scanId },
+      }
+
+    case 'open-export':
+      return {
+        popupState: {
+          type: 'export',
+          selectionIndex: 0,
+          historyItems: action.historyItems,
+          historySelectionIndex: action.historySelectionIndex,
+          historyErrorMessage: action.historyErrorMessage,
+          format: action.format,
+          outPathDraft: action.outPathDraft,
+        },
+        activeScan: null,
+      }
+
     case 'open-smart':
       return {
         popupState: buildSmartPopupState(action.draft),
@@ -237,6 +309,20 @@ export const popupReducer = (state: PopupManagerState, action: PopupAction): Pop
 
     case 'open-tokens':
       return { popupState: { type: 'tokens' }, activeScan: null }
+
+    case 'open-budgets':
+      return {
+        popupState: {
+          type: 'budgets',
+          selectionIndex: 0,
+          maxContextTokensDraft:
+            action.maxContextTokens === null ? '' : String(action.maxContextTokens),
+          maxInputTokensDraft: action.maxInputTokens === null ? '' : String(action.maxInputTokens),
+          contextOverflowStrategyDraft: action.contextOverflowStrategy ?? '',
+          errorMessage: null,
+        },
+        activeScan: null,
+      }
 
     case 'open-settings':
       return { popupState: { type: 'settings' }, activeScan: null }

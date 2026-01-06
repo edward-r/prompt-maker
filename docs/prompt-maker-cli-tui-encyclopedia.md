@@ -90,7 +90,7 @@ prompt-maker-cli compose --recipe recipes/triage.txt --input "Hello"
 
 Export pulls a previously-generated `GenerateJsonPayload` from the JSONL history log and writes it to disk as JSON or YAML.
 
-Implementation: `src/export-command.ts`.
+Implementation: `src/export-command.ts` (history selection: `src/history/generate-history.ts`, file writer: `src/export/export-generate-payload.ts`).
 
 ### Usage
 
@@ -105,10 +105,15 @@ prompt-maker-cli export --from-history 10 --format yaml --out runs/tenth-from-la
 
 ### Flags
 
-- `--from-history <selector>`: which entry to export (`last`, `last:N`, or `N`-th from end). Default: `last`.
+- `--from-history <selector>`: which entry to export from the history file (`last`, `last:N`, or `N`-th from end). Default: `last`.
 - `--format json|yaml`: required output format.
 - `--out <path>`: required output file path (directories are created).
 - `--quiet`: suppresses human-readable **stderr** logs.
+
+### Schema compatibility
+
+- Export validates the selected history entry’s `schemaVersion`.
+- If the selected entry is from a newer/older `schemaVersion` than the current binary supports, export fails with an actionable error message.
 
 ### Stdout/stderr
 
@@ -525,11 +530,20 @@ Config keys validated today (`src/config.ts`):
   - `promptGenerator.defaultModel`
   - `promptGenerator.defaultGeminiModel`
   - `promptGenerator.models[]` (custom model registry)
+  - `promptGenerator.maxInputTokens` (budget default)
+  - `promptGenerator.maxContextTokens` (budget default)
+  - `promptGenerator.contextOverflowStrategy` (budget default)
 - Templates:
   - `contextTemplates.<name>`
 - TUI theming (persisted):
   - `theme`
   - `themeMode` (`light` / `dark` / `system`; `auto` is accepted as an alias for `system`)
+- TUI resume defaults (persisted):
+  - `resumeMode` (`best-effort` / `strict`)
+  - `resumeSourceKind` (`history` / `file`)
+- TUI export defaults (persisted):
+  - `exportFormat` (`json` / `yaml`)
+  - `exportOutDir` (directory path)
 
 ### 5.6 TUI-local persistence
 
@@ -658,6 +672,9 @@ Execution is split:
 | `/chatgpt`                | `[on\|off]`              | Toggle auto-open-chatgpt or open toggle popup                                           |
 | `/json`                   | `[on\|off]`              | Toggle showing JSON payload in TUI history (blocked when transport active)              |
 | `/tokens`                 | -                        | Open token breakdown popup                                                              |
+| `/budgets`                | -                        | Configure token budgets and overflow strategy (popup)                                   |
+| `/resume`                 | -                        | Resume generation from history or an exported payload (popup)                           |
+| `/export`                 | -                        | Export a selected history payload to JSON/YAML (popup)                                  |
 | `/settings`               | -                        | Open settings popup                                                                     |
 | `/theme`                  | -                        | Open theme picker popup                                                                 |
 | `/theme-mode`             | -                        | Open theme mode picker popup                                                            |
@@ -723,7 +740,13 @@ Theme selection is persisted to CLI config (`src/config.ts`) via `updateCliTheme
 - `theme`: selected theme name
 - `themeMode`: `dark` / `light` / `system`
 
-The theme provider loads and saves this selection via `src/tui/theme/theme-settings-service.ts`.
+Other TUI workflow defaults are also persisted to CLI config:
+
+- Budgets (`promptGenerator.maxInputTokens`, `promptGenerator.maxContextTokens`, `promptGenerator.contextOverflowStrategy`)
+- Resume defaults (`resumeMode`, `resumeSourceKind`)
+- Export defaults (`exportFormat`, `exportOutDir`)
+
+The theme provider loads and saves theme settings via `src/tui/theme/theme-settings-service.ts`.
 
 ---
 

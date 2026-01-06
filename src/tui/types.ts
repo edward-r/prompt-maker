@@ -1,3 +1,4 @@
+import type { ContextOverflowStrategy } from '../config'
 import type { ModelProvider } from '../model-providers'
 import type { COMMAND_DESCRIPTORS, POPUP_HEIGHTS, TOGGLE_LABELS } from './config'
 import type { ThemeMode } from './theme/theme-types'
@@ -24,6 +25,23 @@ export type ProviderStatus = {
 }
 
 export type ProviderStatusMap = Record<ModelProvider, ProviderStatus>
+
+export type ResumeSourceKind = 'history' | 'file'
+export type ResumeMode = 'best-effort' | 'strict'
+
+export type ResumeHistoryItem = {
+  selector: string
+  title: string
+  detail: string
+}
+
+export type ExportHistoryItem = {
+  selector: string
+  title: string
+  detail: string
+  schemaVersion: string
+  supported: boolean
+}
 
 export type PopupState =
   | {
@@ -69,6 +87,28 @@ export type PopupState =
     }
   | { type: 'history'; draft: string; selectionIndex: number }
   | {
+      type: 'resume'
+      selectionIndex: number
+      sourceKind: ResumeSourceKind
+      mode: ResumeMode
+      historyItems: ResumeHistoryItem[]
+      historySelectionIndex: number
+      historyErrorMessage: string | null
+      payloadPathDraft: string
+      suggestedItems: string[]
+      suggestedSelectionIndex: number
+      suggestedFocused: boolean
+    }
+  | {
+      type: 'export'
+      selectionIndex: number
+      historyItems: ExportHistoryItem[]
+      historySelectionIndex: number
+      historyErrorMessage: string | null
+      format: 'json' | 'yaml'
+      outPathDraft: string
+    }
+  | {
       type: 'smart'
       draft: string
       suggestedItems: string[]
@@ -76,6 +116,14 @@ export type PopupState =
       suggestedFocused: boolean
     }
   | { type: 'tokens' }
+  | {
+      type: 'budgets'
+      selectionIndex: number
+      maxContextTokensDraft: string
+      maxInputTokensDraft: string
+      contextOverflowStrategyDraft: ContextOverflowStrategy | ''
+      errorMessage: string | null
+    }
   | { type: 'settings' }
   | { type: 'theme'; selectionIndex: number; initialThemeName: string }
   | {

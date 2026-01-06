@@ -17,11 +17,15 @@
  * - easy to unit test
  */
 
+import type { StreamEventInput } from '../generate/types'
 import type { GeneratePipelineResult } from '../generate-command'
 
 export type InteractiveAwaitingMode = 'transport' | 'tty'
 
 export type GenerationTelemetry = GeneratePipelineResult['telemetry']
+
+export type ResumeLoadedDetails = Extract<StreamEventInput, { event: 'resume.loaded' }>
+export type ContextOverflowDetails = Extract<StreamEventInput, { event: 'context.overflow' }>
 
 export type GenerationPipelineState = {
   isGenerating: boolean
@@ -29,6 +33,8 @@ export type GenerationPipelineState = {
   isAwaitingRefinement: boolean
   awaitingInteractiveMode: InteractiveAwaitingMode | null
   latestTelemetry: GenerationTelemetry | null
+  latestResumeLoaded: ResumeLoadedDetails | null
+  latestContextOverflow: ContextOverflowDetails | null
 }
 
 export type GenerationPipelineAction =
@@ -42,6 +48,8 @@ export type GenerationPipelineAction =
     }
   | { type: 'set-awaiting-refinement'; isAwaitingRefinement: boolean }
   | { type: 'set-telemetry'; telemetry: GenerationTelemetry | null }
+  | { type: 'set-resume-loaded'; details: ResumeLoadedDetails | null }
+  | { type: 'set-context-overflow'; details: ContextOverflowDetails | null }
 
 export const INITIAL_GENERATION_PIPELINE_STATE: GenerationPipelineState = {
   isGenerating: false,
@@ -49,6 +57,8 @@ export const INITIAL_GENERATION_PIPELINE_STATE: GenerationPipelineState = {
   isAwaitingRefinement: false,
   awaitingInteractiveMode: null,
   latestTelemetry: null,
+  latestResumeLoaded: null,
+  latestContextOverflow: null,
 }
 
 export const generationPipelineReducer = (
@@ -64,6 +74,8 @@ export const generationPipelineReducer = (
         isAwaitingRefinement: false,
         awaitingInteractiveMode: null,
         latestTelemetry: null,
+        latestResumeLoaded: null,
+        latestContextOverflow: null,
       }
 
     case 'generation-stop':
@@ -91,6 +103,12 @@ export const generationPipelineReducer = (
 
     case 'set-telemetry':
       return { ...state, latestTelemetry: action.telemetry }
+
+    case 'set-resume-loaded':
+      return { ...state, latestResumeLoaded: action.details }
+
+    case 'set-context-overflow':
+      return { ...state, latestContextOverflow: action.details }
 
     default:
       return state

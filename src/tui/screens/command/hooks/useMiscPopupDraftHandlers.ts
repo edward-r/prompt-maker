@@ -16,6 +16,10 @@ export type UseMiscPopupDraftHandlersResult = {
   onSeriesDraftChange: (next: string) => void
   onInstructionsDraftChange: (next: string) => void
   onTestDraftChange: (next: string) => void
+  onBudgetsMaxContextTokensDraftChange: (next: string) => void
+  onBudgetsMaxInputTokensDraftChange: (next: string) => void
+  onResumePayloadPathDraftChange: (next: string) => void
+  onExportOutPathDraftChange: (next: string) => void
 }
 
 export const useMiscPopupDraftHandlers = ({
@@ -64,10 +68,71 @@ export const useMiscPopupDraftHandlers = ({
     [consumeSuppressedTextInputChange, setPopupState],
   )
 
+  const onBudgetsMaxContextTokensDraftChange = useCallback(
+    (next: string) => {
+      if (consumeSuppressedTextInputChange()) {
+        return
+      }
+      setPopupState((prev) =>
+        prev?.type === 'budgets'
+          ? { ...prev, maxContextTokensDraft: next, errorMessage: null }
+          : prev,
+      )
+    },
+    [consumeSuppressedTextInputChange, setPopupState],
+  )
+
+  const onBudgetsMaxInputTokensDraftChange = useCallback(
+    (next: string) => {
+      if (consumeSuppressedTextInputChange()) {
+        return
+      }
+      setPopupState((prev) =>
+        prev?.type === 'budgets'
+          ? { ...prev, maxInputTokensDraft: next, errorMessage: null }
+          : prev,
+      )
+    },
+    [consumeSuppressedTextInputChange, setPopupState],
+  )
+
+  const onResumePayloadPathDraftChange = useCallback(
+    (next: string) => {
+      if (consumeSuppressedTextInputChange()) {
+        return
+      }
+      setPopupState((prev) =>
+        prev?.type === 'resume'
+          ? {
+              ...prev,
+              payloadPathDraft: next,
+              suggestedFocused: false,
+              suggestedSelectionIndex: 0,
+            }
+          : prev,
+      )
+    },
+    [consumeSuppressedTextInputChange, setPopupState],
+  )
+
+  const onExportOutPathDraftChange = useCallback(
+    (next: string) => {
+      if (consumeSuppressedTextInputChange()) {
+        return
+      }
+      setPopupState((prev) => (prev?.type === 'export' ? { ...prev, outPathDraft: next } : prev))
+    },
+    [consumeSuppressedTextInputChange, setPopupState],
+  )
+
   return {
     onModelPopupQueryChange,
     onSeriesDraftChange,
     onInstructionsDraftChange,
     onTestDraftChange,
+    onBudgetsMaxContextTokensDraftChange,
+    onBudgetsMaxInputTokensDraftChange,
+    onResumePayloadPathDraftChange,
+    onExportOutPathDraftChange,
   }
 }

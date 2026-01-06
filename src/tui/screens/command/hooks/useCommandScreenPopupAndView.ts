@@ -77,6 +77,14 @@ export const useCommandScreenPopupAndView = (
         onHistoryPopupDraftChange: bindings.popup.history.onDraftChange,
         onHistoryPopupSubmit: bindings.popup.history.onSubmit,
       },
+      resume: {
+        onResumePayloadPathDraftChange: bindings.popup.misc.onResumePayloadPathDraftChange,
+        onResumeSubmit: popupManager.actions.handleResumeSubmit,
+      },
+      export: {
+        onExportOutPathDraftChange: bindings.popup.misc.onExportOutPathDraftChange,
+        onExportSubmit: popupManager.actions.handleExportSubmit,
+      },
       intent: {
         intentPopupSuggestions: bindings.popup.intent.suggestions,
         intentPopupSuggestionSelectionIndex: bindings.popup.intent.suggestionSelectionIndex,
@@ -101,6 +109,16 @@ export const useCommandScreenPopupAndView = (
       tokens: {
         tokenUsageRun: generation.tokenUsageRun,
         tokenUsageBreakdown: generation.tokenUsageBreakdown,
+        maxContextTokens: context.maxContextTokens,
+        maxInputTokens: context.maxInputTokens,
+        contextOverflowStrategy: context.contextOverflowStrategy,
+        latestContextOverflow: generation.latestContextOverflow,
+      },
+      budgets: {
+        onBudgetsMaxContextTokensDraftChange:
+          bindings.popup.misc.onBudgetsMaxContextTokensDraftChange,
+        onBudgetsMaxInputTokensDraftChange: bindings.popup.misc.onBudgetsMaxInputTokensDraftChange,
+        onBudgetsSubmit: popupManager.actions.handleBudgetsSubmit,
       },
       settings: { statusChips: enhancedStatusChips },
       reasoning: {

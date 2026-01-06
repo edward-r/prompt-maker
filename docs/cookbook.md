@@ -131,7 +131,7 @@ You want `prompt-maker-cli` to run without re-exporting env vars every time, and
 - Env vars override config:
   - `OPENAI_API_KEY` (optional `OPENAI_BASE_URL`)
   - `GEMINI_API_KEY` (optional `GEMINI_BASE_URL`)
-- TUI theme choices persist by writing `theme` and `themeMode` back into the same config file (see `src/config.ts`).
+- Some TUI choices persist by writing back into the same config file (see `src/config.ts`): `theme`/`themeMode`, budgets (`promptGenerator.*`), and resume/export defaults.
 
 ### Recipe: Learn the TUI quickly
 
@@ -402,7 +402,8 @@ prompt-maker-cli export --from-history last:3 --format yaml --out runs/third-fro
 **Troubleshooting / pitfalls**
 
 - “History file not found …”: run any generate command first; exports read from `~/.config/prompt-maker-cli/history.jsonl`.
-- “No valid generate payloads …”: your history file may contain non-payload JSONL; run a normal generate and try again.
+- “No generate payload entries found …”: your history file may contain non-payload JSONL; run a normal generate and try again.
+- “Unsupported history payload schemaVersion=…”: upgrade/downgrade prompt-maker-cli, or re-run generation to create a compatible history entry.
 
 ---
 

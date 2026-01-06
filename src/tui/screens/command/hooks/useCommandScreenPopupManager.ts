@@ -1,10 +1,18 @@
 import { useApp, useStdout } from 'ink'
-import { useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+
+import { loadCliConfig } from '../../../../config'
 
 import { usePopupManager } from '../../../hooks/usePopupManager'
 import type { NotifyOptions } from '../../../notifier'
 import { useTheme } from '../../../theme/theme-provider'
-import type { HistoryEntry, ModelOption, PopupState } from '../../../types'
+import type {
+  HistoryEntry,
+  ModelOption,
+  PopupState,
+  ResumeMode,
+  ResumeSourceKind,
+} from '../../../types'
 
 const DEFAULT_TEST_FILE = 'prompt-tests.yaml'
 
@@ -38,6 +46,13 @@ type UseCommandScreenPopupManagerOptions = {
   notify: (message: string, options?: NotifyOptions) => void
   setInputValue: (value: string | ((prev: string) => string)) => void
 
+  runGeneration: (payload: {
+    intent?: string
+    intentFile?: string
+    resume?:
+      | { kind: 'history'; selector: string; mode: ResumeMode }
+      | { kind: 'file'; payloadPath: string; mode: ResumeMode }
+  }) => Promise<void>
   runSeriesGeneration: (intent: string) => void
   runTestsFromCommandProxy: (value: string) => void
 
@@ -53,6 +68,16 @@ type UseCommandScreenPopupManagerOptions = {
 
   metaInstructions: string
   setMetaInstructions: (value: string) => void
+  budgets: {
+    maxContextTokens: number | null
+    maxInputTokens: number | null
+    contextOverflowStrategy: import('../../../../config').ContextOverflowStrategy | null
+  }
+  setBudgets: (value: {
+    maxContextTokens: number | null
+    maxInputTokens: number | null
+    contextOverflowStrategy: import('../../../../config').ContextOverflowStrategy | null
+  }) => void
 
   polishModelId: ModelOption['id'] | null
   copyEnabled: boolean
@@ -89,13 +114,12 @@ export const useCommandScreenPopupManager = ({
   pushHistoryProxy,
   notify,
   setInputValue,
+  runGeneration,
   runSeriesGeneration,
   runTestsFromCommandProxy,
-
   setCurrentModel,
   setCurrentTargetModel,
   setPolishModelId,
-
   setCopyEnabled,
   setChatGptEnabled,
   setJsonOutputEnabled,
@@ -103,6 +127,8 @@ export const useCommandScreenPopupManager = ({
   setIntentFilePath,
   metaInstructions,
   setMetaInstructions,
+  budgets,
+  setBudgets,
   polishModelId,
   copyEnabled,
   chatGptEnabled,
@@ -131,6 +157,47 @@ export const useCommandScreenPopupManager = ({
 
   const { activeThemeName, mode, themes } = useTheme()
 
+  const [resumeDefaults, setResumeDefaults] = useState<{
+    sourceKind: ResumeSourceKind
+    mode: ResumeMode
+  }>({
+    sourceKind: 'history',
+    mode: 'best-effort',
+  })
+
+  const [exportDefaults, setExportDefaults] = useState<{
+    format: 'json' | 'yaml'
+    outDir: string | null
+  }>({
+    format: 'json',
+    outDir: null,
+  })
+
+  useEffect(() => {
+    let cancelled = false
+
+    const hydrate = async (): Promise<void> => {
+      const config = await loadCliConfig().catch(() => null)
+      if (cancelled) {
+        return
+      }
+
+      const sourceKind = config?.resumeSourceKind === 'file' ? 'file' : 'history'
+      const resumeMode = config?.resumeMode === 'strict' ? 'strict' : 'best-effort'
+      setResumeDefaults({ sourceKind, mode: resumeMode })
+
+      const exportFormat = config?.exportFormat === 'yaml' ? 'yaml' : 'json'
+      const exportOutDir = config?.exportOutDir?.trim() || null
+      setExportDefaults({ format: exportFormat, outDir: exportOutDir })
+    }
+
+    void hydrate()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const popupManager = usePopupManager({
     currentModel,
     currentTargetModel,
@@ -156,6 +223,7 @@ export const useCommandScreenPopupManager = ({
     pushHistory: pushHistoryProxy,
     notify,
     setInputValue,
+    runGeneration,
     runSeriesGeneration,
     runTestsFromCommand: runTestsFromCommandProxy,
     clearScreen,
@@ -170,12 +238,18 @@ export const useCommandScreenPopupManager = ({
     intentFilePath,
     metaInstructions,
     setMetaInstructions,
+    budgets,
+    setBudgets,
     polishModelId,
     copyEnabled,
     chatGptEnabled,
     jsonOutputEnabled,
     getLatestTypedIntent,
     syncTypedIntentRef,
+    resumeDefaults,
+    setResumeDefaults,
+    exportDefaults,
+    setExportDefaults,
   })
 
   return {

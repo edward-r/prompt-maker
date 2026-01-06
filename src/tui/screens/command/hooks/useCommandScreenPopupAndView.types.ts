@@ -25,6 +25,9 @@ export type CommandContextOptions = {
   smartContextEnabled: boolean
   smartContextRoot: string | null
   metaInstructions: string
+  maxContextTokens: number | null
+  maxInputTokens: number | null
+  contextOverflowStrategy: import('../../../../config').ContextOverflowStrategy | null
   lastReasoning: string | null
   lastGeneratedPrompt: string | null
 
@@ -41,6 +44,11 @@ export type CommandContextOptions = {
   toggleSmartContext: () => void
   setSmartRoot: (value: string) => void
   setMetaInstructions: (value: string) => void
+  setBudgets: (value: {
+    maxContextTokens: number | null
+    maxInputTokens: number | null
+    contextOverflowStrategy: import('../../../../config').ContextOverflowStrategy | null
+  }) => void
   resetContext: () => void
 }
 
@@ -119,7 +127,13 @@ export type CommandGenerationOptions = {
   selectPolishModel: (nextId: ModelOption['id'] | null) => void
   selectTargetModel: (nextId: ModelOption['id']) => void
   isGenerating: boolean
-  runGeneration: (payload: { intent?: string; intentFile?: string }) => Promise<void>
+  runGeneration: (payload: {
+    intent?: string
+    intentFile?: string
+    resume?:
+      | { kind: 'history'; selector: string; mode: import('../../../types').ResumeMode }
+      | { kind: 'file'; payloadPath: string; mode: import('../../../types').ResumeMode }
+  }) => Promise<void>
   runSeriesGeneration: (intent: string) => void
   statusChips: string[]
   isAwaitingRefinement: boolean
@@ -129,6 +143,9 @@ export type CommandGenerationOptions = {
     | null
   tokenUsageRun: import('../../../token-usage-store').TokenUsageRun | null
   tokenUsageBreakdown: import('../../../token-usage-store').TokenUsageBreakdown | null
+  latestContextOverflow:
+    | import('../../../generation-pipeline-reducer').ContextOverflowDetails
+    | null
 }
 
 export type UseCommandScreenPopupAndViewOptions = {

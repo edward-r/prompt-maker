@@ -1,6 +1,7 @@
 import type { NotifyOptions } from '../../../notifier'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import type { BudgetSettings } from '../../../budget-settings'
 import type { HistoryEntry, ModelOption } from '../../../types'
 
 import { DEFAULT_MODEL_ID, getPreferredModelId } from '../../../model-options'
@@ -26,6 +27,7 @@ export type UseCommandScreenModelGenerationOptions = {
   smartContextRoot: string | null
 
   metaInstructions: string
+  budgets: BudgetSettings
   interactiveTransportPath?: string | undefined
   terminalColumns: number
 
@@ -62,6 +64,7 @@ export const useCommandScreenModelGeneration = ({
   smartContextEnabled,
   smartContextRoot,
   metaInstructions,
+  budgets,
   interactiveTransportPath,
   terminalColumns,
   copyEnabled,
@@ -124,6 +127,7 @@ export const useCommandScreenModelGeneration = ({
     smartContextEnabled,
     smartContextRoot,
     metaInstructions,
+    budgets,
     currentModel,
     targetModel: currentTargetModel,
     interactiveTransportPath,

@@ -34,7 +34,9 @@ import {
   type InteractiveDelegate,
   type StreamEventInput,
 } from '../../generate-command'
+import { evaluateContextBudget, type ContextEntry } from '../../generate/context-budget'
 import { resolveGeminiVideoModel } from '../../generate/models'
+import { buildTokenTelemetry } from '../../generate/token-telemetry'
 import { generatePromptSeries, isGemini } from '../../prompt-generator-service'
 import type { PromptGenerationRequest, SeriesResponse } from '../../prompt-generator-service'
 import { resolveFileContext } from '../../file-context'
@@ -44,8 +46,9 @@ import type { UploadStateChange } from '../../prompt-generator-service'
 import { MODEL_PROVIDER_LABELS } from '../../model-providers'
 import { checkModelProviderStatus } from '../provider-status'
 import type { TokenUsageStore } from '../token-usage-store'
+import type { BudgetSettings } from '../budget-settings'
 import type { NotifyOptions } from '../notifier'
-import type { HistoryEntry, ProviderStatus } from '../types'
+import type { HistoryEntry, ProviderStatus, ResumeMode } from '../types'
 
 export type UseGenerationPipelineOptions = {
   pushHistory: (
@@ -61,6 +64,7 @@ export type UseGenerationPipelineOptions = {
   smartContextEnabled: boolean
   smartContextRoot: string | null
   metaInstructions: string
+  budgets: BudgetSettings
   currentModel: string
   targetModel?: string
   interactiveTransportPath?: string | undefined
@@ -86,6 +90,7 @@ export const useGenerationPipeline = ({
   smartContextEnabled,
   smartContextRoot,
   metaInstructions,
+  budgets,
   currentModel,
   targetModel,
   interactiveTransportPath,
@@ -284,6 +289,39 @@ export const useGenerationPipeline = ({
 
           return
         }
+        case 'resume.loaded': {
+          dispatch({ type: 'set-resume-loaded', details: event })
+
+          const reusedCount = event.reusedContextPaths.length
+          const missingCount = event.missingContextPaths.length
+          const message = `Resume loaded (${event.source}) · reused ${reusedCount} · missing ${missingCount}`
+
+          bufferedHistory.pushBuffered(message, 'progress')
+
+          const notifyLatest = notifyRef.current
+          if (notifyLatest) {
+            notifyLatest(message, { kind: missingCount > 0 ? 'warning' : 'info' })
+          }
+
+          return
+        }
+
+        case 'context.overflow': {
+          dispatch({ type: 'set-context-overflow', details: event })
+
+          const droppedCount = event.droppedPaths.length
+          const message = `Context overflow (${event.strategy}) · dropped ${droppedCount}`
+
+          bufferedHistory.pushBuffered(message, 'system')
+
+          const notifyLatest = notifyRef.current
+          if (notifyLatest) {
+            notifyLatest(message, { kind: 'warning' })
+          }
+
+          return
+        }
+
         case 'context.telemetry': {
           const telemetry = event.telemetry
           setLatestTelemetry(telemetry)
@@ -451,13 +489,22 @@ export const useGenerationPipeline = ({
   )
 
   const runGeneration = useCallback(
-    async (intentInput: { intent?: string; intentFile?: string }) => {
+    async (intentInput: {
+      intent?: string
+      intentFile?: string
+      resume?:
+        | { kind: 'history'; selector: string; mode: ResumeMode }
+        | { kind: 'file'; payloadPath: string; mode: ResumeMode }
+    }) => {
       const trimmedIntent = intentInput.intent?.trim() ?? ''
       const trimmedIntentFile = intentInput.intentFile?.trim() ?? ''
-      if (!trimmedIntent && !trimmedIntentFile) {
+      const resume = intentInput.resume
+
+      if (!trimmedIntent && !trimmedIntentFile && !resume) {
         pushHistoryRef.current('No intent provided. Enter text or set an intent file.', 'system')
         return
       }
+
       const normalizedModel = currentModel.trim() || 'gpt-4o-mini'
 
       const generationModel =
@@ -506,6 +553,8 @@ export const useGenerationPipeline = ({
 
         const usesTuiInteractiveDelegate = !usesTransportInteractive && !jsonOutputEnabled
 
+        const shouldIgnoreContextForResume = Boolean(resume)
+
         const args: GenerateArgs = {
           interactive: usesTransportInteractive || usesTuiInteractiveDelegate,
           copy: false,
@@ -518,27 +567,43 @@ export const useGenerationPipeline = ({
           showContext: false,
           contextFormat: 'text',
           help: false,
-          context: [...files],
-          urls: [...urls],
+          context: shouldIgnoreContextForResume ? [] : [...files],
+          urls: shouldIgnoreContextForResume ? [] : [...urls],
           images: [...images],
           video: [...videos],
-          smartContext: smartContextEnabled,
+          smartContext: shouldIgnoreContextForResume ? false : smartContextEnabled,
           model: generationModel,
           target: normalizedTargetModel,
+          ...(budgets.maxInputTokens !== null ? { maxInputTokens: budgets.maxInputTokens } : {}),
+          ...(budgets.maxContextTokens !== null
+            ? { maxContextTokens: budgets.maxContextTokens }
+            : {}),
+          ...(budgets.contextOverflowStrategy !== null
+            ? { contextOverflow: budgets.contextOverflowStrategy }
+            : {}),
         }
         if (normalizedMetaInstructions) {
           args.metaInstructions = normalizedMetaInstructions
         }
         if (trimmedIntentFile) {
           args.intentFile = trimmedIntentFile
-        } else {
+        } else if (trimmedIntent) {
           args.intent = trimmedIntent
+        }
+
+        if (resume) {
+          args.resumeMode = resume.mode
+          if (resume.kind === 'history') {
+            args.resume = resume.selector
+          } else {
+            args.resumeFrom = resume.payloadPath
+          }
         }
         if (polishEnabled) {
           args.polishModel = normalizedPolishModel
         }
 
-        if (smartContextEnabled && smartContextRoot) {
+        if (!shouldIgnoreContextForResume && smartContextEnabled && smartContextRoot) {
           args.smartContextRoot = smartContextRoot
         }
         if (transportPath) {
@@ -616,6 +681,7 @@ export const useGenerationPipeline = ({
 
       jsonOutputEnabled,
       smartContextEnabled,
+      budgets,
       smartContextRoot,
       normalizedMetaInstructions,
       interactiveTransportPathRef,
@@ -668,10 +734,13 @@ export const useGenerationPipeline = ({
       }
 
       try {
-        let resolvedContext = await resolveFileContext(Array.from(files) as string[])
-        if (resolvedContext.length > 0) {
+        let contextEntries: ContextEntry[] = (
+          await resolveFileContext(Array.from(files) as string[])
+        ).map((entry) => ({ ...entry, source: 'file' }))
+
+        if (contextEntries.length > 0) {
           pushHistoryRef.current(
-            `[series] Added ${resolvedContext.length} file context entr${resolvedContext.length === 1 ? 'y' : 'ies'}.`,
+            `[series] Added ${contextEntries.length} file context entr${contextEntries.length === 1 ? 'y' : 'ies'}.`,
             'progress',
           )
         }
@@ -688,7 +757,10 @@ export const useGenerationPipeline = ({
               },
             })
             if (urlFiles.length > 0) {
-              resolvedContext = [...resolvedContext, ...urlFiles]
+              contextEntries = [
+                ...contextEntries,
+                ...urlFiles.map((entry) => ({ ...entry, source: 'url' as const })),
+              ]
             }
           } catch (error) {
             const message = error instanceof Error ? error.message : 'Unknown URL context error.'
@@ -706,7 +778,7 @@ export const useGenerationPipeline = ({
           try {
             const smartFiles = await resolveSmartContextFiles(
               intent,
-              resolvedContext,
+              contextEntries.map(({ path, content }) => ({ path, content })),
               (message: string) => {
                 if (notify) {
                   notify(`Smart context: ${message}`, { kind: 'progress' })
@@ -718,7 +790,10 @@ export const useGenerationPipeline = ({
               smartContextRoot ?? undefined,
             )
             if (smartFiles.length > 0) {
-              resolvedContext = [...resolvedContext, ...smartFiles]
+              contextEntries = [
+                ...contextEntries,
+                ...smartFiles.map((entry) => ({ ...entry, source: 'smart' as const })),
+              ]
             }
           } catch (error) {
             const message = error instanceof Error ? error.message : 'Unknown smart context error.'
@@ -726,8 +801,46 @@ export const useGenerationPipeline = ({
           }
         }
 
+        const budgetEvaluation = evaluateContextBudget({
+          intentText: intent,
+          metaInstructions: normalizedMetaInstructions,
+          contextEntries,
+          ...(budgets.maxInputTokens !== null ? { maxInputTokens: budgets.maxInputTokens } : {}),
+          ...(budgets.maxContextTokens !== null
+            ? { maxContextTokens: budgets.maxContextTokens }
+            : {}),
+          ...(budgets.contextOverflowStrategy !== null
+            ? { strategy: budgets.contextOverflowStrategy }
+            : {}),
+          buildTelemetry: (intentText, files, metaInstructions) =>
+            buildTokenTelemetry(intentText, files, metaInstructions),
+        })
+
+        setLatestTelemetry(budgetEvaluation.after)
+
+        if (budgetEvaluation.droppedEntries.length > 0) {
+          contextEntries = budgetEvaluation.keptEntries
+          const droppedCount = budgetEvaluation.droppedEntries.length
+
+          dispatch({
+            type: 'set-context-overflow',
+            details: {
+              event: 'context.overflow',
+              strategy: budgetEvaluation.strategy ?? 'fail',
+              before: budgetEvaluation.before,
+              after: budgetEvaluation.after,
+              droppedPaths: budgetEvaluation.droppedPaths,
+            },
+          })
+
+          pushHistoryRef.current(
+            `[series] Context overflow (${budgetEvaluation.strategy ?? 'fail'}) · dropped ${droppedCount}`,
+            'system',
+          )
+        }
+
         pushHistoryRef.current(
-          `[series] Context ready (${resolvedContext.length} file(s)).`,
+          `[series] Context ready (${contextEntries.length} file(s)).`,
           'progress',
         )
 
@@ -747,7 +860,7 @@ export const useGenerationPipeline = ({
           intent,
           model: generationModel,
           targetModel: runtimeTargetModel,
-          fileContext: resolvedContext,
+          fileContext: contextEntries.map(({ path, content }) => ({ path, content })),
           images: [...images],
           videos: [...videos],
           onUploadStateChange: handleUploadState,
@@ -910,6 +1023,7 @@ export const useGenerationPipeline = ({
     runGeneration,
     runSeriesGeneration,
     statusChips,
+    latestContextOverflow: pipelineState.latestContextOverflow,
     isAwaitingRefinement,
     submitRefinement,
     awaitingInteractiveMode,

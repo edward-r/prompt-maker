@@ -62,9 +62,16 @@ const renderTable = (rows: readonly Row[]): string[] => {
 export type TokenUsagePopupProps = {
   run: TokenUsageRun | null
   breakdown: TokenUsageBreakdown | null
+  budgets: import('../../budget-settings').BudgetSettings
+  latestContextOverflow: import('../../generation-pipeline-reducer').ContextOverflowDetails | null
 }
 
-export const TokenUsagePopup = ({ run, breakdown }: TokenUsagePopupProps) => {
+export const TokenUsagePopup = ({
+  run,
+  breakdown,
+  budgets,
+  latestContextOverflow,
+}: TokenUsagePopupProps) => {
   const { theme } = useTheme()
   const { stdout } = useStdout()
 
@@ -76,7 +83,27 @@ export const TokenUsagePopup = ({ run, breakdown }: TokenUsagePopupProps) => {
 
   const backgroundProps = inkBackgroundColorProps(theme.popupBackground)
 
-  const popupHeight = 25
+  const terminalRows = stdout?.rows ?? 24
+  const popupHeight = clamp(terminalRows - 6, 18, 34)
+
+  const budgetsEnabled = budgets.maxContextTokens !== null || budgets.maxInputTokens !== null
+  const effectiveOverflow = budgets.contextOverflowStrategy ?? (budgetsEnabled ? 'fail' : null)
+
+  const overflowSummary = latestContextOverflow
+    ? `Last overflow: ${latestContextOverflow.strategy} · dropped ${latestContextOverflow.droppedPaths.length}`
+    : 'Last overflow: none'
+
+  const overflowPreview = latestContextOverflow
+    ? (() => {
+        const previewLimit = 5
+        const preview = latestContextOverflow.droppedPaths
+          .slice(0, previewLimit)
+          .map((entry) => entry.path)
+        const remaining = latestContextOverflow.droppedPaths.length - preview.length
+        const suffix = remaining > 0 ? ` …(+${remaining} more)` : ''
+        return preview.length > 0 ? `Dropped: ${preview.join(', ')}${suffix}` : 'Dropped: (none)'
+      })()
+    : null
 
   if (!run || !breakdown) {
     return (
@@ -94,6 +121,25 @@ export const TokenUsagePopup = ({ run, breakdown }: TokenUsagePopupProps) => {
         <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
           {padRight('No token usage recorded yet. Run generation first.', contentWidth)}
         </Text>
+
+        <Text {...backgroundProps}>{padRight('', contentWidth)}</Text>
+        <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+          {padRight(
+            `Budgets: input=${budgets.maxInputTokens ?? 'unset'} · context=${budgets.maxContextTokens ?? 'unset'} · overflow=${effectiveOverflow ?? 'unset'}`,
+            contentWidth,
+          )}
+        </Text>
+
+        <Text {...backgroundProps}>{padRight('', contentWidth)}</Text>
+        <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+          {padRight(overflowSummary, contentWidth)}
+        </Text>
+        {overflowPreview ? (
+          <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+            {padRight(overflowPreview, contentWidth)}
+          </Text>
+        ) : null}
+
         <Text {...backgroundProps}>{padRight('', contentWidth)}</Text>
         <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
           {padRight('Esc to close', contentWidth)}
@@ -171,6 +217,34 @@ export const TokenUsagePopup = ({ run, breakdown }: TokenUsagePopupProps) => {
         <Text {...backgroundProps} {...inkColorProps(theme.text)}>
           {padRight(`Estimated cost ${formatUsd(breakdown.totals.estimatedCostUsd)}`, contentWidth)}
         </Text>
+      </Box>
+
+      <Text {...backgroundProps}>{padRight('', contentWidth)}</Text>
+      <Box flexDirection="column">
+        <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+          {padRight('Budgets', contentWidth)}
+        </Text>
+        <Text {...backgroundProps} {...inkColorProps(theme.text)}>
+          {padRight(
+            `input=${budgets.maxInputTokens ?? 'unset'} · context=${budgets.maxContextTokens ?? 'unset'} · overflow=${effectiveOverflow ?? 'unset'}`,
+            contentWidth,
+          )}
+        </Text>
+      </Box>
+
+      <Text {...backgroundProps}>{padRight('', contentWidth)}</Text>
+      <Box flexDirection="column">
+        <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+          {padRight('Context Overflow', contentWidth)}
+        </Text>
+        <Text {...backgroundProps} {...inkColorProps(theme.text)}>
+          {padRight(overflowSummary, contentWidth)}
+        </Text>
+        {overflowPreview ? (
+          <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+            {padRight(overflowPreview, contentWidth)}
+          </Text>
+        ) : null}
       </Box>
 
       <Text {...backgroundProps}>{padRight('', contentWidth)}</Text>

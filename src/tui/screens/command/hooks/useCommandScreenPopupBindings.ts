@@ -55,7 +55,10 @@ export type UseCommandScreenPopupBindingsOptions = {
       handleModelPopupSubmit: (option: ModelOption | null | undefined) => void
       applyToggleSelection: (field: 'copy' | 'chatgpt' | 'json', value: boolean) => void
       handleIntentFileSubmit: (value: string) => void
+      handleResumeSubmit: () => void
+      handleExportSubmit: () => void
       handleSeriesIntentSubmit: (value: string) => void
+      handleBudgetsSubmit: () => void
     }
   }
 
@@ -75,7 +78,13 @@ export type UseCommandScreenPopupBindingsOptions = {
     isGenerating: boolean
     isAwaitingRefinement: boolean
     submitRefinement: (value: string) => void
-    runGeneration: (payload: { intent?: string; intentFile?: string }) => Promise<void>
+    runGeneration: (payload: {
+      intent?: string
+      intentFile?: string
+      resume?:
+        | { kind: 'history'; selector: string; mode: import('../../../types').ResumeMode }
+        | { kind: 'file'; payloadPath: string; mode: import('../../../types').ResumeMode }
+    }) => Promise<void>
   }
 
   history: {
@@ -190,6 +199,10 @@ export type UseCommandScreenPopupBindingsResult = {
       onSeriesDraftChange: (next: string) => void
       onInstructionsDraftChange: (next: string) => void
       onTestDraftChange: (next: string) => void
+      onBudgetsMaxContextTokensDraftChange: (next: string) => void
+      onBudgetsMaxInputTokensDraftChange: (next: string) => void
+      onResumePayloadPathDraftChange: (next: string) => void
+      onExportOutPathDraftChange: (next: string) => void
     }
     reasoning: {
       lines: HistoryEntry[]
@@ -318,6 +331,10 @@ export const useCommandScreenPopupBindings = (
       onCancel: themeModePopup.onCancel,
     },
 
+    budgets: {
+      onSubmit: options.popup.actions.handleBudgetsSubmit,
+    },
+
     file: {
       items: options.context.files,
       suggestions: context.filePopupSuggestions,
@@ -346,6 +363,14 @@ export const useCommandScreenPopupBindings = (
 
     history: {
       items: historyAndIntent.history.historyPopupItems,
+    },
+
+    resume: {
+      onSubmit: options.popup.actions.handleResumeSubmit,
+    },
+
+    export: {
+      onSubmit: options.popup.actions.handleExportSubmit,
     },
 
     smart: {
@@ -469,6 +494,11 @@ export const useCommandScreenPopupBindings = (
         onSeriesDraftChange: miscDraftHandlers.onSeriesDraftChange,
         onInstructionsDraftChange: miscDraftHandlers.onInstructionsDraftChange,
         onTestDraftChange: miscDraftHandlers.onTestDraftChange,
+        onBudgetsMaxContextTokensDraftChange:
+          miscDraftHandlers.onBudgetsMaxContextTokensDraftChange,
+        onBudgetsMaxInputTokensDraftChange: miscDraftHandlers.onBudgetsMaxInputTokensDraftChange,
+        onResumePayloadPathDraftChange: miscDraftHandlers.onResumePayloadPathDraftChange,
+        onExportOutPathDraftChange: miscDraftHandlers.onExportOutPathDraftChange,
       },
       reasoning: {
         lines: reasoningPopupLines,
@@ -516,6 +546,8 @@ export const useCommandScreenPopupBindings = (
       miscDraftHandlers.onSeriesDraftChange,
       miscDraftHandlers.onInstructionsDraftChange,
       miscDraftHandlers.onTestDraftChange,
+      miscDraftHandlers.onBudgetsMaxContextTokensDraftChange,
+      miscDraftHandlers.onBudgetsMaxInputTokensDraftChange,
       reasoningPopupLines,
       reasoningPopupVisibleRows,
     ],

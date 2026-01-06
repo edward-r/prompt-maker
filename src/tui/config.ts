@@ -48,6 +48,11 @@ export const COMMAND_DESCRIPTORS = [
   { id: 'chatgpt', label: 'ChatGPT', description: 'Open ChatGPT automatically' },
   { id: 'json', label: 'JSON', description: 'Toggle JSON payload in history (/json on|off)' },
   { id: 'tokens', label: 'Tokens', description: 'Show token usage breakdown (/tokens)' },
+  {
+    id: 'budgets',
+    label: 'Budgets',
+    description: 'Configure token budgets and overflow strategy (/budgets)',
+  },
   { id: 'settings', label: 'Settings', description: 'Show current settings (/settings)' },
   { id: 'theme', label: 'Theme', description: 'Switch TUI theme (/theme)' },
   {
@@ -62,6 +67,16 @@ export const COMMAND_DESCRIPTORS = [
     aliases: ['why'] as const,
   },
   { id: 'history', label: 'History', description: 'Browse command/intent history (/history)' },
+  {
+    id: 'resume',
+    label: 'Resume',
+    description: 'Resume generation from history or an exported payload (/resume)',
+  },
+  {
+    id: 'export',
+    label: 'Export',
+    description: 'Export a selected history payload to JSON/YAML (/export)',
+  },
   { id: 'test', label: 'Test', description: 'Run prompt tests (/test prompt-tests.yaml)' },
   { id: 'exit', label: 'Exit', description: 'Exit the app (/exit)' },
 ] as const
@@ -80,8 +95,11 @@ export const POPUP_HEIGHTS = {
   image: 16,
   video: 16,
   history: 16,
+  resume: 18,
+  export: 18,
   smart: 12,
   tokens: 16,
+  budgets: 14,
   settings: 14,
   theme: 16,
   themeMode: 8,

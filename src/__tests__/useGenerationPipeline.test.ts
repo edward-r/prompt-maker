@@ -83,6 +83,11 @@ describe('useGenerationPipeline', () => {
     smartContextEnabled: false,
     smartContextRoot: null,
     metaInstructions: '',
+    budgets: {
+      maxContextTokens: null,
+      maxInputTokens: null,
+      contextOverflowStrategy: null,
+    },
     interactiveTransportPath: undefined as string | undefined,
     terminalColumns: 80,
     polishModelId: null,
@@ -149,6 +154,33 @@ describe('useGenerationPipeline', () => {
     )
   })
 
+  it('blocks runGeneration when intent is empty and resume is missing', async () => {
+    providerStatusModule.checkModelProviderStatus.mockResolvedValue({
+      provider: 'openai',
+      status: 'ok',
+      message: 'ready',
+    })
+    const pushHistory = jest.fn()
+
+    const { result } = renderHook(() =>
+      useGenerationPipeline({
+        ...baseOptions,
+        pushHistory,
+        currentModel: 'gpt-4o-mini',
+      }),
+    )
+
+    await act(async () => {
+      await result.current.runGeneration({})
+    })
+
+    expect(generateCommandModule.runGeneratePipeline).not.toHaveBeenCalled()
+    expect(pushHistory).toHaveBeenCalledWith(
+      'No intent provided. Enter text or set an intent file.',
+      'system',
+    )
+  })
+
   it('runs generation when provider check passes', async () => {
     providerStatusModule.checkModelProviderStatus.mockResolvedValue({
       provider: 'openai',
@@ -173,6 +205,49 @@ describe('useGenerationPipeline', () => {
     expect(generateCommandModule.runGeneratePipeline).toHaveBeenCalled()
     expect(pushHistory).toHaveBeenCalledWith('Prompt', 'system', 'markdown')
     expect(onLastGeneratedPromptUpdate).toHaveBeenCalledWith('Prompt')
+  })
+
+  it('passes resume selector through and allows empty intent', async () => {
+    providerStatusModule.checkModelProviderStatus.mockResolvedValue({
+      provider: 'openai',
+      status: 'ok',
+      message: 'ready',
+    })
+
+    const pushHistory = jest.fn()
+
+    const { result } = renderHook(() =>
+      useGenerationPipeline({
+        ...baseOptions,
+        pushHistory,
+        currentModel: 'gpt-4o-mini',
+        files: ['src/index.ts'],
+        urls: ['https://example.com'],
+        smartContextEnabled: true,
+      }),
+    )
+
+    await act(async () => {
+      await result.current.runGeneration({
+        resume: { kind: 'history', selector: 'last', mode: 'best-effort' },
+      })
+    })
+
+    const args = generateCommandModule.runGeneratePipeline.mock.calls[0]?.[0] as unknown
+
+    expect(args).toEqual(
+      expect.objectContaining({
+        resume: 'last',
+        resumeMode: 'best-effort',
+        context: [],
+        urls: [],
+        smartContext: false,
+      }),
+    )
+
+    if (typeof args === 'object' && args !== null && 'intent' in args) {
+      expect((args as { intent?: unknown }).intent).toBeUndefined()
+    }
   })
 
   it('passes selected polish model into generation args', async () => {

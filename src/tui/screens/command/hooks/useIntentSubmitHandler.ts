@@ -9,7 +9,13 @@ type PushHistory = (content: string, kind?: HistoryEntry['kind']) => void
 
 type AddCommandHistoryEntry = (value: string) => void
 
-type RunGeneration = (payload: { intent?: string; intentFile?: string }) => Promise<void>
+type RunGeneration = (payload: {
+  intent?: string
+  intentFile?: string
+  resume?:
+    | { kind: 'history'; selector: string; mode: import('../../../types').ResumeMode }
+    | { kind: 'file'; payloadPath: string; mode: import('../../../types').ResumeMode }
+}) => Promise<void>
 
 export type UseIntentSubmitHandlerOptions = {
   popupState: PopupState
@@ -99,12 +105,21 @@ export const useIntentSubmitHandler = ({
             break
           }
           case 'run-generation': {
-            const payload: { intent?: string; intentFile?: string } = {}
+            const payload: {
+              intent?: string
+              intentFile?: string
+              resume?:
+                | { kind: 'history'; selector: string; mode: import('../../../types').ResumeMode }
+                | { kind: 'file'; payloadPath: string; mode: import('../../../types').ResumeMode }
+            } = {}
             if (action.intent) {
               payload.intent = action.intent
             }
             if (action.intentFile) {
               payload.intentFile = action.intentFile
+            }
+            if (action.resume) {
+              payload.resume = action.resume
             }
             void runGeneration(payload)
             break

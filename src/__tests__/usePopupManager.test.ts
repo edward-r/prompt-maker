@@ -73,6 +73,7 @@ const createOptions = (overrides: Partial<UsePopupManagerOptions> = {}): UsePopu
     pushHistory: jest.fn(),
     notify: jest.fn(),
     setInputValue: jest.fn(),
+    runGeneration: jest.fn(async () => undefined),
     runSeriesGeneration: jest.fn(),
     runTestsFromCommand: jest.fn(),
     exitApp: jest.fn(),
@@ -87,6 +88,12 @@ const createOptions = (overrides: Partial<UsePopupManagerOptions> = {}): UsePopu
     intentFilePath: '',
     metaInstructions: '',
     setMetaInstructions: jest.fn(),
+    budgets: {
+      maxContextTokens: null,
+      maxInputTokens: null,
+      contextOverflowStrategy: null,
+    },
+    setBudgets: jest.fn(),
     polishModelId: null,
     copyEnabled: false,
 
@@ -94,6 +101,10 @@ const createOptions = (overrides: Partial<UsePopupManagerOptions> = {}): UsePopu
     jsonOutputEnabled: false,
     getLatestTypedIntent: jest.fn(() => null),
     syncTypedIntentRef: jest.fn(),
+    resumeDefaults: { sourceKind: 'history', mode: 'best-effort' },
+    setResumeDefaults: jest.fn(),
+    exportDefaults: { format: 'json', outDir: null },
+    setExportDefaults: jest.fn(),
   }
 
   return { ...defaults, ...overrides }

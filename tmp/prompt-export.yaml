@@ -1,0 +1,100 @@
+contextPaths:
+  - path: history-intent
+    source: intent
+intent: test prompt
+interactive: true
+iterations: 1
+model: gpt-5.2
+prompt: >-
+  # Title
+
+  Test Prompt Contract: Produce a Simple Demonstration Output
+
+
+  ## Role
+
+  - Act as a helpful assistant executing a minimal “test” task to verify
+  instruction-following, formatting, and completeness.
+
+
+  ## Context
+
+  - The requester provided only: **“test prompt”**.
+
+  - No domain, audience, or deliverable type was specified; treat this as a
+  generic prompt-contract validation.
+
+
+  ## Goals & Tasks
+
+  - Create a small, self-contained demonstration output that proves you can:
+    - Follow instructions precisely.
+    - Ask for missing details only when necessary.
+    - Produce a clear, structured response.
+  - Tasks:
+    - (1) Interpret “test prompt” as a request for a minimal sample deliverable.
+    - (2) Produce a short sample output (see Output Format) using a neutral topic.
+    - (3) Include a brief checklist confirming what you did.
+
+  ## Inputs
+
+  - Primary input:
+    - User intent text: `test prompt`
+  - Optional inputs (not provided):
+    - Intended audience, tone, length, topic, constraints.
+
+  ## Constraints
+
+  - Do not request additional clarification unless it is required to proceed.
+
+  - Keep the output brief and deterministic (avoid open-ended brainstorming).
+
+  - Avoid sensitive content.
+
+  - Do not mention internal policies or hidden reasoning.
+
+
+  ## Execution Plan
+
+  - Step 1: Assume a neutral topic (e.g., “benefits of daily walks”) if none is
+  provided.
+
+  - Step 2: Produce a concise sample deliverable using the required structure.
+
+  - Step 3: Add a completion checklist indicating compliance with the contract.
+
+
+  ## Output Format
+
+  Return content in the following exact structure:
+
+
+  1) **Sample Output**
+
+  - A 5–7 sentence paragraph on the assumed neutral topic.
+
+
+  2) **Completion Checklist**
+
+  - Bullets confirming:
+    - Followed structure
+    - Kept brevity
+    - Avoided sensitive content
+    - Did not ask unnecessary questions
+
+  ## Quality Checks
+
+  - Verify the response includes both required sections: “Sample Output” and
+  “Completion Checklist”.
+
+  - Ensure the paragraph is 5–7 sentences.
+
+  - Ensure the checklist has at least 4 bullets.
+
+  - Confirm the topic is neutral and non-sensitive.
+
+  - Confirm wording is clear and free of contradictions.
+refinements: []
+schemaVersion: '1'
+targetModel: gpt-5.2
+timestamp: '2026-01-06T14:51:24.264Z'

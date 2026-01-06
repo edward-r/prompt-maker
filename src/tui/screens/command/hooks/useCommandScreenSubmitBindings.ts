@@ -24,7 +24,13 @@ export type UseCommandScreenSubmitBindingsOptions = {
   pushHistory: (content: string, kind?: HistoryEntry['kind']) => void
   addCommandHistoryEntry: (value: string) => void
 
-  runGeneration: (payload: { intent?: string; intentFile?: string }) => Promise<void>
+  runGeneration: (payload: {
+    intent?: string
+    intentFile?: string
+    resume?:
+      | { kind: 'history'; selector: string; mode: import('../../../types').ResumeMode }
+      | { kind: 'file'; payloadPath: string; mode: import('../../../types').ResumeMode }
+  }) => Promise<void>
 
   handleCommandSelection: (
     commandId: import('../../../types').CommandDescriptor['id'],
