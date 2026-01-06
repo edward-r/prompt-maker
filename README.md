@@ -280,6 +280,9 @@ Commands:
 | `/chatgpt`                | `[on\|off]`              | Toggle auto-open-ChatGPT, or open the toggle popup                                                  |
 | `/json`                   | `[on\|off]`              | Toggle showing the JSON payload in history (TUI-only; blocked when interactive transport is active) |
 | `/tokens`                 | -                        | Show token breakdown (popup)                                                                        |
+| `/budgets`                | -                        | Configure token budgets and overflow strategy (popup)                                               |
+| `/resume`                 | -                        | Resume generation from history or an exported payload (popup)                                       |
+| `/export`                 | -                        | Export a selected history payload to JSON/YAML (popup)                                              |
 | `/settings`               | -                        | Show settings (popup)                                                                               |
 | `/theme`                  | -                        | Theme picker (preview with arrows, `Enter` confirm, `Esc` cancel) (popup)                           |
 | `/theme-mode`             | -                        | Theme mode picker (popup)                                                                           |
@@ -339,7 +342,7 @@ Inside the TUI:
 - `/theme` opens the theme picker.
 - `/theme-mode` switches appearance mode (`dark`, `light`, or `system`).
 
-Theme settings persist to CLI config (`theme` + `themeMode`).
+Theme settings (and some workflow defaults like budgets/resume/export) persist to CLI config.
 
 Theme JSON format:
 

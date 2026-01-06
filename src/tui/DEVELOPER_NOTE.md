@@ -1,6 +1,6 @@
 # prompt-maker-cli TUI Developer Note
 
-This document explains the _current_ Ink TUI architecture in `apps/prompt-maker-cli/src/tui/**` after the refactor series.
+This document explains the _current_ Ink TUI architecture in `src/tui/**` after the refactor series.
 
 Goals of this architecture:
 
@@ -14,43 +14,43 @@ Goals of this architecture:
 
 These files stay intentionally small so “big screens” don’t live in the root `tui/` folder:
 
-- `apps/prompt-maker-cli/src/tui/CommandScreen.tsx`
-- `apps/prompt-maker-cli/src/tui/TestRunnerScreen.tsx`
+- `src/tui/CommandScreen.tsx`
+- `src/tui/TestRunnerScreen.tsx`
 
 ### Screens
 
 Each screen owns orchestration + rendering, and delegates state transitions to a reducer.
 
 - Command screen
-  - `apps/prompt-maker-cli/src/tui/screens/command/CommandScreen.tsx`
-  - `apps/prompt-maker-cli/src/tui/screens/command/useCommandScreen.ts`
-  - `apps/prompt-maker-cli/src/tui/screens/command/command-screen-reducer.ts`
-  - `apps/prompt-maker-cli/src/tui/screens/command/components/*`
+  - `src/tui/screens/command/CommandScreen.tsx`
+  - `src/tui/screens/command/useCommandScreen.ts`
+  - `src/tui/screens/command/command-screen-reducer.ts`
+  - `src/tui/screens/command/components/*`
 
 - Test runner
-  - `apps/prompt-maker-cli/src/tui/screens/test-runner/TestRunnerScreen.tsx`
-  - `apps/prompt-maker-cli/src/tui/screens/test-runner/useTestRunnerScreen.ts`
-  - `apps/prompt-maker-cli/src/tui/screens/test-runner/test-runner-reducer.ts`
-  - `apps/prompt-maker-cli/src/tui/screens/test-runner/components/*`
+  - `src/tui/screens/test-runner/TestRunnerScreen.tsx`
+  - `src/tui/screens/test-runner/useTestRunnerScreen.ts`
+  - `src/tui/screens/test-runner/test-runner-reducer.ts`
+  - `src/tui/screens/test-runner/components/*`
 
 ### Cross-screen hooks and reducers
 
 These modules are shared “feature hooks” used by screens:
 
 - Popup state machine
-  - Pure reducer: `apps/prompt-maker-cli/src/tui/popup-reducer.ts`
-  - Hook + effects: `apps/prompt-maker-cli/src/tui/hooks/usePopupManager.ts`
+  - Pure reducer: `src/tui/popup-reducer.ts`
+  - Hook + effects: `src/tui/hooks/usePopupManager.ts`
 
 - Generation pipeline
-  - Pure reducer: `apps/prompt-maker-cli/src/tui/generation-pipeline-reducer.ts`
-  - Hook + effects: `apps/prompt-maker-cli/src/tui/hooks/useGenerationPipeline.ts`
+  - Pure reducer: `src/tui/generation-pipeline-reducer.ts`
+  - Hook + effects: `src/tui/hooks/useGenerationPipeline.ts`
 
 ### Core UI components
 
 Reusable Ink components live in:
 
-- `apps/prompt-maker-cli/src/tui/components/core/*`
-- `apps/prompt-maker-cli/src/tui/components/popups/*`
+- `src/tui/components/core/*`
+- `src/tui/components/popups/*`
 
 Rule of thumb:
 
@@ -108,8 +108,8 @@ Fix pattern used here:
 ### Windowing and log/history rendering
 
 - Main history rendering is windowed using `ScrollableOutput` which slices to the visible rows.
-- List/windowing primitives live in `apps/prompt-maker-cli/src/tui/components/popups/list-window.ts`.
-- Test runner logs are capped by `useLogBuffer` (default 20 entries) in `apps/prompt-maker-cli/src/tui/useLogBuffer.ts`.
+- List/windowing primitives live in `src/tui/components/popups/list-window.ts`.
+- Test runner logs are capped by `useLogBuffer` (default 20 entries) in `src/tui/useLogBuffer.ts`.
 
 ### Where re-renders come from
 
@@ -147,10 +147,10 @@ Why it matters:
 
 ## How to add a new popup safely
 
-1. Add a new popup union member in `apps/prompt-maker-cli/src/tui/types.ts`.
-2. Add explicit transitions in `apps/prompt-maker-cli/src/tui/popup-reducer.ts`.
-3. Add the render branch in `apps/prompt-maker-cli/src/tui/screens/command/components/PopupArea.tsx`.
-4. Add a reducer unit test in `apps/prompt-maker-cli/src/__tests__/popup-reducer.test.ts`.
+1. Add a new popup union member in `src/tui/types.ts`.
+2. Add explicit transitions in `src/tui/popup-reducer.ts`.
+3. Add the render branch in `src/tui/screens/command/components/PopupArea.tsx`.
+4. Add a reducer unit test in `src/__tests__/tui/popup-reducer.test.ts`.
 
 Keep behavior stable:
 
@@ -159,10 +159,10 @@ Keep behavior stable:
 
 ## How to add a new screen safely
 
-1. Create `apps/prompt-maker-cli/src/tui/screens/<name>/`.
+1. Create `src/tui/screens/<name>/`.
 2. Add a pure reducer `*-reducer.ts`.
 3. Add a screen hook `use<Name>Screen.ts` to expose a view-model API.
-4. Keep the root-level entry file (`apps/prompt-maker-cli/src/tui/<Name>Screen.tsx`) as a small re-export.
+4. Keep the root-level entry file (`src/tui/<Name>Screen.tsx`) as a small re-export.
 
 ## Manual verification checklist
 

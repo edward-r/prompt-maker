@@ -70,7 +70,7 @@ Most commands open a popup:
 - `/file`, `/url`, `/image`, `/video` → add context items
 - `/smart`, `/smart-root` → smart context controls
 - `/theme`, `/theme-mode` → theme controls
-- `/tokens`, `/settings`, `/history`, `/reasoning` → informational views
+- `/tokens`, `/budgets`, `/resume`, `/export`, `/settings`, `/history`, `/reasoning` → informational/workflow views
 
 Popup transitions are managed with a pure reducer (`src/tui/popup-reducer.ts`) and a hook for effects (`src/tui/hooks/usePopupManager.ts`).
 
@@ -85,6 +85,6 @@ The Test Runner view runs suites defined by `prompt-tests.yaml` (or another YAML
 ## Theming
 
 - Theme definitions and loader: `src/tui/theme/*`
-- Theme settings persisted into CLI config via `src/config.ts` (`theme` and `themeMode`).
+- Some TUI settings are persisted into CLI config via `src/config.ts` (theme, budgets, resume defaults, export defaults).
 
 Theme JSON examples live in `src/tui/theme/examples/`.

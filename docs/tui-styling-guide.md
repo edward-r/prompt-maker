@@ -9,7 +9,7 @@ It is grounded in these repo docs and code:
 - Boot sequence + module map: `docs/prompt-maker-cli-tui-encyclopedia.md`
 - Worked example popup: `src/tui/components/popups/InstructionsPopup.tsx`
 
-> Note on paths: `src/tui/DEVELOPER_NOTE.md` refers to `apps/prompt-maker-cli/src/tui/**`, but that directory does **not** exist in this checkout. The authoritative TUI implementation is under `src/tui/**`.
+> Note on paths: some older docs may reference `apps/prompt-maker-cli/...`, but this repo’s authoritative TUI implementation is under `src/tui/**`.
 
 ---
 
