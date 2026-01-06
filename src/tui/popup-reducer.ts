@@ -15,14 +15,20 @@
  * - Async scan results must not overwrite newer popups.
  */
 
-import type { PopupState, ToggleField } from './types'
+import type {
+  PopupState,
+  ResumeMode,
+  ResumeSourceKind,
+  ResumeHistoryItem,
+  ToggleField,
+} from './types'
 import type { ThemeMode } from './theme/theme-types'
 
 // Lightweight replacement for React's SetStateAction type.
 // Keeping it local avoids importing React into a pure helper.
 export type SetStateAction<State> = State | ((prev: State) => State)
 
-export type PopupScanKind = 'file' | 'image' | 'video' | 'smart' | 'intent'
+export type PopupScanKind = 'file' | 'image' | 'video' | 'smart' | 'intent' | 'resume'
 
 export type PopupManagerState = {
   popupState: PopupState
@@ -44,6 +50,16 @@ export type PopupAction =
   | { type: 'open-image'; scanId: number }
   | { type: 'open-video'; scanId: number }
   | { type: 'open-history' }
+  | {
+      type: 'open-resume'
+      scanId: number | null
+      sourceKind: ResumeSourceKind
+      mode: ResumeMode
+      payloadPathDraft: string
+      historyItems: ResumeHistoryItem[]
+      historySelectionIndex: number
+      historyErrorMessage: string | null
+    }
   | { type: 'open-smart'; scanId: number; draft: string }
   | { type: 'open-tokens' }
   | {
@@ -164,6 +180,15 @@ const applySuggestions = (
     }
   }
 
+  if (kind === 'resume' && popupState?.type === 'resume') {
+    return {
+      ...popupState,
+      suggestedItems: suggestions,
+      suggestedSelectionIndex: 0,
+      suggestedFocused: false,
+    }
+  }
+
   return popupState
 }
 
@@ -234,6 +259,24 @@ export const popupReducer = (state: PopupManagerState, action: PopupAction): Pop
 
     case 'open-history':
       return { popupState: { type: 'history', draft: '', selectionIndex: 0 }, activeScan: null }
+
+    case 'open-resume':
+      return {
+        popupState: {
+          type: 'resume',
+          selectionIndex: 0,
+          sourceKind: action.sourceKind,
+          mode: action.mode,
+          historyItems: action.historyItems,
+          historySelectionIndex: action.historySelectionIndex,
+          historyErrorMessage: action.historyErrorMessage,
+          payloadPathDraft: action.payloadPathDraft,
+          suggestedItems: [],
+          suggestedSelectionIndex: 0,
+          suggestedFocused: false,
+        },
+        activeScan: action.scanId === null ? null : { kind: 'resume', id: action.scanId },
+      }
 
     case 'open-smart':
       return {

@@ -18,6 +18,7 @@ export type UseMiscPopupDraftHandlersResult = {
   onTestDraftChange: (next: string) => void
   onBudgetsMaxContextTokensDraftChange: (next: string) => void
   onBudgetsMaxInputTokensDraftChange: (next: string) => void
+  onResumePayloadPathDraftChange: (next: string) => void
 }
 
 export const useMiscPopupDraftHandlers = ({
@@ -94,6 +95,25 @@ export const useMiscPopupDraftHandlers = ({
     [consumeSuppressedTextInputChange, setPopupState],
   )
 
+  const onResumePayloadPathDraftChange = useCallback(
+    (next: string) => {
+      if (consumeSuppressedTextInputChange()) {
+        return
+      }
+      setPopupState((prev) =>
+        prev?.type === 'resume'
+          ? {
+              ...prev,
+              payloadPathDraft: next,
+              suggestedFocused: false,
+              suggestedSelectionIndex: 0,
+            }
+          : prev,
+      )
+    },
+    [consumeSuppressedTextInputChange, setPopupState],
+  )
+
   return {
     onModelPopupQueryChange,
     onSeriesDraftChange,
@@ -101,5 +121,6 @@ export const useMiscPopupDraftHandlers = ({
     onTestDraftChange,
     onBudgetsMaxContextTokensDraftChange,
     onBudgetsMaxInputTokensDraftChange,
+    onResumePayloadPathDraftChange,
   }
 }

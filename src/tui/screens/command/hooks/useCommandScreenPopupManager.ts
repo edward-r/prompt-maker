@@ -1,10 +1,18 @@
 import { useApp, useStdout } from 'ink'
-import { useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+
+import { loadCliConfig } from '../../../../config'
 
 import { usePopupManager } from '../../../hooks/usePopupManager'
 import type { NotifyOptions } from '../../../notifier'
 import { useTheme } from '../../../theme/theme-provider'
-import type { HistoryEntry, ModelOption, PopupState } from '../../../types'
+import type {
+  HistoryEntry,
+  ModelOption,
+  PopupState,
+  ResumeMode,
+  ResumeSourceKind,
+} from '../../../types'
 
 const DEFAULT_TEST_FILE = 'prompt-tests.yaml'
 
@@ -38,6 +46,13 @@ type UseCommandScreenPopupManagerOptions = {
   notify: (message: string, options?: NotifyOptions) => void
   setInputValue: (value: string | ((prev: string) => string)) => void
 
+  runGeneration: (payload: {
+    intent?: string
+    intentFile?: string
+    resume?:
+      | { kind: 'history'; selector: string; mode: ResumeMode }
+      | { kind: 'file'; payloadPath: string; mode: ResumeMode }
+  }) => Promise<void>
   runSeriesGeneration: (intent: string) => void
   runTestsFromCommandProxy: (value: string) => void
 
@@ -99,13 +114,12 @@ export const useCommandScreenPopupManager = ({
   pushHistoryProxy,
   notify,
   setInputValue,
+  runGeneration,
   runSeriesGeneration,
   runTestsFromCommandProxy,
-
   setCurrentModel,
   setCurrentTargetModel,
   setPolishModelId,
-
   setCopyEnabled,
   setChatGptEnabled,
   setJsonOutputEnabled,
@@ -143,6 +157,35 @@ export const useCommandScreenPopupManager = ({
 
   const { activeThemeName, mode, themes } = useTheme()
 
+  const [resumeDefaults, setResumeDefaults] = useState<{
+    sourceKind: ResumeSourceKind
+    mode: ResumeMode
+  }>({
+    sourceKind: 'history',
+    mode: 'best-effort',
+  })
+
+  useEffect(() => {
+    let cancelled = false
+
+    const hydrate = async (): Promise<void> => {
+      const config = await loadCliConfig().catch(() => null)
+      if (cancelled) {
+        return
+      }
+
+      const sourceKind = config?.resumeSourceKind === 'file' ? 'file' : 'history'
+      const resumeMode = config?.resumeMode === 'strict' ? 'strict' : 'best-effort'
+      setResumeDefaults({ sourceKind, mode: resumeMode })
+    }
+
+    void hydrate()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const popupManager = usePopupManager({
     currentModel,
     currentTargetModel,
@@ -168,6 +211,7 @@ export const useCommandScreenPopupManager = ({
     pushHistory: pushHistoryProxy,
     notify,
     setInputValue,
+    runGeneration,
     runSeriesGeneration,
     runTestsFromCommand: runTestsFromCommandProxy,
     clearScreen,
@@ -190,6 +234,8 @@ export const useCommandScreenPopupManager = ({
     jsonOutputEnabled,
     getLatestTypedIntent,
     syncTypedIntentRef,
+    resumeDefaults,
+    setResumeDefaults,
   })
 
   return {

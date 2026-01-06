@@ -41,6 +41,7 @@ type OpenPopupStep = {
     | 'image'
     | 'video'
     | 'history'
+    | 'resume'
     | 'smart-root'
     | 'tokens'
     | 'budgets'
@@ -498,6 +499,15 @@ export const mapPopupCommandSelection = ({
         kind: 'steps',
         steps: [
           { type: 'open-popup', popup: 'history' },
+          { type: 'set-input', value: '' },
+        ],
+      }
+
+    case 'resume':
+      return {
+        kind: 'steps',
+        steps: [
+          { type: 'open-popup', popup: 'resume' },
           { type: 'set-input', value: '' },
         ],
       }

@@ -8,6 +8,7 @@ import type { HistoryEntry, ModelOption, PopupState } from '../../../types'
 import { handleEscapeOnlyPopupShortcuts } from './popup-shortcuts/escape-only-popup-shortcuts'
 import { handleHistoryPopupShortcuts } from './popup-shortcuts/history-popup-shortcuts'
 import { handleIntentPopupShortcuts } from './popup-shortcuts/intent-popup-shortcuts'
+import { handleResumePopupShortcuts } from './popup-shortcuts/resume-popup-shortcuts'
 import { handleModelPopupShortcuts } from './popup-shortcuts/model-popup-shortcuts'
 import { handleReasoningPopupShortcuts } from './popup-shortcuts/reasoning-popup-shortcuts'
 import { handleSmartPopupShortcuts } from './popup-shortcuts/smart-popup-shortcuts'
@@ -81,6 +82,10 @@ export type UsePopupKeyboardShortcutsOptions = {
     items: string[]
   }
 
+  resume: {
+    onSubmit: () => void
+  }
+
   smart: {
     suggestions: string[]
     contextRoot: string | null
@@ -113,6 +118,7 @@ export const usePopupKeyboardShortcuts = ({
   image,
   video,
   history,
+  resume,
   smart,
   intent,
   reasoning,
@@ -243,6 +249,16 @@ export const usePopupKeyboardShortcuts = ({
           itemCount: history.items.length,
           setPopupState,
           closePopup,
+        })
+        return
+
+      case 'resume':
+        handleResumePopupShortcuts({
+          popupState,
+          key,
+          setPopupState,
+          closePopup,
+          onResumeSubmit: resume.onSubmit,
         })
         return
 

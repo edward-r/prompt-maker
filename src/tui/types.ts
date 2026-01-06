@@ -26,6 +26,15 @@ export type ProviderStatus = {
 
 export type ProviderStatusMap = Record<ModelProvider, ProviderStatus>
 
+export type ResumeSourceKind = 'history' | 'file'
+export type ResumeMode = 'best-effort' | 'strict'
+
+export type ResumeHistoryItem = {
+  selector: string
+  title: string
+  detail: string
+}
+
 export type PopupState =
   | {
       type: 'model'
@@ -69,6 +78,19 @@ export type PopupState =
       suggestedFocused: boolean
     }
   | { type: 'history'; draft: string; selectionIndex: number }
+  | {
+      type: 'resume'
+      selectionIndex: number
+      sourceKind: ResumeSourceKind
+      mode: ResumeMode
+      historyItems: ResumeHistoryItem[]
+      historySelectionIndex: number
+      historyErrorMessage: string | null
+      payloadPathDraft: string
+      suggestedItems: string[]
+      suggestedSelectionIndex: number
+      suggestedFocused: boolean
+    }
   | {
       type: 'smart'
       draft: string

@@ -127,7 +127,13 @@ export type CommandGenerationOptions = {
   selectPolishModel: (nextId: ModelOption['id'] | null) => void
   selectTargetModel: (nextId: ModelOption['id']) => void
   isGenerating: boolean
-  runGeneration: (payload: { intent?: string; intentFile?: string }) => Promise<void>
+  runGeneration: (payload: {
+    intent?: string
+    intentFile?: string
+    resume?:
+      | { kind: 'history'; selector: string; mode: import('../../../types').ResumeMode }
+      | { kind: 'file'; payloadPath: string; mode: import('../../../types').ResumeMode }
+  }) => Promise<void>
   runSeriesGeneration: (intent: string) => void
   statusChips: string[]
   isAwaitingRefinement: boolean

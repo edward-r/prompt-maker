@@ -21,6 +21,9 @@ export type PromptGeneratorConfig = {
   contextOverflowStrategy?: ContextOverflowStrategy
 }
 
+export type TuiResumeMode = 'best-effort' | 'strict'
+export type TuiResumeSourceKind = 'history' | 'file'
+
 export type PromptMakerCliConfig = {
   openaiApiKey?: string
   openaiBaseUrl?: string
@@ -32,6 +35,10 @@ export type PromptMakerCliConfig = {
   // TUI theme settings (persisted).
   theme?: string
   themeMode?: ThemeMode
+
+  // TUI resume defaults (persisted).
+  resumeMode?: TuiResumeMode
+  resumeSourceKind?: TuiResumeSourceKind
 }
 
 let cachedConfig: PromptMakerCliConfig | null | undefined
@@ -176,6 +183,11 @@ export type ThemeSettingsPatch = {
   themeMode?: ThemeMode | null
 }
 
+export type ResumeSettingsPatch = {
+  resumeMode?: TuiResumeMode | null
+  resumeSourceKind?: TuiResumeSourceKind | null
+}
+
 export const updateCliThemeSettings = async (
   patch: ThemeSettingsPatch,
   options?: { configPath?: string },
@@ -214,6 +226,61 @@ export const updateCliThemeSettings = async (
       delete next.themeMode
     } else {
       next.themeMode = patch.themeMode
+    }
+  }
+
+  const contents = JSON.stringify(next, null, 2)
+  const tempFile = `${configPath}.${process.pid}.tmp`
+  await fs.writeFile(tempFile, `${contents}\n`, 'utf8')
+
+  try {
+    await fs.rename(tempFile, configPath)
+  } catch {
+    await fs.writeFile(configPath, `${contents}\n`, 'utf8')
+  }
+
+  cachedConfig = parseConfig(next)
+  cachedConfigPath = configPath
+}
+
+export const updateCliResumeSettings = async (
+  patch: ResumeSettingsPatch,
+  options?: { configPath?: string },
+): Promise<void> => {
+  const configPath = options?.configPath ?? (await resolveConfigPathForWrite())
+  const directory = path.dirname(configPath)
+  await fs.mkdir(directory, { recursive: true })
+
+  let raw: unknown = {}
+  try {
+    const contents = await fs.readFile(configPath, 'utf8')
+    raw = JSON.parse(contents) as unknown
+  } catch (error) {
+    if (!isFileMissingError(error)) {
+      const message = error instanceof Error ? error.message : 'Unknown config error.'
+      throw new Error(`Failed to read config at ${configPath}: ${message}`)
+    }
+  }
+
+  if (!isRecord(raw)) {
+    throw new Error(`Failed to update config at ${configPath}: root must be a JSON object.`)
+  }
+
+  const next: Record<string, unknown> = { ...raw }
+
+  if ('resumeMode' in patch) {
+    if (patch.resumeMode === null || patch.resumeMode === undefined) {
+      delete next.resumeMode
+    } else {
+      next.resumeMode = expectResumeMode(patch.resumeMode, 'resumeMode')
+    }
+  }
+
+  if ('resumeSourceKind' in patch) {
+    if (patch.resumeSourceKind === null || patch.resumeSourceKind === undefined) {
+      delete next.resumeSourceKind
+    } else {
+      next.resumeSourceKind = expectResumeSourceKind(patch.resumeSourceKind, 'resumeSourceKind')
     }
   }
 
@@ -407,6 +474,14 @@ const parseConfig = (raw: unknown): PromptMakerCliConfig => {
     config.themeMode = expectThemeMode(raw.themeMode, 'themeMode')
   }
 
+  if (raw.resumeMode !== undefined) {
+    config.resumeMode = expectResumeMode(raw.resumeMode, 'resumeMode')
+  }
+
+  if (raw.resumeSourceKind !== undefined) {
+    config.resumeSourceKind = expectResumeSourceKind(raw.resumeSourceKind, 'resumeSourceKind')
+  }
+
   return config
 }
 
@@ -518,6 +593,35 @@ const expectBoolean = (value: unknown, label: string): boolean => {
     throw new Error(`${label} must be a boolean.`)
   }
   return value
+}
+
+const RESUME_MODES = ['best-effort', 'strict'] as const satisfies ReadonlyArray<TuiResumeMode>
+
+const expectResumeMode = (value: unknown, label: string): TuiResumeMode => {
+  if (typeof value !== 'string') {
+    throw new Error(`${label} must be one of: ${RESUME_MODES.join(', ')}.`)
+  }
+  const normalized = value.trim().toLowerCase()
+  if ((RESUME_MODES as readonly string[]).includes(normalized)) {
+    return normalized as TuiResumeMode
+  }
+  throw new Error(`${label} must be one of: ${RESUME_MODES.join(', ')}.`)
+}
+
+const RESUME_SOURCE_KINDS = [
+  'history',
+  'file',
+] as const satisfies ReadonlyArray<TuiResumeSourceKind>
+
+const expectResumeSourceKind = (value: unknown, label: string): TuiResumeSourceKind => {
+  if (typeof value !== 'string') {
+    throw new Error(`${label} must be one of: ${RESUME_SOURCE_KINDS.join(', ')}.`)
+  }
+  const normalized = value.trim().toLowerCase()
+  if ((RESUME_SOURCE_KINDS as readonly string[]).includes(normalized)) {
+    return normalized as TuiResumeSourceKind
+  }
+  throw new Error(`${label} must be one of: ${RESUME_SOURCE_KINDS.join(', ')}.`)
 }
 
 const expectProvider = (value: unknown, label: string): ModelProvider => {

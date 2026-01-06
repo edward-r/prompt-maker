@@ -48,7 +48,7 @@ import { checkModelProviderStatus } from '../provider-status'
 import type { TokenUsageStore } from '../token-usage-store'
 import type { BudgetSettings } from '../budget-settings'
 import type { NotifyOptions } from '../notifier'
-import type { HistoryEntry, ProviderStatus } from '../types'
+import type { HistoryEntry, ProviderStatus, ResumeMode } from '../types'
 
 export type UseGenerationPipelineOptions = {
   pushHistory: (
@@ -494,13 +494,22 @@ export const useGenerationPipeline = ({
   )
 
   const runGeneration = useCallback(
-    async (intentInput: { intent?: string; intentFile?: string }) => {
+    async (intentInput: {
+      intent?: string
+      intentFile?: string
+      resume?:
+        | { kind: 'history'; selector: string; mode: ResumeMode }
+        | { kind: 'file'; payloadPath: string; mode: ResumeMode }
+    }) => {
       const trimmedIntent = intentInput.intent?.trim() ?? ''
       const trimmedIntentFile = intentInput.intentFile?.trim() ?? ''
-      if (!trimmedIntent && !trimmedIntentFile) {
+      const resume = intentInput.resume
+
+      if (!trimmedIntent && !trimmedIntentFile && !resume) {
         pushHistoryRef.current('No intent provided. Enter text or set an intent file.', 'system')
         return
       }
+
       const normalizedModel = currentModel.trim() || 'gpt-4o-mini'
 
       const generationModel =
@@ -549,6 +558,8 @@ export const useGenerationPipeline = ({
 
         const usesTuiInteractiveDelegate = !usesTransportInteractive && !jsonOutputEnabled
 
+        const shouldIgnoreContextForResume = Boolean(resume)
+
         const args: GenerateArgs = {
           interactive: usesTransportInteractive || usesTuiInteractiveDelegate,
           copy: false,
@@ -561,11 +572,11 @@ export const useGenerationPipeline = ({
           showContext: false,
           contextFormat: 'text',
           help: false,
-          context: [...files],
-          urls: [...urls],
+          context: shouldIgnoreContextForResume ? [] : [...files],
+          urls: shouldIgnoreContextForResume ? [] : [...urls],
           images: [...images],
           video: [...videos],
-          smartContext: smartContextEnabled,
+          smartContext: shouldIgnoreContextForResume ? false : smartContextEnabled,
           model: generationModel,
           target: normalizedTargetModel,
           ...(budgets.maxInputTokens !== null ? { maxInputTokens: budgets.maxInputTokens } : {}),
@@ -581,14 +592,23 @@ export const useGenerationPipeline = ({
         }
         if (trimmedIntentFile) {
           args.intentFile = trimmedIntentFile
-        } else {
+        } else if (trimmedIntent) {
           args.intent = trimmedIntent
+        }
+
+        if (resume) {
+          args.resumeMode = resume.mode
+          if (resume.kind === 'history') {
+            args.resume = resume.selector
+          } else {
+            args.resumeFrom = resume.payloadPath
+          }
         }
         if (polishEnabled) {
           args.polishModel = normalizedPolishModel
         }
 
-        if (smartContextEnabled && smartContextRoot) {
+        if (!shouldIgnoreContextForResume && smartContextEnabled && smartContextRoot) {
           args.smartContextRoot = smartContextRoot
         }
         if (transportPath) {

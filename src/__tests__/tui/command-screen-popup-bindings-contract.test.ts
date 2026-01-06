@@ -205,6 +205,7 @@ describe('useCommandScreenPopupBindings (shape contract)', () => {
           handleModelPopupSubmit: jest.fn(),
           applyToggleSelection: jest.fn(),
           handleIntentFileSubmit: jest.fn(),
+          handleResumeSubmit: jest.fn(),
           handleBudgetsSubmit: jest.fn(),
           handleSeriesIntentSubmit: jest.fn(),
         },

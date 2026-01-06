@@ -72,6 +72,38 @@ describe('popup manager command mapping', () => {
     })
   })
 
+  it('opens resume popup from /resume', () => {
+    const result = mapPopupCommandSelection({
+      commandId: 'resume',
+      argsRaw: undefined,
+      context: baseContext,
+    })
+
+    expect(result).toEqual({
+      kind: 'steps',
+      steps: [
+        { type: 'open-popup', popup: 'resume' },
+        { type: 'set-input', value: '' },
+      ],
+    })
+  })
+
+  it('opens resume popup from /resume', () => {
+    const result = mapPopupCommandSelection({
+      commandId: 'resume',
+      argsRaw: undefined,
+      context: baseContext,
+    })
+
+    expect(result).toEqual({
+      kind: 'steps',
+      steps: [
+        { type: 'open-popup', popup: 'resume' },
+        { type: 'set-input', value: '' },
+      ],
+    })
+  })
+
   it('clears smart root when disabling smart context', () => {
     const result = mapPopupCommandSelection({
       commandId: 'smart',

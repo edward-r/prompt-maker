@@ -23,6 +23,7 @@ import { InstructionsPopup } from '../../../components/popups/InstructionsPopup'
 import { SeriesIntentPopup } from '../../../components/popups/SeriesIntentPopup'
 import { ThemePickerPopup } from '../../../components/popups/ThemePickerPopup'
 import { ThemeModePopup } from '../../../components/popups/ThemeModePopup'
+import { ResumePopup } from '../../../components/popups/ResumePopup'
 import type { HistoryEntry, ModelOption, PopupState, ProviderStatusMap } from '../../../types'
 import type { TokenUsageBreakdown, TokenUsageRun } from '../../../token-usage-store'
 
@@ -75,6 +76,10 @@ export type PopupAreaProps = {
   historyPopupItems: string[]
   onHistoryPopupDraftChange: (next: string) => void
   onHistoryPopupSubmit: (value: string) => void
+
+  // Resume popup
+  onResumePayloadPathDraftChange: (next: string) => void
+  onResumeSubmit: () => void
 
   // Intent popup
   intentPopupSuggestions: string[]
@@ -257,17 +262,37 @@ const renderVideoPopup = (props: PopupAreaProps, popupState: PopupStateFor<'vide
 const renderHistoryPopup = (props: PopupAreaProps, popupState: PopupStateFor<'history'>) => {
   const viewModel = {
     title: 'History',
-    placeholder: 'Search commands & intents',
+    placeholder: 'Type to filter…',
     draft: popupState.draft,
     items: props.historyPopupItems,
     selectedIndex: popupState.selectionIndex,
-    emptyLabel: 'No history saved',
-    instructions: 'Enter to reuse · ↑/↓ navigate · Esc to close',
+    selectedFocused: true,
+    emptyLabel: 'No history entries',
+    instructions: '↑/↓ select · Enter paste · Esc close',
     onDraftChange: props.onHistoryPopupDraftChange,
     onSubmitDraft: props.onHistoryPopupSubmit,
   } satisfies ComponentProps<typeof ListPopup>
 
   return <ListPopup {...viewModel} />
+}
+
+const renderResumePopup = (props: PopupAreaProps, popupState: PopupStateFor<'resume'>) => {
+  const viewModel = {
+    selectionIndex: popupState.selectionIndex,
+    sourceKind: popupState.sourceKind,
+    mode: popupState.mode,
+    historyItems: popupState.historyItems,
+    historySelectionIndex: popupState.historySelectionIndex,
+    historyErrorMessage: popupState.historyErrorMessage,
+    payloadPathDraft: popupState.payloadPathDraft,
+    suggestedItems: popupState.suggestedItems,
+    suggestedSelectionIndex: popupState.suggestedSelectionIndex,
+    suggestedFocused: popupState.suggestedFocused,
+    onPayloadPathChange: props.onResumePayloadPathDraftChange,
+    onSubmit: props.onResumeSubmit,
+  } satisfies ComponentProps<typeof ResumePopup>
+
+  return <ResumePopup {...viewModel} />
 }
 
 const renderIntentPopup = (props: PopupAreaProps, popupState: PopupStateFor<'intent'>) => {
@@ -425,6 +450,9 @@ export const PopupArea = (props: PopupAreaProps) => {
       return renderVideoPopup(props, popupState)
     case 'history':
       return renderHistoryPopup(props, popupState)
+
+    case 'resume':
+      return renderResumePopup(props, popupState)
 
     case 'intent':
       return renderIntentPopup(props, popupState)

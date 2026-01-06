@@ -76,6 +76,11 @@ export type UseCommandScreenViewModelOptions = {
       onHistoryPopupSubmit: (value: string) => void
     }
 
+    resume: {
+      onResumePayloadPathDraftChange: (next: string) => void
+      onResumeSubmit: () => void
+    }
+
     intent: {
       intentPopupSuggestions: string[]
       intentPopupSuggestionSelectionIndex: number
@@ -179,6 +184,7 @@ export const useCommandScreenViewModel = ({
       ...popup.model,
       ...popup.context,
       ...popup.history,
+      ...popup.resume,
       ...popup.intent,
       ...popup.instructions,
       ...popup.series,
@@ -192,6 +198,7 @@ export const useCommandScreenViewModel = ({
       popup.base,
       popup.context,
       popup.history,
+      popup.resume,
       popup.instructions,
       popup.intent,
       popup.model,

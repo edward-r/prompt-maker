@@ -73,6 +73,7 @@ const createOptions = (overrides: Partial<UsePopupManagerOptions> = {}): UsePopu
     pushHistory: jest.fn(),
     notify: jest.fn(),
     setInputValue: jest.fn(),
+    runGeneration: jest.fn(async () => undefined),
     runSeriesGeneration: jest.fn(),
     runTestsFromCommand: jest.fn(),
     exitApp: jest.fn(),
@@ -100,6 +101,8 @@ const createOptions = (overrides: Partial<UsePopupManagerOptions> = {}): UsePopu
     jsonOutputEnabled: false,
     getLatestTypedIntent: jest.fn(() => null),
     syncTypedIntentRef: jest.fn(),
+    resumeDefaults: { sourceKind: 'history', mode: 'best-effort' },
+    setResumeDefaults: jest.fn(),
   }
 
   return { ...defaults, ...overrides }

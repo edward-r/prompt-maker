@@ -16,7 +16,7 @@ import {
   type SetStateAction,
 } from '../popup-reducer'
 
-import { updateCliPromptGeneratorSettings } from '../../config'
+import { updateCliPromptGeneratorSettings, updateCliResumeSettings } from '../../config'
 
 import { TOGGLE_LABELS } from '../config'
 import { parseBudgetSettingsDraft } from '../budget-settings'
@@ -29,13 +29,19 @@ import {
 } from './popup-scans'
 import type { NotifyOptions } from '../notifier'
 import type { ThemeMode } from '../theme/theme-types'
+import { loadGeneratePayloadFromFile } from '../../generate/payload-io'
+import { GENERATE_JSON_PAYLOAD_SCHEMA_VERSION } from '../../generate/types'
+
 import { buildModelPopupOptions } from '../model-popup-options'
+import { loadResumeHistoryItems } from '../resume-history'
 import { getRecentSessionModels, recordRecentSessionModel } from '../model-session'
 import type {
   CommandDescriptor,
   HistoryEntry,
   ModelOption,
   PopupState,
+  ResumeMode,
+  ResumeSourceKind,
   ToggleField,
 } from '../types'
 
@@ -49,6 +55,7 @@ export type PopupManagerActions = {
   openImagePopup: () => void
   openVideoPopup: () => void
   openHistoryPopup: () => void
+  openResumePopup: () => void
   openSmartRootPopup: () => void
   openTokensPopup: () => void
   openBudgetsPopup: () => void
@@ -67,6 +74,7 @@ export type PopupManagerActions = {
   handleIntentFileSubmit: (value: string) => void
   handleInstructionsSubmit: (value: string) => void
   handleBudgetsSubmit: () => void
+  handleResumeSubmit: () => void
   handleSeriesIntentSubmit: (value: string) => void
 }
 
@@ -100,6 +108,13 @@ export type UsePopupManagerOptions = {
   pushHistory: (content: string, kind?: HistoryEntry['kind']) => void
   notify: (message: string, options?: NotifyOptions) => void
   setInputValue: (value: string) => void
+  runGeneration: (payload: {
+    intent?: string
+    intentFile?: string
+    resume?:
+      | { kind: 'history'; selector: string; mode: ResumeMode }
+      | { kind: 'file'; payloadPath: string; mode: ResumeMode }
+  }) => Promise<void>
   runSeriesGeneration: (intent: string) => void
   runTestsFromCommand: (value: string) => void
   clearScreen?: () => void
@@ -130,6 +145,11 @@ export type UsePopupManagerOptions = {
   jsonOutputEnabled: boolean
   getLatestTypedIntent: () => string | null
   syncTypedIntentRef: (intent: string) => void
+  resumeDefaults: {
+    sourceKind: ResumeSourceKind
+    mode: ResumeMode
+  }
+  setResumeDefaults: (value: { sourceKind: ResumeSourceKind; mode: ResumeMode }) => void
 }
 
 /*
@@ -169,8 +189,10 @@ export const usePopupManager = ({
   pushHistory,
   notify,
   setInputValue,
+  runGeneration,
   runSeriesGeneration,
   runTestsFromCommand,
+
   clearScreen,
   exitApp,
   setCurrentModel,
@@ -191,6 +213,8 @@ export const usePopupManager = ({
   jsonOutputEnabled,
   getLatestTypedIntent,
   syncTypedIntentRef,
+  resumeDefaults,
+  setResumeDefaults,
 }: UsePopupManagerOptions): {
   popupState: PopupState
   setPopupState: React.Dispatch<React.SetStateAction<PopupState>>
@@ -297,6 +321,43 @@ export const usePopupManager = ({
   const openHistoryPopup = useCallback(() => {
     dispatch({ type: 'open-history' })
   }, [])
+
+  const openResumePopup = useCallback(() => {
+    const resumeDefaultsSnapshot = resumeDefaults
+
+    runSuggestionScan({
+      kind: 'resume',
+      open: (scanId) => ({
+        type: 'open-resume',
+        scanId,
+        sourceKind: resumeDefaultsSnapshot.sourceKind,
+        mode: resumeDefaultsSnapshot.mode,
+        payloadPathDraft: '',
+        historyItems: [],
+        historySelectionIndex: 0,
+        historyErrorMessage: null,
+      }),
+      scan: () => scanFileSuggestions({ cwd: process.cwd(), limit: POPUP_SUGGESTION_SCAN_LIMIT }),
+    })
+
+    const hydrate = async (): Promise<void> => {
+      const historyResult = await loadResumeHistoryItems({ limit: 30 })
+
+      setPopupState((prev) => {
+        if (prev?.type !== 'resume') {
+          return prev
+        }
+
+        return {
+          ...prev,
+          historyItems: historyResult.ok ? historyResult.items : [],
+          historyErrorMessage: historyResult.ok ? null : historyResult.errorMessage,
+        }
+      })
+    }
+
+    void hydrate()
+  }, [resumeDefaults, runSuggestionScan, setPopupState])
 
   const openSmartRootPopup = useCallback(() => {
     const draft = smartContextRoot ?? ''
@@ -569,6 +630,94 @@ export const usePopupManager = ({
     void persist()
   }, [closePopup, notify, popupState, pushHistory, setBudgets, setInputValue, setPopupState])
 
+  const handleResumeSubmit = useCallback(() => {
+    if (popupState?.type !== 'resume') {
+      return
+    }
+
+    const sourceKind = popupState.sourceKind
+    const mode = popupState.mode
+
+    const persistDefaults = async (): Promise<void> => {
+      try {
+        await updateCliResumeSettings({ resumeMode: mode, resumeSourceKind: sourceKind })
+        setResumeDefaults({ sourceKind, mode })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown config write error.'
+        notify(`Failed to save resume defaults: ${message}`, { kind: 'error' })
+      }
+    }
+
+    void persistDefaults()
+
+    if (sourceKind === 'history') {
+      const selected = popupState.historyItems[popupState.historySelectionIndex]
+      if (!selected) {
+        const message = popupState.historyErrorMessage ?? 'No resumable history entries found.'
+        pushHistory(`[resume] ${message}`, 'system')
+        notify(message, { kind: 'warning' })
+        return
+      }
+
+      pushHistory(`> /resume ${selected.selector} (${mode})`, 'user')
+      setInputValue('')
+      closePopup()
+
+      const intentFileOverride = intentFilePath.trim()
+
+      void runGeneration({
+        ...(intentFileOverride ? { intentFile: intentFileOverride } : {}),
+        resume: { kind: 'history', selector: selected.selector, mode },
+      })
+      return
+    }
+
+    const payloadPath = popupState.payloadPathDraft.trim()
+    if (!payloadPath) {
+      const message = 'Resume-from file path is required.'
+      pushHistory(`[resume] ${message}`, 'system')
+      notify(message, { kind: 'warning' })
+      return
+    }
+
+    const validateAndRun = async (): Promise<void> => {
+      try {
+        await loadGeneratePayloadFromFile(payloadPath)
+      } catch (error) {
+        const rawMessage = error instanceof Error ? error.message : 'Unknown payload error.'
+        const schemaHint = rawMessage.includes('schemaVersion')
+          ? ` This prompt-maker-cli supports schemaVersion=${GENERATE_JSON_PAYLOAD_SCHEMA_VERSION}; try upgrading/downgrading prompt-maker-cli or re-exporting/regenerating the payload with a matching version.`
+          : ''
+        const message = `${rawMessage}${schemaHint}`
+        pushHistory(`[resume] ${message}`, 'system')
+        notify(message, { kind: 'error' })
+        return
+      }
+
+      pushHistory(`> /resume-from ${payloadPath} (${mode})`, 'user')
+      setInputValue('')
+      closePopup()
+
+      const intentFileOverride = intentFilePath.trim()
+
+      await runGeneration({
+        ...(intentFileOverride ? { intentFile: intentFileOverride } : {}),
+        resume: { kind: 'file', payloadPath, mode },
+      })
+    }
+
+    void validateAndRun()
+  }, [
+    closePopup,
+    intentFilePath,
+    notify,
+    popupState,
+    pushHistory,
+    runGeneration,
+    setInputValue,
+    setResumeDefaults,
+  ])
+
   const handleSeriesIntentSubmit = useCallback(
     (value: string) => {
       const trimmed = value.trim()
@@ -641,6 +790,9 @@ export const usePopupManager = ({
                 break
               case 'history':
                 openHistoryPopup()
+                break
+              case 'resume':
+                openResumePopup()
                 break
               case 'smart-root':
                 openSmartRootPopup()
@@ -904,6 +1056,7 @@ export const usePopupManager = ({
       openImagePopup,
       openVideoPopup,
       openHistoryPopup,
+      openResumePopup,
       openSmartRootPopup,
       openTokensPopup,
       openBudgetsPopup,
@@ -922,35 +1075,40 @@ export const usePopupManager = ({
       handleIntentFileSubmit,
       handleInstructionsSubmit,
       handleBudgetsSubmit,
+      handleResumeSubmit,
       handleSeriesIntentSubmit,
     }),
     [
-      applyToggleSelection,
-      closePopup,
-      handleCommandSelection,
-      handleInstructionsSubmit,
-      handleIntentFileSubmit,
-      handleModelPopupSubmit,
-      handleSeriesIntentSubmit,
-      openFilePopup,
-      openHistoryPopup,
-      openImagePopup,
-      openInstructionsPopup,
-      openIntentPopup,
       openModelPopup,
       openPolishModelPopup,
-      openReasoningPopup,
-      openSeriesPopup,
-      openSettingsPopup,
-      openSmartRootPopup,
       openTargetModelPopup,
-      openTestPopup,
+      openTogglePopup,
+      openFilePopup,
+      openUrlPopup,
+      openImagePopup,
+      openVideoPopup,
+      openHistoryPopup,
+      openResumePopup,
+      openSmartRootPopup,
+      openTokensPopup,
+      openBudgetsPopup,
+      openSettingsPopup,
       openThemePopup,
       openThemeModePopup,
-      openTogglePopup,
-      openTokensPopup,
-      openUrlPopup,
-      openVideoPopup,
+      openReasoningPopup,
+      openTestPopup,
+      openIntentPopup,
+      openInstructionsPopup,
+      openSeriesPopup,
+      closePopup,
+      handleCommandSelection,
+      handleModelPopupSubmit,
+      applyToggleSelection,
+      handleIntentFileSubmit,
+      handleInstructionsSubmit,
+      handleBudgetsSubmit,
+      handleResumeSubmit,
+      handleSeriesIntentSubmit,
     ],
   )
 

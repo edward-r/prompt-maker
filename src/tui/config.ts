@@ -67,6 +67,11 @@ export const COMMAND_DESCRIPTORS = [
     aliases: ['why'] as const,
   },
   { id: 'history', label: 'History', description: 'Browse command/intent history (/history)' },
+  {
+    id: 'resume',
+    label: 'Resume',
+    description: 'Resume generation from history or an exported payload (/resume)',
+  },
   { id: 'test', label: 'Test', description: 'Run prompt tests (/test prompt-tests.yaml)' },
   { id: 'exit', label: 'Exit', description: 'Exit the app (/exit)' },
 ] as const
@@ -85,6 +90,7 @@ export const POPUP_HEIGHTS = {
   image: 16,
   video: 16,
   history: 16,
+  resume: 18,
   smart: 12,
   tokens: 16,
   budgets: 14,

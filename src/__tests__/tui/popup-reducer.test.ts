@@ -21,6 +21,36 @@ describe('popupReducer', () => {
     })
     expect(next.activeScan).toBeNull()
   })
+
+  it('opens resume popup with seeded defaults', () => {
+    const next = popupReducer(INITIAL_POPUP_MANAGER_STATE, {
+      type: 'open-resume',
+      scanId: 123,
+      sourceKind: 'history',
+      mode: 'best-effort',
+      payloadPathDraft: '',
+      historyItems: [{ selector: 'last', title: 't', detail: 'd' }],
+      historySelectionIndex: 0,
+      historyErrorMessage: null,
+    })
+
+    expect(next.popupState).toEqual({
+      type: 'resume',
+      selectionIndex: 0,
+      sourceKind: 'history',
+      mode: 'best-effort',
+      historyItems: [{ selector: 'last', title: 't', detail: 'd' }],
+      historySelectionIndex: 0,
+      historyErrorMessage: null,
+      payloadPathDraft: '',
+      suggestedItems: [],
+      suggestedSelectionIndex: 0,
+      suggestedFocused: false,
+    })
+
+    expect(next.activeScan).toEqual({ kind: 'resume', id: 123 })
+  })
+
   describe('scan-suggestions-success staleness gating', () => {
     it('does not apply suggestions when kind mismatches', () => {
       const state = popupReducer(INITIAL_POPUP_MANAGER_STATE, { type: 'open-file', scanId: 123 })

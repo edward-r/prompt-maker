@@ -77,6 +77,10 @@ export const useCommandScreenPopupAndView = (
         onHistoryPopupDraftChange: bindings.popup.history.onDraftChange,
         onHistoryPopupSubmit: bindings.popup.history.onSubmit,
       },
+      resume: {
+        onResumePayloadPathDraftChange: bindings.popup.misc.onResumePayloadPathDraftChange,
+        onResumeSubmit: popupManager.actions.handleResumeSubmit,
+      },
       intent: {
         intentPopupSuggestions: bindings.popup.intent.suggestions,
         intentPopupSuggestionSelectionIndex: bindings.popup.intent.suggestionSelectionIndex,

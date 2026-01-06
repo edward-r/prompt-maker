@@ -55,6 +55,7 @@ export type UseCommandScreenPopupBindingsOptions = {
       handleModelPopupSubmit: (option: ModelOption | null | undefined) => void
       applyToggleSelection: (field: 'copy' | 'chatgpt' | 'json', value: boolean) => void
       handleIntentFileSubmit: (value: string) => void
+      handleResumeSubmit: () => void
       handleSeriesIntentSubmit: (value: string) => void
       handleBudgetsSubmit: () => void
     }
@@ -76,7 +77,13 @@ export type UseCommandScreenPopupBindingsOptions = {
     isGenerating: boolean
     isAwaitingRefinement: boolean
     submitRefinement: (value: string) => void
-    runGeneration: (payload: { intent?: string; intentFile?: string }) => Promise<void>
+    runGeneration: (payload: {
+      intent?: string
+      intentFile?: string
+      resume?:
+        | { kind: 'history'; selector: string; mode: import('../../../types').ResumeMode }
+        | { kind: 'file'; payloadPath: string; mode: import('../../../types').ResumeMode }
+    }) => Promise<void>
   }
 
   history: {
@@ -193,6 +200,7 @@ export type UseCommandScreenPopupBindingsResult = {
       onTestDraftChange: (next: string) => void
       onBudgetsMaxContextTokensDraftChange: (next: string) => void
       onBudgetsMaxInputTokensDraftChange: (next: string) => void
+      onResumePayloadPathDraftChange: (next: string) => void
     }
     reasoning: {
       lines: HistoryEntry[]
@@ -355,6 +363,10 @@ export const useCommandScreenPopupBindings = (
       items: historyAndIntent.history.historyPopupItems,
     },
 
+    resume: {
+      onSubmit: options.popup.actions.handleResumeSubmit,
+    },
+
     smart: {
       suggestions: context.smartPopupSuggestions,
       contextRoot: options.context.smartContextRoot,
@@ -479,6 +491,7 @@ export const useCommandScreenPopupBindings = (
         onBudgetsMaxContextTokensDraftChange:
           miscDraftHandlers.onBudgetsMaxContextTokensDraftChange,
         onBudgetsMaxInputTokensDraftChange: miscDraftHandlers.onBudgetsMaxInputTokensDraftChange,
+        onResumePayloadPathDraftChange: miscDraftHandlers.onResumePayloadPathDraftChange,
       },
       reasoning: {
         lines: reasoningPopupLines,
