@@ -56,6 +56,22 @@ describe('popup manager command mapping', () => {
     ])
   })
 
+  it('opens budgets popup from /budgets', () => {
+    const result = mapPopupCommandSelection({
+      commandId: 'budgets',
+      argsRaw: undefined,
+      context: baseContext,
+    })
+
+    expect(result).toEqual({
+      kind: 'steps',
+      steps: [
+        { type: 'open-popup', popup: 'budgets' },
+        { type: 'set-input', value: '' },
+      ],
+    })
+  })
+
   it('clears smart root when disabling smart context', () => {
     const result = mapPopupCommandSelection({
       commandId: 'smart',

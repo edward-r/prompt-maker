@@ -46,6 +46,12 @@ export type PopupAction =
   | { type: 'open-history' }
   | { type: 'open-smart'; scanId: number; draft: string }
   | { type: 'open-tokens' }
+  | {
+      type: 'open-budgets'
+      maxContextTokens: number | null
+      maxInputTokens: number | null
+      contextOverflowStrategy: import('../config').ContextOverflowStrategy | null
+    }
   | { type: 'open-settings' }
   | { type: 'open-theme'; selectionIndex: number; initialThemeName: string }
   | {
@@ -237,6 +243,20 @@ export const popupReducer = (state: PopupManagerState, action: PopupAction): Pop
 
     case 'open-tokens':
       return { popupState: { type: 'tokens' }, activeScan: null }
+
+    case 'open-budgets':
+      return {
+        popupState: {
+          type: 'budgets',
+          selectionIndex: 0,
+          maxContextTokensDraft:
+            action.maxContextTokens === null ? '' : String(action.maxContextTokens),
+          maxInputTokensDraft: action.maxInputTokens === null ? '' : String(action.maxInputTokens),
+          contextOverflowStrategyDraft: action.contextOverflowStrategy ?? '',
+          errorMessage: null,
+        },
+        activeScan: null,
+      }
 
     case 'open-settings':
       return { popupState: { type: 'settings' }, activeScan: null }

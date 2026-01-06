@@ -101,6 +101,16 @@ export const useCommandScreenPopupAndView = (
       tokens: {
         tokenUsageRun: generation.tokenUsageRun,
         tokenUsageBreakdown: generation.tokenUsageBreakdown,
+        maxContextTokens: context.maxContextTokens,
+        maxInputTokens: context.maxInputTokens,
+        contextOverflowStrategy: context.contextOverflowStrategy,
+        latestContextOverflow: generation.latestContextOverflow,
+      },
+      budgets: {
+        onBudgetsMaxContextTokensDraftChange:
+          bindings.popup.misc.onBudgetsMaxContextTokensDraftChange,
+        onBudgetsMaxInputTokensDraftChange: bindings.popup.misc.onBudgetsMaxInputTokensDraftChange,
+        onBudgetsSubmit: popupManager.actions.handleBudgetsSubmit,
       },
       settings: { statusChips: enhancedStatusChips },
       reasoning: {

@@ -87,6 +87,12 @@ const createOptions = (overrides: Partial<UsePopupManagerOptions> = {}): UsePopu
     intentFilePath: '',
     metaInstructions: '',
     setMetaInstructions: jest.fn(),
+    budgets: {
+      maxContextTokens: null,
+      maxInputTokens: null,
+      contextOverflowStrategy: null,
+    },
+    setBudgets: jest.fn(),
     polishModelId: null,
     copyEnabled: false,
 

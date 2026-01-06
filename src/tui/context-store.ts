@@ -1,5 +1,7 @@
 import { createContext, useContext } from 'react'
 
+import type { ContextOverflowStrategy } from '../config'
+
 export type ContextSourceState = {
   files: string[]
   urls: string[]
@@ -8,6 +10,9 @@ export type ContextSourceState = {
   smartContextEnabled: boolean
   smartContextRoot: string | null
   metaInstructions: string
+  maxContextTokens: number | null
+  maxInputTokens: number | null
+  contextOverflowStrategy: ContextOverflowStrategy | null
   lastReasoning: string | null
   lastGeneratedPrompt: string | null
 }
@@ -25,6 +30,11 @@ export type ContextDispatch = {
   toggleSmartContext: () => void
   setSmartRoot: (value: string) => void
   setMetaInstructions: (value: string) => void
+  setBudgets: (value: {
+    maxContextTokens: number | null
+    maxInputTokens: number | null
+    contextOverflowStrategy: ContextOverflowStrategy | null
+  }) => void
   setLastReasoning: (value: string | null) => void
   setLastGeneratedPrompt: (value: string | null) => void
   resetContext: () => void

@@ -1,4 +1,7 @@
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
+
+import { loadCliConfig } from '../config'
+
 import { ContextDispatchContext, ContextStateContext } from './context-store'
 
 export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -9,6 +12,11 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [smartContextEnabled, setSmartContextEnabled] = useState(false)
   const [smartContextRoot, setSmartContextRoot] = useState<string | null>(null)
   const [metaInstructions, setMetaInstructions] = useState('')
+  const [maxContextTokens, setMaxContextTokens] = useState<number | null>(null)
+  const [maxInputTokens, setMaxInputTokens] = useState<number | null>(null)
+  const [contextOverflowStrategy, setContextOverflowStrategy] = useState<
+    import('../config').ContextOverflowStrategy | null
+  >(null)
   const [lastReasoning, setLastReasoning] = useState<string | null>(null)
   const [lastGeneratedPrompt, setLastGeneratedPrompt] = useState<string | null>(null)
 
@@ -86,6 +94,41 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setLastReasoning(null)
   }, [])
 
+  const setBudgets = useCallback(
+    (value: {
+      maxContextTokens: number | null
+      maxInputTokens: number | null
+      contextOverflowStrategy: import('../config').ContextOverflowStrategy | null
+    }) => {
+      setMaxContextTokens(value.maxContextTokens)
+      setMaxInputTokens(value.maxInputTokens)
+      setContextOverflowStrategy(value.contextOverflowStrategy)
+    },
+    [],
+  )
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadBudgetsFromConfig = async (): Promise<void> => {
+      const config = await loadCliConfig().catch(() => null)
+      if (cancelled) {
+        return
+      }
+
+      const promptGenerator = config?.promptGenerator
+      setMaxInputTokens(promptGenerator?.maxInputTokens ?? null)
+      setMaxContextTokens(promptGenerator?.maxContextTokens ?? null)
+      setContextOverflowStrategy(promptGenerator?.contextOverflowStrategy ?? null)
+    }
+
+    void loadBudgetsFromConfig()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
     <ContextStateContext.Provider
       value={{
@@ -96,6 +139,9 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({ child
         smartContextEnabled,
         smartContextRoot,
         metaInstructions,
+        maxContextTokens,
+        maxInputTokens,
+        contextOverflowStrategy,
         lastReasoning,
         lastGeneratedPrompt,
       }}
@@ -114,6 +160,7 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({ child
           toggleSmartContext,
           setSmartRoot,
           setMetaInstructions,
+          setBudgets,
           setLastReasoning,
           setLastGeneratedPrompt,
           resetContext,

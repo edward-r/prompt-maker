@@ -57,6 +57,9 @@ export const useCommandScreenController = ({
     smartContextEnabled,
     smartContextRoot,
     metaInstructions,
+    maxContextTokens,
+    maxInputTokens,
+    contextOverflowStrategy,
     lastReasoning,
     lastGeneratedPrompt,
   } = useContextState()
@@ -74,6 +77,7 @@ export const useCommandScreenController = ({
     toggleSmartContext,
     setSmartRoot,
     setMetaInstructions,
+    setBudgets,
     setLastReasoning,
     setLastGeneratedPrompt,
     resetContext,
@@ -96,6 +100,7 @@ export const useCommandScreenController = ({
       smartContextEnabled,
       smartContextRoot,
       metaInstructions,
+      budgets: { maxContextTokens, maxInputTokens, contextOverflowStrategy },
       ...(interactiveTransportPath ? { interactiveTransportPath } : {}),
       terminalColumns: inputState.terminalColumns,
       copyEnabled: inputState.copyEnabled,
@@ -119,6 +124,9 @@ export const useCommandScreenController = ({
       smartContextEnabled,
       smartContextRoot,
       metaInstructions,
+      maxContextTokens,
+      maxInputTokens,
+      contextOverflowStrategy,
       lastReasoning,
       lastGeneratedPrompt,
       addFile,
@@ -133,6 +141,7 @@ export const useCommandScreenController = ({
       toggleSmartContext,
       setSmartRoot,
       setMetaInstructions,
+      setBudgets,
       resetContext,
     }),
     [
@@ -146,6 +155,9 @@ export const useCommandScreenController = ({
       smartContextEnabled,
       smartContextRoot,
       metaInstructions,
+      maxContextTokens,
+      maxInputTokens,
+      contextOverflowStrategy,
       lastReasoning,
       lastGeneratedPrompt,
       addFile,
@@ -160,6 +172,7 @@ export const useCommandScreenController = ({
       toggleSmartContext,
       setSmartRoot,
       setMetaInstructions,
+      setBudgets,
       resetContext,
     ],
   )
@@ -281,6 +294,7 @@ export const useCommandScreenController = ({
       awaitingInteractiveMode: modelAndGeneration.pipeline.awaitingInteractiveMode,
       tokenUsageRun: modelAndGeneration.pipeline.tokenUsageRun,
       tokenUsageBreakdown: modelAndGeneration.pipeline.tokenUsageBreakdown,
+      latestContextOverflow: modelAndGeneration.pipeline.latestContextOverflow,
     }),
     [
       modelAndGeneration.currentModel,
@@ -300,6 +314,7 @@ export const useCommandScreenController = ({
       modelAndGeneration.pipeline.awaitingInteractiveMode,
       modelAndGeneration.pipeline.tokenUsageRun,
       modelAndGeneration.pipeline.tokenUsageBreakdown,
+      modelAndGeneration.pipeline.latestContextOverflow,
     ],
   )
 

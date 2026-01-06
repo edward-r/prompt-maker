@@ -43,6 +43,7 @@ type OpenPopupStep = {
     | 'history'
     | 'smart-root'
     | 'tokens'
+    | 'budgets'
     | 'settings'
     | 'theme'
     | 'theme-mode'
@@ -443,6 +444,15 @@ export const mapPopupCommandSelection = ({
         kind: 'steps',
         steps: [
           { type: 'open-popup', popup: 'tokens' },
+          { type: 'set-input', value: '' },
+        ],
+      }
+
+    case 'budgets':
+      return {
+        kind: 'steps',
+        steps: [
+          { type: 'open-popup', popup: 'budgets' },
           { type: 'set-input', value: '' },
         ],
       }

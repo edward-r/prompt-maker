@@ -25,6 +25,9 @@ export type CommandContextOptions = {
   smartContextEnabled: boolean
   smartContextRoot: string | null
   metaInstructions: string
+  maxContextTokens: number | null
+  maxInputTokens: number | null
+  contextOverflowStrategy: import('../../../../config').ContextOverflowStrategy | null
   lastReasoning: string | null
   lastGeneratedPrompt: string | null
 
@@ -41,6 +44,11 @@ export type CommandContextOptions = {
   toggleSmartContext: () => void
   setSmartRoot: (value: string) => void
   setMetaInstructions: (value: string) => void
+  setBudgets: (value: {
+    maxContextTokens: number | null
+    maxInputTokens: number | null
+    contextOverflowStrategy: import('../../../../config').ContextOverflowStrategy | null
+  }) => void
   resetContext: () => void
 }
 
@@ -129,6 +137,9 @@ export type CommandGenerationOptions = {
     | null
   tokenUsageRun: import('../../../token-usage-store').TokenUsageRun | null
   tokenUsageBreakdown: import('../../../token-usage-store').TokenUsageBreakdown | null
+  latestContextOverflow:
+    | import('../../../generation-pipeline-reducer').ContextOverflowDetails
+    | null
 }
 
 export type UseCommandScreenPopupAndViewOptions = {

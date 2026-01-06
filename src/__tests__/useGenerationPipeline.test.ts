@@ -83,6 +83,11 @@ describe('useGenerationPipeline', () => {
     smartContextEnabled: false,
     smartContextRoot: null,
     metaInstructions: '',
+    budgets: {
+      maxContextTokens: null,
+      maxInputTokens: null,
+      contextOverflowStrategy: null,
+    },
     interactiveTransportPath: undefined as string | undefined,
     terminalColumns: 80,
     polishModelId: null,

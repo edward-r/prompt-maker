@@ -104,6 +104,18 @@ export type UseCommandScreenViewModelOptions = {
     tokens: {
       tokenUsageRun: TokenUsageRun | null
       tokenUsageBreakdown: TokenUsageBreakdown | null
+      maxContextTokens: number | null
+      maxInputTokens: number | null
+      contextOverflowStrategy: import('../../../../config').ContextOverflowStrategy | null
+      latestContextOverflow:
+        | import('../../../generation-pipeline-reducer').ContextOverflowDetails
+        | null
+    }
+
+    budgets: {
+      onBudgetsMaxContextTokensDraftChange: (next: string) => void
+      onBudgetsMaxInputTokensDraftChange: (next: string) => void
+      onBudgetsSubmit: () => void
     }
 
     settings: {
@@ -172,6 +184,7 @@ export const useCommandScreenViewModel = ({
       ...popup.series,
       ...popup.test,
       ...popup.tokens,
+      ...popup.budgets,
       ...popup.settings,
       ...popup.reasoning,
     }),
@@ -187,6 +200,7 @@ export const useCommandScreenViewModel = ({
       popup.settings,
       popup.test,
       popup.tokens,
+      popup.budgets,
     ],
   )
 

@@ -63,6 +63,12 @@ export const useCommandScreenBindings = (
     setIntentFilePath: input.setIntentFilePath,
     metaInstructions: context.metaInstructions,
     setMetaInstructions: context.setMetaInstructions,
+    budgets: {
+      maxContextTokens: context.maxContextTokens,
+      maxInputTokens: context.maxInputTokens,
+      contextOverflowStrategy: context.contextOverflowStrategy,
+    },
+    setBudgets: context.setBudgets,
     copyEnabled: input.copyEnabled,
 
     chatGptEnabled: input.chatGptEnabled,
@@ -155,6 +161,7 @@ export const useCommandScreenBindings = (
         handleModelPopupSubmit: popupManager.actions.handleModelPopupSubmit,
         applyToggleSelection: popupManager.actions.applyToggleSelection,
         handleIntentFileSubmit: popupManager.actions.handleIntentFileSubmit,
+        handleBudgetsSubmit: popupManager.actions.handleBudgetsSubmit,
         handleSeriesIntentSubmit: popupManager.actions.handleSeriesIntentSubmit,
       },
     },

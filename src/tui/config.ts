@@ -48,6 +48,11 @@ export const COMMAND_DESCRIPTORS = [
   { id: 'chatgpt', label: 'ChatGPT', description: 'Open ChatGPT automatically' },
   { id: 'json', label: 'JSON', description: 'Toggle JSON payload in history (/json on|off)' },
   { id: 'tokens', label: 'Tokens', description: 'Show token usage breakdown (/tokens)' },
+  {
+    id: 'budgets',
+    label: 'Budgets',
+    description: 'Configure token budgets and overflow strategy (/budgets)',
+  },
   { id: 'settings', label: 'Settings', description: 'Show current settings (/settings)' },
   { id: 'theme', label: 'Theme', description: 'Switch TUI theme (/theme)' },
   {
@@ -82,6 +87,7 @@ export const POPUP_HEIGHTS = {
   history: 16,
   smart: 12,
   tokens: 16,
+  budgets: 14,
   settings: 14,
   theme: 16,
   themeMode: 8,

@@ -1,3 +1,4 @@
+import type { ContextOverflowStrategy } from '../config'
 import type { ModelProvider } from '../model-providers'
 import type { COMMAND_DESCRIPTORS, POPUP_HEIGHTS, TOGGLE_LABELS } from './config'
 import type { ThemeMode } from './theme/theme-types'
@@ -76,6 +77,14 @@ export type PopupState =
       suggestedFocused: boolean
     }
   | { type: 'tokens' }
+  | {
+      type: 'budgets'
+      selectionIndex: number
+      maxContextTokensDraft: string
+      maxInputTokensDraft: string
+      contextOverflowStrategyDraft: ContextOverflowStrategy | ''
+      errorMessage: string | null
+    }
   | { type: 'settings' }
   | { type: 'theme'; selectionIndex: number; initialThemeName: string }
   | {

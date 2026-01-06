@@ -16,6 +16,8 @@ export type UseMiscPopupDraftHandlersResult = {
   onSeriesDraftChange: (next: string) => void
   onInstructionsDraftChange: (next: string) => void
   onTestDraftChange: (next: string) => void
+  onBudgetsMaxContextTokensDraftChange: (next: string) => void
+  onBudgetsMaxInputTokensDraftChange: (next: string) => void
 }
 
 export const useMiscPopupDraftHandlers = ({
@@ -64,10 +66,40 @@ export const useMiscPopupDraftHandlers = ({
     [consumeSuppressedTextInputChange, setPopupState],
   )
 
+  const onBudgetsMaxContextTokensDraftChange = useCallback(
+    (next: string) => {
+      if (consumeSuppressedTextInputChange()) {
+        return
+      }
+      setPopupState((prev) =>
+        prev?.type === 'budgets'
+          ? { ...prev, maxContextTokensDraft: next, errorMessage: null }
+          : prev,
+      )
+    },
+    [consumeSuppressedTextInputChange, setPopupState],
+  )
+
+  const onBudgetsMaxInputTokensDraftChange = useCallback(
+    (next: string) => {
+      if (consumeSuppressedTextInputChange()) {
+        return
+      }
+      setPopupState((prev) =>
+        prev?.type === 'budgets'
+          ? { ...prev, maxInputTokensDraft: next, errorMessage: null }
+          : prev,
+      )
+    },
+    [consumeSuppressedTextInputChange, setPopupState],
+  )
+
   return {
     onModelPopupQueryChange,
     onSeriesDraftChange,
     onInstructionsDraftChange,
     onTestDraftChange,
+    onBudgetsMaxContextTokensDraftChange,
+    onBudgetsMaxInputTokensDraftChange,
   }
 }

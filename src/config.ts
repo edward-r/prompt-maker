@@ -231,6 +231,95 @@ export const updateCliThemeSettings = async (
   cachedConfigPath = configPath
 }
 
+export type PromptGeneratorSettingsPatch = {
+  maxInputTokens?: number | null
+  maxContextTokens?: number | null
+  contextOverflowStrategy?: ContextOverflowStrategy | null
+}
+
+export const updateCliPromptGeneratorSettings = async (
+  patch: PromptGeneratorSettingsPatch,
+  options?: { configPath?: string },
+): Promise<void> => {
+  const configPath = options?.configPath ?? (await resolveConfigPathForWrite())
+  const directory = path.dirname(configPath)
+  await fs.mkdir(directory, { recursive: true })
+
+  let raw: unknown = {}
+  try {
+    const contents = await fs.readFile(configPath, 'utf8')
+    raw = JSON.parse(contents) as unknown
+  } catch (error) {
+    if (!isFileMissingError(error)) {
+      const message = error instanceof Error ? error.message : 'Unknown config error.'
+      throw new Error(`Failed to read config at ${configPath}: ${message}`)
+    }
+  }
+
+  if (!isRecord(raw)) {
+    throw new Error(`Failed to update config at ${configPath}: root must be a JSON object.`)
+  }
+
+  const next: Record<string, unknown> = { ...raw }
+
+  const existingPromptGenerator = next.promptGenerator
+  const promptGenerator = isRecord(existingPromptGenerator)
+    ? { ...existingPromptGenerator }
+    : ({} satisfies Record<string, unknown>)
+
+  if ('maxInputTokens' in patch) {
+    if (patch.maxInputTokens === null || patch.maxInputTokens === undefined) {
+      delete promptGenerator.maxInputTokens
+    } else {
+      promptGenerator.maxInputTokens = expectPositiveInteger(
+        patch.maxInputTokens,
+        'promptGenerator.maxInputTokens',
+      )
+    }
+  }
+
+  if ('maxContextTokens' in patch) {
+    if (patch.maxContextTokens === null || patch.maxContextTokens === undefined) {
+      delete promptGenerator.maxContextTokens
+    } else {
+      promptGenerator.maxContextTokens = expectPositiveInteger(
+        patch.maxContextTokens,
+        'promptGenerator.maxContextTokens',
+      )
+    }
+  }
+
+  if ('contextOverflowStrategy' in patch) {
+    if (patch.contextOverflowStrategy === null || patch.contextOverflowStrategy === undefined) {
+      delete promptGenerator.contextOverflowStrategy
+    } else {
+      promptGenerator.contextOverflowStrategy = expectContextOverflowStrategy(
+        patch.contextOverflowStrategy,
+        'promptGenerator.contextOverflowStrategy',
+      )
+    }
+  }
+
+  if (Object.keys(promptGenerator).length === 0) {
+    delete next.promptGenerator
+  } else {
+    next.promptGenerator = promptGenerator
+  }
+
+  const contents = JSON.stringify(next, null, 2)
+  const tempFile = `${configPath}.${process.pid}.tmp`
+  await fs.writeFile(tempFile, `${contents}\n`, 'utf8')
+
+  try {
+    await fs.rename(tempFile, configPath)
+  } catch {
+    await fs.writeFile(configPath, `${contents}\n`, 'utf8')
+  }
+
+  cachedConfig = parseConfig(next)
+  cachedConfigPath = configPath
+}
+
 const parseConfig = (raw: unknown): PromptMakerCliConfig => {
   if (!isRecord(raw)) {
     throw new Error('CLI config must be a JSON object.')

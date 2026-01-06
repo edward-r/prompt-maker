@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 
+import type { BudgetSettings } from '../../../budget-settings'
 import { useGenerationPipeline } from '../../../hooks/useGenerationPipeline'
 import type { NotifyOptions } from '../../../notifier'
 import { createTokenUsageStore } from '../../../token-usage-store'
@@ -23,6 +24,7 @@ export type UseCommandGenerationPipelineOptions = {
   smartContextRoot: string | null
 
   metaInstructions: string
+  budgets: BudgetSettings
   currentModel: string
   targetModel: string
   interactiveTransportPath?: string | undefined
@@ -45,6 +47,7 @@ export type UseCommandGenerationPipelineResult = {
   runGeneration: ReturnType<typeof useGenerationPipeline>['runGeneration']
   runSeriesGeneration: ReturnType<typeof useGenerationPipeline>['runSeriesGeneration']
   statusChips: string[]
+  latestContextOverflow: ReturnType<typeof useGenerationPipeline>['latestContextOverflow']
   isAwaitingRefinement: boolean
   submitRefinement: ReturnType<typeof useGenerationPipeline>['submitRefinement']
   awaitingInteractiveMode: ReturnType<typeof useGenerationPipeline>['awaitingInteractiveMode']
@@ -63,6 +66,7 @@ export const useCommandGenerationPipeline = ({
   smartContextEnabled,
   smartContextRoot,
   metaInstructions,
+  budgets,
   currentModel,
   targetModel,
   interactiveTransportPath,
@@ -97,6 +101,7 @@ export const useCommandGenerationPipeline = ({
     ...(interactiveTransportPath ? { interactiveTransportPath } : {}),
     terminalColumns,
     metaInstructions: trimmedMetaInstructions,
+    budgets,
     polishModelId,
     jsonOutputEnabled,
 
@@ -117,6 +122,7 @@ export const useCommandGenerationPipeline = ({
     runGeneration: pipeline.runGeneration,
     runSeriesGeneration: pipeline.runSeriesGeneration,
     statusChips: pipeline.statusChips,
+    latestContextOverflow: pipeline.latestContextOverflow,
     isAwaitingRefinement: pipeline.isAwaitingRefinement,
     submitRefinement: pipeline.submitRefinement,
     awaitingInteractiveMode: pipeline.awaitingInteractiveMode,

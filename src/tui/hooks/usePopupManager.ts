@@ -16,7 +16,10 @@ import {
   type SetStateAction,
 } from '../popup-reducer'
 
+import { updateCliPromptGeneratorSettings } from '../../config'
+
 import { TOGGLE_LABELS } from '../config'
+import { parseBudgetSettingsDraft } from '../budget-settings'
 import {
   scanFileSuggestions,
   scanImageSuggestions,
@@ -48,6 +51,7 @@ export type PopupManagerActions = {
   openHistoryPopup: () => void
   openSmartRootPopup: () => void
   openTokensPopup: () => void
+  openBudgetsPopup: () => void
   openSettingsPopup: () => void
   openThemePopup: () => void
   openThemeModePopup: () => void
@@ -62,6 +66,7 @@ export type PopupManagerActions = {
   applyToggleSelection: (field: ToggleField, value: boolean) => void
   handleIntentFileSubmit: (value: string) => void
   handleInstructionsSubmit: (value: string) => void
+  handleBudgetsSubmit: () => void
   handleSeriesIntentSubmit: (value: string) => void
 }
 
@@ -109,6 +114,16 @@ export type UsePopupManagerOptions = {
   intentFilePath: string
   metaInstructions: string
   setMetaInstructions: (value: string) => void
+  budgets: {
+    maxContextTokens: number | null
+    maxInputTokens: number | null
+    contextOverflowStrategy: import('../../config').ContextOverflowStrategy | null
+  }
+  setBudgets: (value: {
+    maxContextTokens: number | null
+    maxInputTokens: number | null
+    contextOverflowStrategy: import('../../config').ContextOverflowStrategy | null
+  }) => void
   polishModelId: ModelOption['id'] | null
   copyEnabled: boolean
   chatGptEnabled: boolean
@@ -168,6 +183,8 @@ export const usePopupManager = ({
   intentFilePath,
   metaInstructions,
   setMetaInstructions,
+  budgets,
+  setBudgets,
   polishModelId,
   copyEnabled,
   chatGptEnabled,
@@ -294,6 +311,15 @@ export const usePopupManager = ({
   const openTokensPopup = useCallback(() => {
     dispatch({ type: 'open-tokens' })
   }, [])
+
+  const openBudgetsPopup = useCallback(() => {
+    dispatch({
+      type: 'open-budgets',
+      maxContextTokens: budgets.maxContextTokens,
+      maxInputTokens: budgets.maxInputTokens,
+      contextOverflowStrategy: budgets.contextOverflowStrategy,
+    })
+  }, [budgets.contextOverflowStrategy, budgets.maxContextTokens, budgets.maxInputTokens])
 
   const openSettingsPopup = useCallback(() => {
     dispatch({ type: 'open-settings' })
@@ -490,6 +516,59 @@ export const usePopupManager = ({
     [closePopup, pushHistory, setInputValue, setMetaInstructions],
   )
 
+  const handleBudgetsSubmit = useCallback(() => {
+    if (popupState?.type !== 'budgets') {
+      return
+    }
+
+    const parsed = parseBudgetSettingsDraft({
+      maxContextTokensDraft: popupState.maxContextTokensDraft,
+      maxInputTokensDraft: popupState.maxInputTokensDraft,
+      contextOverflowStrategyDraft: popupState.contextOverflowStrategyDraft,
+    })
+
+    if (!parsed.ok) {
+      setPopupState((prev) =>
+        prev?.type === 'budgets' ? { ...prev, errorMessage: parsed.errorMessage } : prev,
+      )
+      return
+    }
+
+    const persist = async (): Promise<void> => {
+      try {
+        await updateCliPromptGeneratorSettings({
+          maxContextTokens: parsed.settings.maxContextTokens,
+          maxInputTokens: parsed.settings.maxInputTokens,
+          contextOverflowStrategy: parsed.settings.contextOverflowStrategy,
+        })
+
+        setBudgets(parsed.settings)
+
+        const enabled =
+          parsed.settings.maxContextTokens !== null || parsed.settings.maxInputTokens !== null
+
+        const summary = enabled
+          ? `Budgets saved · input=${parsed.settings.maxInputTokens ?? 'unset'} · context=${parsed.settings.maxContextTokens ?? 'unset'} · overflow=${parsed.settings.contextOverflowStrategy ?? 'fail'}`
+          : 'Budgets cleared'
+
+        pushHistory(`[budgets] ${summary}`, 'system')
+        notify(summary, { kind: enabled ? 'info' : 'warning' })
+        setInputValue('')
+        closePopup()
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown config write error.'
+        setPopupState((prev) =>
+          prev?.type === 'budgets'
+            ? { ...prev, errorMessage: `Failed to save budgets: ${message}` }
+            : prev,
+        )
+        notify(`Failed to save budgets: ${message}`, { kind: 'error' })
+      }
+    }
+
+    void persist()
+  }, [closePopup, notify, popupState, pushHistory, setBudgets, setInputValue, setPopupState])
+
   const handleSeriesIntentSubmit = useCallback(
     (value: string) => {
       const trimmed = value.trim()
@@ -568,6 +647,9 @@ export const usePopupManager = ({
                 break
               case 'tokens':
                 openTokensPopup()
+                break
+              case 'budgets':
+                openBudgetsPopup()
                 break
               case 'settings':
                 openSettingsPopup()
@@ -824,6 +906,7 @@ export const usePopupManager = ({
       openHistoryPopup,
       openSmartRootPopup,
       openTokensPopup,
+      openBudgetsPopup,
       openSettingsPopup,
       openThemePopup,
       openThemeModePopup,
@@ -838,6 +921,7 @@ export const usePopupManager = ({
       applyToggleSelection,
       handleIntentFileSubmit,
       handleInstructionsSubmit,
+      handleBudgetsSubmit,
       handleSeriesIntentSubmit,
     }),
     [

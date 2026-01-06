@@ -11,6 +11,7 @@ import { handleIntentPopupShortcuts } from './popup-shortcuts/intent-popup-short
 import { handleModelPopupShortcuts } from './popup-shortcuts/model-popup-shortcuts'
 import { handleReasoningPopupShortcuts } from './popup-shortcuts/reasoning-popup-shortcuts'
 import { handleSmartPopupShortcuts } from './popup-shortcuts/smart-popup-shortcuts'
+import { handleBudgetsPopupShortcuts } from './popup-shortcuts/budgets-popup-shortcuts'
 import { handleSuggestedSelectedListPopupShortcuts } from './popup-shortcuts/suggested-selected-list-popup-shortcuts'
 import {
   handleThemeModePopupShortcuts,
@@ -44,6 +45,10 @@ export type UsePopupKeyboardShortcutsOptions = {
     count: number
     onConfirm: () => void
     onCancel: () => void
+  }
+
+  budgets: {
+    onSubmit: () => void
   }
 
   file: {
@@ -102,6 +107,7 @@ export const usePopupKeyboardShortcuts = ({
   toggle,
   theme,
   themeMode,
+  budgets,
   file,
   url,
   image,
@@ -160,6 +166,16 @@ export const usePopupKeyboardShortcuts = ({
           setPopupState,
           onThemeModeConfirm: themeMode.onConfirm,
           onThemeModeCancel: themeMode.onCancel,
+        })
+        return
+
+      case 'budgets':
+        handleBudgetsPopupShortcuts({
+          popupState,
+          key,
+          setPopupState,
+          closePopup,
+          onBudgetsSubmit: budgets.onSubmit,
         })
         return
 

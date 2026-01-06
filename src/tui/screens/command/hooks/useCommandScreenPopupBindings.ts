@@ -56,6 +56,7 @@ export type UseCommandScreenPopupBindingsOptions = {
       applyToggleSelection: (field: 'copy' | 'chatgpt' | 'json', value: boolean) => void
       handleIntentFileSubmit: (value: string) => void
       handleSeriesIntentSubmit: (value: string) => void
+      handleBudgetsSubmit: () => void
     }
   }
 
@@ -190,6 +191,8 @@ export type UseCommandScreenPopupBindingsResult = {
       onSeriesDraftChange: (next: string) => void
       onInstructionsDraftChange: (next: string) => void
       onTestDraftChange: (next: string) => void
+      onBudgetsMaxContextTokensDraftChange: (next: string) => void
+      onBudgetsMaxInputTokensDraftChange: (next: string) => void
     }
     reasoning: {
       lines: HistoryEntry[]
@@ -316,6 +319,10 @@ export const useCommandScreenPopupBindings = (
       count: themeModePopup.optionCount,
       onConfirm: themeModePopup.onConfirm,
       onCancel: themeModePopup.onCancel,
+    },
+
+    budgets: {
+      onSubmit: options.popup.actions.handleBudgetsSubmit,
     },
 
     file: {
@@ -469,6 +476,9 @@ export const useCommandScreenPopupBindings = (
         onSeriesDraftChange: miscDraftHandlers.onSeriesDraftChange,
         onInstructionsDraftChange: miscDraftHandlers.onInstructionsDraftChange,
         onTestDraftChange: miscDraftHandlers.onTestDraftChange,
+        onBudgetsMaxContextTokensDraftChange:
+          miscDraftHandlers.onBudgetsMaxContextTokensDraftChange,
+        onBudgetsMaxInputTokensDraftChange: miscDraftHandlers.onBudgetsMaxInputTokensDraftChange,
       },
       reasoning: {
         lines: reasoningPopupLines,
@@ -516,6 +526,8 @@ export const useCommandScreenPopupBindings = (
       miscDraftHandlers.onSeriesDraftChange,
       miscDraftHandlers.onInstructionsDraftChange,
       miscDraftHandlers.onTestDraftChange,
+      miscDraftHandlers.onBudgetsMaxContextTokensDraftChange,
+      miscDraftHandlers.onBudgetsMaxInputTokensDraftChange,
       reasoningPopupLines,
       reasoningPopupVisibleRows,
     ],

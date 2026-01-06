@@ -53,6 +53,16 @@ type UseCommandScreenPopupManagerOptions = {
 
   metaInstructions: string
   setMetaInstructions: (value: string) => void
+  budgets: {
+    maxContextTokens: number | null
+    maxInputTokens: number | null
+    contextOverflowStrategy: import('../../../../config').ContextOverflowStrategy | null
+  }
+  setBudgets: (value: {
+    maxContextTokens: number | null
+    maxInputTokens: number | null
+    contextOverflowStrategy: import('../../../../config').ContextOverflowStrategy | null
+  }) => void
 
   polishModelId: ModelOption['id'] | null
   copyEnabled: boolean
@@ -103,6 +113,8 @@ export const useCommandScreenPopupManager = ({
   setIntentFilePath,
   metaInstructions,
   setMetaInstructions,
+  budgets,
+  setBudgets,
   polishModelId,
   copyEnabled,
   chatGptEnabled,
@@ -170,6 +182,8 @@ export const useCommandScreenPopupManager = ({
     intentFilePath,
     metaInstructions,
     setMetaInstructions,
+    budgets,
+    setBudgets,
     polishModelId,
     copyEnabled,
     chatGptEnabled,

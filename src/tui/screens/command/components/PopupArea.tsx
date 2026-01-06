@@ -12,6 +12,7 @@ import type { ComponentProps } from 'react'
 import { ListPopup } from '../../../components/popups/ListPopup'
 import { ModelPopup } from '../../../components/popups/ModelPopup'
 import { SmartPopup } from '../../../components/popups/SmartPopup'
+import { BudgetsPopup } from '../../../components/popups/BudgetsPopup'
 import { TokenUsagePopup } from '../../../components/popups/TokenUsagePopup'
 import { SettingsPopup } from '../../../components/popups/SettingsPopup'
 import { ReasoningPopup } from '../../../components/popups/ReasoningPopup'
@@ -99,6 +100,17 @@ export type PopupAreaProps = {
   // Tokens
   tokenUsageRun: TokenUsageRun | null
   tokenUsageBreakdown: TokenUsageBreakdown | null
+  maxContextTokens: number | null
+  maxInputTokens: number | null
+  contextOverflowStrategy: import('../../../../config').ContextOverflowStrategy | null
+  latestContextOverflow:
+    | import('../../../generation-pipeline-reducer').ContextOverflowDetails
+    | null
+
+  // Budgets
+  onBudgetsMaxContextTokensDraftChange: (next: string) => void
+  onBudgetsMaxInputTokensDraftChange: (next: string) => void
+  onBudgetsSubmit: () => void
 
   // Settings
   statusChips: string[]
@@ -337,9 +349,30 @@ const renderTokenUsagePopup = (props: PopupAreaProps) => {
   const viewModel = {
     run: props.tokenUsageRun,
     breakdown: props.tokenUsageBreakdown,
+    budgets: {
+      maxContextTokens: props.maxContextTokens,
+      maxInputTokens: props.maxInputTokens,
+      contextOverflowStrategy: props.contextOverflowStrategy,
+    },
+    latestContextOverflow: props.latestContextOverflow,
   } satisfies ComponentProps<typeof TokenUsagePopup>
 
   return <TokenUsagePopup {...viewModel} />
+}
+
+const renderBudgetsPopup = (props: PopupAreaProps, popupState: PopupStateFor<'budgets'>) => {
+  const viewModel = {
+    selectionIndex: popupState.selectionIndex,
+    maxContextTokensDraft: popupState.maxContextTokensDraft,
+    maxInputTokensDraft: popupState.maxInputTokensDraft,
+    contextOverflowStrategyDraft: popupState.contextOverflowStrategyDraft,
+    errorMessage: popupState.errorMessage,
+    onMaxContextTokensChange: props.onBudgetsMaxContextTokensDraftChange,
+    onMaxInputTokensChange: props.onBudgetsMaxInputTokensDraftChange,
+    onSubmit: props.onBudgetsSubmit,
+  } satisfies ComponentProps<typeof BudgetsPopup>
+
+  return <BudgetsPopup {...viewModel} />
 }
 
 const renderSettingsPopup = (props: PopupAreaProps) => {
@@ -409,6 +442,8 @@ export const PopupArea = (props: PopupAreaProps) => {
       return renderReasoningPopup(props, popupState)
     case 'tokens':
       return renderTokenUsagePopup(props)
+    case 'budgets':
+      return renderBudgetsPopup(props, popupState)
     case 'settings':
       return renderSettingsPopup(props)
 
