@@ -81,6 +81,10 @@ export const useCommandScreenPopupAndView = (
         onResumePayloadPathDraftChange: bindings.popup.misc.onResumePayloadPathDraftChange,
         onResumeSubmit: popupManager.actions.handleResumeSubmit,
       },
+      export: {
+        onExportOutPathDraftChange: bindings.popup.misc.onExportOutPathDraftChange,
+        onExportSubmit: popupManager.actions.handleExportSubmit,
+      },
       intent: {
         intentPopupSuggestions: bindings.popup.intent.suggestions,
         intentPopupSuggestionSelectionIndex: bindings.popup.intent.suggestionSelectionIndex,

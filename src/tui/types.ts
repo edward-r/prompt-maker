@@ -35,6 +35,14 @@ export type ResumeHistoryItem = {
   detail: string
 }
 
+export type ExportHistoryItem = {
+  selector: string
+  title: string
+  detail: string
+  schemaVersion: string
+  supported: boolean
+}
+
 export type PopupState =
   | {
       type: 'model'
@@ -90,6 +98,15 @@ export type PopupState =
       suggestedItems: string[]
       suggestedSelectionIndex: number
       suggestedFocused: boolean
+    }
+  | {
+      type: 'export'
+      selectionIndex: number
+      historyItems: ExportHistoryItem[]
+      historySelectionIndex: number
+      historyErrorMessage: string | null
+      format: 'json' | 'yaml'
+      outPathDraft: string
     }
   | {
       type: 'smart'

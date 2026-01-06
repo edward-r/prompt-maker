@@ -163,6 +163,7 @@ export const useCommandScreenBindings = (
         applyToggleSelection: popupManager.actions.applyToggleSelection,
         handleIntentFileSubmit: popupManager.actions.handleIntentFileSubmit,
         handleResumeSubmit: popupManager.actions.handleResumeSubmit,
+        handleExportSubmit: popupManager.actions.handleExportSubmit,
         handleBudgetsSubmit: popupManager.actions.handleBudgetsSubmit,
         handleSeriesIntentSubmit: popupManager.actions.handleSeriesIntentSubmit,
       },

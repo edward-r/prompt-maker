@@ -72,6 +72,11 @@ export const COMMAND_DESCRIPTORS = [
     label: 'Resume',
     description: 'Resume generation from history or an exported payload (/resume)',
   },
+  {
+    id: 'export',
+    label: 'Export',
+    description: 'Export a selected history payload to JSON/YAML (/export)',
+  },
   { id: 'test', label: 'Test', description: 'Run prompt tests (/test prompt-tests.yaml)' },
   { id: 'exit', label: 'Exit', description: 'Exit the app (/exit)' },
 ] as const
@@ -91,6 +96,7 @@ export const POPUP_HEIGHTS = {
   video: 16,
   history: 16,
   resume: 18,
+  export: 18,
   smart: 12,
   tokens: 16,
   budgets: 14,

@@ -39,6 +39,10 @@ export type PromptMakerCliConfig = {
   // TUI resume defaults (persisted).
   resumeMode?: TuiResumeMode
   resumeSourceKind?: TuiResumeSourceKind
+
+  // TUI export defaults (persisted).
+  exportFormat?: 'json' | 'yaml'
+  exportOutDir?: string
 }
 
 let cachedConfig: PromptMakerCliConfig | null | undefined
@@ -188,6 +192,11 @@ export type ResumeSettingsPatch = {
   resumeSourceKind?: TuiResumeSourceKind | null
 }
 
+export type ExportSettingsPatch = {
+  exportFormat?: 'json' | 'yaml' | null
+  exportOutDir?: string | null
+}
+
 export const updateCliThemeSettings = async (
   patch: ThemeSettingsPatch,
   options?: { configPath?: string },
@@ -281,6 +290,62 @@ export const updateCliResumeSettings = async (
       delete next.resumeSourceKind
     } else {
       next.resumeSourceKind = expectResumeSourceKind(patch.resumeSourceKind, 'resumeSourceKind')
+    }
+  }
+
+  const contents = JSON.stringify(next, null, 2)
+  const tempFile = `${configPath}.${process.pid}.tmp`
+  await fs.writeFile(tempFile, `${contents}\n`, 'utf8')
+
+  try {
+    await fs.rename(tempFile, configPath)
+  } catch {
+    await fs.writeFile(configPath, `${contents}\n`, 'utf8')
+  }
+
+  cachedConfig = parseConfig(next)
+  cachedConfigPath = configPath
+}
+
+export const updateCliExportSettings = async (
+  patch: ExportSettingsPatch,
+  options?: { configPath?: string },
+): Promise<void> => {
+  const configPath = options?.configPath ?? (await resolveConfigPathForWrite())
+  const directory = path.dirname(configPath)
+  await fs.mkdir(directory, { recursive: true })
+
+  let raw: unknown = {}
+  try {
+    const contents = await fs.readFile(configPath, 'utf8')
+    raw = JSON.parse(contents) as unknown
+  } catch (error) {
+    if (!isFileMissingError(error)) {
+      const message = error instanceof Error ? error.message : 'Unknown config error.'
+      throw new Error(`Failed to read config at ${configPath}: ${message}`)
+    }
+  }
+
+  if (!isRecord(raw)) {
+    throw new Error(`Failed to update config at ${configPath}: root must be a JSON object.`)
+  }
+
+  const next: Record<string, unknown> = { ...raw }
+
+  if ('exportFormat' in patch) {
+    if (patch.exportFormat === null || patch.exportFormat === undefined) {
+      delete next.exportFormat
+    } else {
+      next.exportFormat = expectExportFormat(patch.exportFormat, 'exportFormat')
+    }
+  }
+
+  if ('exportOutDir' in patch) {
+    const outDir = patch.exportOutDir
+    if (outDir === null || outDir === undefined || outDir.trim() === '') {
+      delete next.exportOutDir
+    } else {
+      next.exportOutDir = outDir.trim()
     }
   }
 
@@ -482,6 +547,17 @@ const parseConfig = (raw: unknown): PromptMakerCliConfig => {
     config.resumeSourceKind = expectResumeSourceKind(raw.resumeSourceKind, 'resumeSourceKind')
   }
 
+  if (raw.exportFormat !== undefined) {
+    config.exportFormat = expectExportFormat(raw.exportFormat, 'exportFormat')
+  }
+
+  if (raw.exportOutDir !== undefined) {
+    const exportOutDir = expectString(raw.exportOutDir, 'exportOutDir').trim()
+    if (exportOutDir) {
+      config.exportOutDir = exportOutDir
+    }
+  }
+
   return config
 }
 
@@ -622,6 +698,19 @@ const expectResumeSourceKind = (value: unknown, label: string): TuiResumeSourceK
     return normalized as TuiResumeSourceKind
   }
   throw new Error(`${label} must be one of: ${RESUME_SOURCE_KINDS.join(', ')}.`)
+}
+
+const EXPORT_FORMATS = ['json', 'yaml'] as const satisfies ReadonlyArray<'json' | 'yaml'>
+
+const expectExportFormat = (value: unknown, label: string): 'json' | 'yaml' => {
+  if (typeof value !== 'string') {
+    throw new Error(`${label} must be one of: ${EXPORT_FORMATS.join(', ')}.`)
+  }
+  const normalized = value.trim().toLowerCase()
+  if ((EXPORT_FORMATS as readonly string[]).includes(normalized)) {
+    return normalized as 'json' | 'yaml'
+  }
+  throw new Error(`${label} must be one of: ${EXPORT_FORMATS.join(', ')}.`)
 }
 
 const expectProvider = (value: unknown, label: string): ModelProvider => {

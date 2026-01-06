@@ -20,6 +20,7 @@ import type {
   ResumeMode,
   ResumeSourceKind,
   ResumeHistoryItem,
+  ExportHistoryItem,
   ToggleField,
 } from './types'
 import type { ThemeMode } from './theme/theme-types'
@@ -57,6 +58,14 @@ export type PopupAction =
       mode: ResumeMode
       payloadPathDraft: string
       historyItems: ResumeHistoryItem[]
+      historySelectionIndex: number
+      historyErrorMessage: string | null
+    }
+  | {
+      type: 'open-export'
+      format: 'json' | 'yaml'
+      outPathDraft: string
+      historyItems: ExportHistoryItem[]
       historySelectionIndex: number
       historyErrorMessage: string | null
     }
@@ -276,6 +285,20 @@ export const popupReducer = (state: PopupManagerState, action: PopupAction): Pop
           suggestedFocused: false,
         },
         activeScan: action.scanId === null ? null : { kind: 'resume', id: action.scanId },
+      }
+
+    case 'open-export':
+      return {
+        popupState: {
+          type: 'export',
+          selectionIndex: 0,
+          historyItems: action.historyItems,
+          historySelectionIndex: action.historySelectionIndex,
+          historyErrorMessage: action.historyErrorMessage,
+          format: action.format,
+          outPathDraft: action.outPathDraft,
+        },
+        activeScan: null,
       }
 
     case 'open-smart':

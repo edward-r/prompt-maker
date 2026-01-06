@@ -24,6 +24,7 @@ import { SeriesIntentPopup } from '../../../components/popups/SeriesIntentPopup'
 import { ThemePickerPopup } from '../../../components/popups/ThemePickerPopup'
 import { ThemeModePopup } from '../../../components/popups/ThemeModePopup'
 import { ResumePopup } from '../../../components/popups/ResumePopup'
+import { ExportPopup } from '../../../components/popups/ExportPopup'
 import type { HistoryEntry, ModelOption, PopupState, ProviderStatusMap } from '../../../types'
 import type { TokenUsageBreakdown, TokenUsageRun } from '../../../token-usage-store'
 
@@ -80,6 +81,10 @@ export type PopupAreaProps = {
   // Resume popup
   onResumePayloadPathDraftChange: (next: string) => void
   onResumeSubmit: () => void
+
+  // Export popup
+  onExportOutPathDraftChange: (next: string) => void
+  onExportSubmit: () => void
 
   // Intent popup
   intentPopupSuggestions: string[]
@@ -295,6 +300,21 @@ const renderResumePopup = (props: PopupAreaProps, popupState: PopupStateFor<'res
   return <ResumePopup {...viewModel} />
 }
 
+const renderExportPopup = (props: PopupAreaProps, popupState: PopupStateFor<'export'>) => {
+  const viewModel = {
+    selectionIndex: popupState.selectionIndex,
+    format: popupState.format,
+    outPathDraft: popupState.outPathDraft,
+    historyItems: popupState.historyItems,
+    historySelectionIndex: popupState.historySelectionIndex,
+    historyErrorMessage: popupState.historyErrorMessage,
+    onOutPathChange: props.onExportOutPathDraftChange,
+    onSubmit: props.onExportSubmit,
+  } satisfies ComponentProps<typeof ExportPopup>
+
+  return <ExportPopup {...viewModel} />
+}
+
 const renderIntentPopup = (props: PopupAreaProps, popupState: PopupStateFor<'intent'>) => {
   const viewModel = {
     draft: popupState.draft,
@@ -453,6 +473,9 @@ export const PopupArea = (props: PopupAreaProps) => {
 
     case 'resume':
       return renderResumePopup(props, popupState)
+
+    case 'export':
+      return renderExportPopup(props, popupState)
 
     case 'intent':
       return renderIntentPopup(props, popupState)

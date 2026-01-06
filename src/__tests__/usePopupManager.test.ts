@@ -103,6 +103,8 @@ const createOptions = (overrides: Partial<UsePopupManagerOptions> = {}): UsePopu
     syncTypedIntentRef: jest.fn(),
     resumeDefaults: { sourceKind: 'history', mode: 'best-effort' },
     setResumeDefaults: jest.fn(),
+    exportDefaults: { format: 'json', outDir: null },
+    setExportDefaults: jest.fn(),
   }
 
   return { ...defaults, ...overrides }

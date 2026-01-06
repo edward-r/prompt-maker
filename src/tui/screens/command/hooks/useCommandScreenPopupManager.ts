@@ -165,6 +165,14 @@ export const useCommandScreenPopupManager = ({
     mode: 'best-effort',
   })
 
+  const [exportDefaults, setExportDefaults] = useState<{
+    format: 'json' | 'yaml'
+    outDir: string | null
+  }>({
+    format: 'json',
+    outDir: null,
+  })
+
   useEffect(() => {
     let cancelled = false
 
@@ -177,6 +185,10 @@ export const useCommandScreenPopupManager = ({
       const sourceKind = config?.resumeSourceKind === 'file' ? 'file' : 'history'
       const resumeMode = config?.resumeMode === 'strict' ? 'strict' : 'best-effort'
       setResumeDefaults({ sourceKind, mode: resumeMode })
+
+      const exportFormat = config?.exportFormat === 'yaml' ? 'yaml' : 'json'
+      const exportOutDir = config?.exportOutDir?.trim() || null
+      setExportDefaults({ format: exportFormat, outDir: exportOutDir })
     }
 
     void hydrate()
@@ -236,6 +248,8 @@ export const useCommandScreenPopupManager = ({
     syncTypedIntentRef,
     resumeDefaults,
     setResumeDefaults,
+    exportDefaults,
+    setExportDefaults,
   })
 
   return {

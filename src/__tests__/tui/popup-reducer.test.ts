@@ -51,6 +51,45 @@ describe('popupReducer', () => {
     expect(next.activeScan).toEqual({ kind: 'resume', id: 123 })
   })
 
+  it('opens export popup with seeded defaults', () => {
+    const next = popupReducer(INITIAL_POPUP_MANAGER_STATE, {
+      type: 'open-export',
+      format: 'json',
+      outPathDraft: 'prompt-export.json',
+      historyItems: [
+        {
+          selector: 'last',
+          title: 't',
+          detail: 'd',
+          schemaVersion: 'v1',
+          supported: false,
+        },
+      ],
+      historySelectionIndex: 0,
+      historyErrorMessage: null,
+    })
+
+    expect(next.popupState).toEqual({
+      type: 'export',
+      selectionIndex: 0,
+      historyItems: [
+        {
+          selector: 'last',
+          title: 't',
+          detail: 'd',
+          schemaVersion: 'v1',
+          supported: false,
+        },
+      ],
+      historySelectionIndex: 0,
+      historyErrorMessage: null,
+      format: 'json',
+      outPathDraft: 'prompt-export.json',
+    })
+
+    expect(next.activeScan).toBeNull()
+  })
+
   describe('scan-suggestions-success staleness gating', () => {
     it('does not apply suggestions when kind mismatches', () => {
       const state = popupReducer(INITIAL_POPUP_MANAGER_STATE, { type: 'open-file', scanId: 123 })

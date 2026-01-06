@@ -165,6 +165,8 @@ jest.mock('../../tui/screens/command/hooks/useMiscPopupDraftHandlers', () => {
   const onTestDraftChange = jest.fn(() => undefined)
   const onBudgetsMaxContextTokensDraftChange = jest.fn(() => undefined)
   const onBudgetsMaxInputTokensDraftChange = jest.fn(() => undefined)
+  const onResumePayloadPathDraftChange = jest.fn(() => undefined)
+  const onExportOutPathDraftChange = jest.fn(() => undefined)
 
   return {
     useMiscPopupDraftHandlers: jest.fn(() => ({
@@ -174,6 +176,8 @@ jest.mock('../../tui/screens/command/hooks/useMiscPopupDraftHandlers', () => {
       onTestDraftChange,
       onBudgetsMaxContextTokensDraftChange,
       onBudgetsMaxInputTokensDraftChange,
+      onResumePayloadPathDraftChange,
+      onExportOutPathDraftChange,
     })),
   }
 })
@@ -206,6 +210,7 @@ describe('useCommandScreenPopupBindings (shape contract)', () => {
           applyToggleSelection: jest.fn(),
           handleIntentFileSubmit: jest.fn(),
           handleResumeSubmit: jest.fn(),
+          handleExportSubmit: jest.fn(),
           handleBudgetsSubmit: jest.fn(),
           handleSeriesIntentSubmit: jest.fn(),
         },

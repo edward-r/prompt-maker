@@ -81,6 +81,11 @@ export type UseCommandScreenViewModelOptions = {
       onResumeSubmit: () => void
     }
 
+    export: {
+      onExportOutPathDraftChange: (next: string) => void
+      onExportSubmit: () => void
+    }
+
     intent: {
       intentPopupSuggestions: string[]
       intentPopupSuggestionSelectionIndex: number
@@ -185,6 +190,7 @@ export const useCommandScreenViewModel = ({
       ...popup.context,
       ...popup.history,
       ...popup.resume,
+      ...popup.export,
       ...popup.intent,
       ...popup.instructions,
       ...popup.series,
@@ -199,6 +205,7 @@ export const useCommandScreenViewModel = ({
       popup.context,
       popup.history,
       popup.resume,
+      popup.export,
       popup.instructions,
       popup.intent,
       popup.model,

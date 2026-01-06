@@ -16,7 +16,11 @@ import {
   type SetStateAction,
 } from '../popup-reducer'
 
-import { updateCliPromptGeneratorSettings, updateCliResumeSettings } from '../../config'
+import {
+  updateCliExportSettings,
+  updateCliPromptGeneratorSettings,
+  updateCliResumeSettings,
+} from '../../config'
 
 import { TOGGLE_LABELS } from '../config'
 import { parseBudgetSettingsDraft } from '../budget-settings'
@@ -31,6 +35,11 @@ import type { NotifyOptions } from '../notifier'
 import type { ThemeMode } from '../theme/theme-types'
 import { loadGeneratePayloadFromFile } from '../../generate/payload-io'
 import { GENERATE_JSON_PAYLOAD_SCHEMA_VERSION } from '../../generate/types'
+import { writeGeneratePayloadExport } from '../../export/export-generate-payload'
+import {
+  loadGenerateHistoryPickerItems,
+  loadGeneratePayloadFromHistory,
+} from '../../history/generate-history'
 
 import { buildModelPopupOptions } from '../model-popup-options'
 import { loadResumeHistoryItems } from '../resume-history'
@@ -56,6 +65,7 @@ export type PopupManagerActions = {
   openVideoPopup: () => void
   openHistoryPopup: () => void
   openResumePopup: () => void
+  openExportPopup: () => void
   openSmartRootPopup: () => void
   openTokensPopup: () => void
   openBudgetsPopup: () => void
@@ -75,6 +85,7 @@ export type PopupManagerActions = {
   handleInstructionsSubmit: (value: string) => void
   handleBudgetsSubmit: () => void
   handleResumeSubmit: () => void
+  handleExportSubmit: () => void
   handleSeriesIntentSubmit: (value: string) => void
 }
 
@@ -150,6 +161,11 @@ export type UsePopupManagerOptions = {
     mode: ResumeMode
   }
   setResumeDefaults: (value: { sourceKind: ResumeSourceKind; mode: ResumeMode }) => void
+  exportDefaults: {
+    format: 'json' | 'yaml'
+    outDir: string | null
+  }
+  setExportDefaults: (value: { format: 'json' | 'yaml'; outDir: string | null }) => void
 }
 
 /*
@@ -215,6 +231,8 @@ export const usePopupManager = ({
   syncTypedIntentRef,
   resumeDefaults,
   setResumeDefaults,
+  exportDefaults,
+  setExportDefaults,
 }: UsePopupManagerOptions): {
   popupState: PopupState
   setPopupState: React.Dispatch<React.SetStateAction<PopupState>>
@@ -358,6 +376,42 @@ export const usePopupManager = ({
 
     void hydrate()
   }, [resumeDefaults, runSuggestionScan, setPopupState])
+
+  const openExportPopup = useCallback(() => {
+    const exportDefaultsSnapshot = exportDefaults
+
+    const fileName = `prompt-export.${exportDefaultsSnapshot.format}`
+    const outPathDraft = exportDefaultsSnapshot.outDir
+      ? path.join(exportDefaultsSnapshot.outDir, fileName)
+      : fileName
+
+    dispatch({
+      type: 'open-export',
+      format: exportDefaultsSnapshot.format,
+      outPathDraft,
+      historyItems: [],
+      historySelectionIndex: 0,
+      historyErrorMessage: null,
+    })
+
+    const hydrate = async (): Promise<void> => {
+      const historyResult = await loadGenerateHistoryPickerItems({ limit: 30 })
+
+      setPopupState((prev) => {
+        if (prev?.type !== 'export') {
+          return prev
+        }
+
+        return {
+          ...prev,
+          historyItems: historyResult.ok ? historyResult.items : [],
+          historyErrorMessage: historyResult.ok ? null : historyResult.errorMessage,
+        }
+      })
+    }
+
+    void hydrate()
+  }, [exportDefaults, setPopupState])
 
   const openSmartRootPopup = useCallback(() => {
     const draft = smartContextRoot ?? ''
@@ -718,6 +772,72 @@ export const usePopupManager = ({
     setResumeDefaults,
   ])
 
+  const handleExportSubmit = useCallback(() => {
+    if (popupState?.type !== 'export') {
+      return
+    }
+
+    const format = popupState.format
+    const outPath = popupState.outPathDraft.trim()
+    const selected = popupState.historyItems[popupState.historySelectionIndex]
+
+    if (!selected) {
+      const message = popupState.historyErrorMessage ?? 'No history entries available for export.'
+      pushHistory(`[export] ${message}`, 'system')
+      notify(message, { kind: 'warning' })
+      return
+    }
+
+    if (!outPath) {
+      const message = 'Export output path is required.'
+      pushHistory(`[export] ${message}`, 'system')
+      notify(message, { kind: 'warning' })
+      return
+    }
+
+    const persistDefaults = async (): Promise<void> => {
+      try {
+        const resolvedOutPath = path.resolve(process.cwd(), outPath)
+        const outDir = path.dirname(resolvedOutPath)
+
+        await updateCliExportSettings({ exportFormat: format, exportOutDir: outDir })
+        setExportDefaults({ format, outDir })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown config write error.'
+        notify(`Failed to save export defaults: ${message}`, { kind: 'error' })
+      }
+    }
+
+    void persistDefaults()
+
+    const exportFromHistory = async (): Promise<void> => {
+      try {
+        const payload = await loadGeneratePayloadFromHistory({ selector: selected.selector })
+
+        const { absolutePath } = await writeGeneratePayloadExport({
+          payload,
+          format,
+          outPath,
+        })
+
+        const relative = path.relative(process.cwd(), absolutePath)
+        const displayPath = relative && !relative.startsWith('..') ? relative : absolutePath
+
+        pushHistory(`> /export ${selected.selector} (${format})`, 'user')
+        pushHistory(`[export] Wrote ${format.toUpperCase()} export to ${displayPath}.`, 'system')
+        notify(`Exported ${format.toUpperCase()} to ${displayPath}`, { kind: 'info' })
+        setInputValue('')
+        closePopup()
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown export error.'
+        pushHistory(`[export] ${message}`, 'system')
+        notify(message, { kind: 'error' })
+      }
+    }
+
+    void exportFromHistory()
+  }, [closePopup, notify, popupState, pushHistory, setExportDefaults, setInputValue])
+
   const handleSeriesIntentSubmit = useCallback(
     (value: string) => {
       const trimmed = value.trim()
@@ -793,6 +913,9 @@ export const usePopupManager = ({
                 break
               case 'resume':
                 openResumePopup()
+                break
+              case 'export':
+                openExportPopup()
                 break
               case 'smart-root':
                 openSmartRootPopup()
@@ -905,6 +1028,8 @@ export const usePopupManager = ({
       notify,
       openFilePopup,
       openHistoryPopup,
+      openResumePopup,
+      openExportPopup,
       openImagePopup,
       openInstructionsPopup,
       openIntentPopup,
@@ -1057,6 +1182,7 @@ export const usePopupManager = ({
       openVideoPopup,
       openHistoryPopup,
       openResumePopup,
+      openExportPopup,
       openSmartRootPopup,
       openTokensPopup,
       openBudgetsPopup,
@@ -1076,6 +1202,7 @@ export const usePopupManager = ({
       handleInstructionsSubmit,
       handleBudgetsSubmit,
       handleResumeSubmit,
+      handleExportSubmit,
       handleSeriesIntentSubmit,
     }),
     [
@@ -1089,6 +1216,7 @@ export const usePopupManager = ({
       openVideoPopup,
       openHistoryPopup,
       openResumePopup,
+      openExportPopup,
       openSmartRootPopup,
       openTokensPopup,
       openBudgetsPopup,
@@ -1108,6 +1236,7 @@ export const usePopupManager = ({
       handleInstructionsSubmit,
       handleBudgetsSubmit,
       handleResumeSubmit,
+      handleExportSubmit,
       handleSeriesIntentSubmit,
     ],
   )

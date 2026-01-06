@@ -56,6 +56,7 @@ export type UseCommandScreenPopupBindingsOptions = {
       applyToggleSelection: (field: 'copy' | 'chatgpt' | 'json', value: boolean) => void
       handleIntentFileSubmit: (value: string) => void
       handleResumeSubmit: () => void
+      handleExportSubmit: () => void
       handleSeriesIntentSubmit: (value: string) => void
       handleBudgetsSubmit: () => void
     }
@@ -201,6 +202,7 @@ export type UseCommandScreenPopupBindingsResult = {
       onBudgetsMaxContextTokensDraftChange: (next: string) => void
       onBudgetsMaxInputTokensDraftChange: (next: string) => void
       onResumePayloadPathDraftChange: (next: string) => void
+      onExportOutPathDraftChange: (next: string) => void
     }
     reasoning: {
       lines: HistoryEntry[]
@@ -367,6 +369,10 @@ export const useCommandScreenPopupBindings = (
       onSubmit: options.popup.actions.handleResumeSubmit,
     },
 
+    export: {
+      onSubmit: options.popup.actions.handleExportSubmit,
+    },
+
     smart: {
       suggestions: context.smartPopupSuggestions,
       contextRoot: options.context.smartContextRoot,
@@ -492,6 +498,7 @@ export const useCommandScreenPopupBindings = (
           miscDraftHandlers.onBudgetsMaxContextTokensDraftChange,
         onBudgetsMaxInputTokensDraftChange: miscDraftHandlers.onBudgetsMaxInputTokensDraftChange,
         onResumePayloadPathDraftChange: miscDraftHandlers.onResumePayloadPathDraftChange,
+        onExportOutPathDraftChange: miscDraftHandlers.onExportOutPathDraftChange,
       },
       reasoning: {
         lines: reasoningPopupLines,

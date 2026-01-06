@@ -88,9 +88,9 @@ describe('popup manager command mapping', () => {
     })
   })
 
-  it('opens resume popup from /resume', () => {
+  it('opens export popup from /export', () => {
     const result = mapPopupCommandSelection({
-      commandId: 'resume',
+      commandId: 'export',
       argsRaw: undefined,
       context: baseContext,
     })
@@ -98,7 +98,7 @@ describe('popup manager command mapping', () => {
     expect(result).toEqual({
       kind: 'steps',
       steps: [
-        { type: 'open-popup', popup: 'resume' },
+        { type: 'open-popup', popup: 'export' },
         { type: 'set-input', value: '' },
       ],
     })

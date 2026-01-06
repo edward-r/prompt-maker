@@ -19,6 +19,7 @@ export type UseMiscPopupDraftHandlersResult = {
   onBudgetsMaxContextTokensDraftChange: (next: string) => void
   onBudgetsMaxInputTokensDraftChange: (next: string) => void
   onResumePayloadPathDraftChange: (next: string) => void
+  onExportOutPathDraftChange: (next: string) => void
 }
 
 export const useMiscPopupDraftHandlers = ({
@@ -114,6 +115,16 @@ export const useMiscPopupDraftHandlers = ({
     [consumeSuppressedTextInputChange, setPopupState],
   )
 
+  const onExportOutPathDraftChange = useCallback(
+    (next: string) => {
+      if (consumeSuppressedTextInputChange()) {
+        return
+      }
+      setPopupState((prev) => (prev?.type === 'export' ? { ...prev, outPathDraft: next } : prev))
+    },
+    [consumeSuppressedTextInputChange, setPopupState],
+  )
+
   return {
     onModelPopupQueryChange,
     onSeriesDraftChange,
@@ -122,5 +133,6 @@ export const useMiscPopupDraftHandlers = ({
     onBudgetsMaxContextTokensDraftChange,
     onBudgetsMaxInputTokensDraftChange,
     onResumePayloadPathDraftChange,
+    onExportOutPathDraftChange,
   }
 }
