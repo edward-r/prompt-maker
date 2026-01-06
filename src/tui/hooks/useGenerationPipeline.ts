@@ -294,10 +294,15 @@ export const useGenerationPipeline = ({
 
           const reusedCount = event.reusedContextPaths.length
           const missingCount = event.missingContextPaths.length
-          bufferedHistory.pushBuffered(
-            `Resume loaded (${event.source}) · reused ${reusedCount} · missing ${missingCount}`,
-            'progress',
-          )
+          const message = `Resume loaded (${event.source}) · reused ${reusedCount} · missing ${missingCount}`
+
+          bufferedHistory.pushBuffered(message, 'progress')
+
+          const notifyLatest = notifyRef.current
+          if (notifyLatest) {
+            notifyLatest(message, { kind: missingCount > 0 ? 'warning' : 'info' })
+          }
+
           return
         }
 
@@ -305,23 +310,13 @@ export const useGenerationPipeline = ({
           dispatch({ type: 'set-context-overflow', details: event })
 
           const droppedCount = event.droppedPaths.length
-          bufferedHistory.pushBuffered(
-            `Warning: context overflow (${event.strategy}) · dropped ${droppedCount}`,
-            'system',
-          )
+          const message = `Context overflow (${event.strategy}) · dropped ${droppedCount}`
 
-          const previewLimit = 8
-          const droppedPreview = event.droppedPaths
-            .slice(0, previewLimit)
-            .map((entry) => entry.path)
-          const remaining = droppedCount - droppedPreview.length
+          bufferedHistory.pushBuffered(message, 'system')
 
-          if (droppedPreview.length > 0) {
-            const previewSuffix = remaining > 0 ? ` …(+${remaining} more)` : ''
-            const previewLine = `Dropped: ${droppedPreview.join(', ')}${previewSuffix}`
-            wrapTextForHistory(previewLine, wrapWidth).forEach((line) => {
-              bufferedHistory.pushBuffered(line, 'system')
-            })
+          const notifyLatest = notifyRef.current
+          if (notifyLatest) {
+            notifyLatest(message, { kind: 'warning' })
           }
 
           return
@@ -839,7 +834,7 @@ export const useGenerationPipeline = ({
           })
 
           pushHistoryRef.current(
-            `[series] Warning: context overflow (${budgetEvaluation.strategy ?? 'fail'}) · dropped ${droppedCount}`,
+            `[series] Context overflow (${budgetEvaluation.strategy ?? 'fail'}) · dropped ${droppedCount}`,
             'system',
           )
         }

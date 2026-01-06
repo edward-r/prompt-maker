@@ -70,6 +70,16 @@ export const createHelpSections = ({ commandDescriptors }: HelpConfigOptions): H
       ],
     },
     {
+      title: 'Workflows',
+      lines: [
+        'Budgets: /budgets sets token limits + overflow strategy.',
+        'Resume: /resume picks history or /resume-from file.',
+        'Resume modes: strict (refuse missing files) · best-effort (skip missing).',
+        'Export: /export writes a selected history payload to JSON/YAML.',
+        'CLI-only: compose subcommand exists (shell/editor integration; not in TUI).',
+      ],
+    },
+    {
       title: 'Generate',
       lines: ['History: ↑/↓ scroll · PgUp/PgDn page', ...formatCommandLines(commandDescriptors)],
     },

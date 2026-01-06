@@ -824,14 +824,16 @@ export const usePopupManager = ({
         const displayPath = relative && !relative.startsWith('..') ? relative : absolutePath
 
         pushHistory(`> /export ${selected.selector} (${format})`, 'user')
-        pushHistory(`[export] Wrote ${format.toUpperCase()} export to ${displayPath}.`, 'system')
-        notify(`Exported ${format.toUpperCase()} to ${displayPath}`, { kind: 'info' })
+        pushHistory(`[export] Exported ${format.toUpperCase()} → ${displayPath}`, 'system')
+        notify(`Exported ${format.toUpperCase()} → ${displayPath}`, { kind: 'info' })
         setInputValue('')
         closePopup()
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown export error.'
-        pushHistory(`[export] ${message}`, 'system')
-        notify(message, { kind: 'error' })
+        const rawMessage = error instanceof Error ? error.message : 'Unknown export error.'
+        const normalized = rawMessage.replace(/\s+/g, ' ').trim()
+        const shortMessage = normalized.length > 220 ? `${normalized.slice(0, 217)}…` : normalized
+        pushHistory(`[export] Export failed: ${shortMessage}`, 'system')
+        notify(`Export failed: ${shortMessage}`, { kind: 'error' })
       }
     }
 
