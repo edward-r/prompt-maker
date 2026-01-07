@@ -1,4 +1,4 @@
-# Prompt Maker CLI (`prompt-maker-cli`)
+# Prompt Maker CLI
 
 Terminal-first prompt generator with a built-in Ink TUI. It turns rough intent + optional context (files, URLs, smart context, images, videos) into a structured **prompt contract**, with optional polishing, streaming telemetry, and automatic history logging.
 
