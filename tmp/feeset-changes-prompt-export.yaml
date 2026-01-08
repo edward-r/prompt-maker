@@ -1,0 +1,162 @@
+contextPaths:
+  - path: inline-intent
+    source: intent
+  - path: master-fees/MasterFeesTable.tsx
+    source: smart
+  - path: components/QuoteFeesTable.tsx
+    source: smart
+  - path: components/QuoteFeeSetsTable.tsx
+    source: smart
+  - path: master-fees/page.tsx
+    source: smart
+  - path: hooks/useQuoteFees.ts
+    source: smart
+intent: We need to remove `Active` column from the fee sets table
+interactive: true
+iterations: 2
+model: gpt-5.2
+prompt: >
+  # Title
+
+  Remove the `Active` Column from the Quote Fee Sets Table (No Code Output)
+
+
+  ## Role
+
+  You are a senior React/TypeScript engineer working in a Next.js app using
+  Material React Table (MRT) and MUI.
+
+
+  ## Context
+
+  The Fee Manager UI includes a “Fee Sets” table implemented with
+  `material-react-table`.
+
+  The request is to remove the **`Active`** column from the **fee sets table**
+  only.
+
+
+  Relevant code (primary):
+
+  - `components/QuoteFeeSetsTable.tsx`
+
+
+  Other related tables (do not change unless explicitly required):
+
+  - `components/QuoteFeesTable.tsx`
+
+  - `master-fees/MasterFeesTable.tsx`
+
+
+  The `Active` column currently exists in `components/QuoteFeeSetsTable.tsx` as
+  a column definition with `accessorKey: 'active'`, a select editor, and a
+  `Chip` cell renderer.
+
+
+  ## Goals & Tasks
+
+  - Remove the `Active` column from the **Quote Fee Sets** table UI.
+
+  - Ensure the column is:
+    - not displayed in the table
+    - not editable
+    - not present in create/edit modal forms (if those dialogs are generated from column defs).
+  - Ensure the table remains functional (edit/create modals, row actions, expand
+  panel, pagination, filters) with no runtime or TypeScript errors.
+
+
+  ## Inputs
+
+  - Primary file to modify:
+    - `components/QuoteFeeSetsTable.tsx`
+  - Supporting context (read-only unless necessary):
+    - `components/QuoteFeesTable.tsx`
+    - `master-fees/MasterFeesTable.tsx`
+
+  ## Constraints
+
+  - Change only what is necessary to remove the `Active` column from the **fee
+  sets table**.
+
+  - Do **not** remove or modify `Active` columns in other tables unless
+  explicitly required.
+
+  - Keep existing behavior for:
+    - row actions (edit/delete/clone)
+    - expanding rows (detail panel)
+    - pagination, sorting, global filter
+    - existing IDs/data attributes used for tests
+  - Do not introduce new dependencies.
+
+  - Do not output any code, diffs, or code snippets in your response.
+
+
+  ## Execution Plan
+
+  1. Open and inspect `components/QuoteFeeSetsTable.tsx`.
+
+  2. Locate the `columns` definition (`useMemo<MRT_ColumnDef<QuoteFeeSet>[]>`).
+
+  3. Remove the entire column definition object for `accessorKey: 'active'`.
+
+  4. Scan `components/QuoteFeeSetsTable.tsx` for remaining references that may
+  assume the `active` column exists:
+     - `initialState` (sorting/visibility)
+     - `muiTableBodyCellProps` / `data-column-id` logic
+     - any validation or edit/create configuration relying on `active`
+  5. Confirm the create/edit modal forms:
+     - The dialogs are rendered via `createEditableFieldsDialogRenderer`; if it is driven by the column defs, removing the column must remove the field.
+     - Ensure no required-field assumptions break due to the missing `active` input.
+  6. Cleanup and correctness:
+     - Remove now-unused imports in `components/QuoteFeeSetsTable.tsx` (e.g., `Chip`) if they become unused.
+     - Ensure table configuration remains valid and unchanged otherwise.
+  7. Sanity-check scope:
+     - Verify you did not modify `components/QuoteFeesTable.tsx` or `master-fees/MasterFeesTable.tsx`.
+
+  ## Output Format
+
+  Provide a short, code-free change report containing:
+
+  - **What was changed**: identify the file(s) modified and state that the
+  `Active` column was removed from the Quote Fee Sets table.
+
+  - **Impact on UI**: confirm the column no longer appears in the table and no
+  longer appears in create/edit modals for fee sets.
+
+  - **Non-functional checks performed**: confirm no unused imports remain and
+  there are no lingering references to the removed column in
+  `components/QuoteFeeSetsTable.tsx`.
+
+
+  Do **not** include any code, unified diffs, or snippets.
+
+
+  ## Quality Checks
+
+  - `QuoteFeeSetsTable` still renders and functions correctly with:
+    - expanding rows (detail panel shows `QuoteFeesTable`)
+    - editing and creating fee sets (modal)
+    - deleting and cloning
+    - pagination and global filter
+  - No references to the removed `active` column remain in
+  `components/QuoteFeeSetsTable.tsx`.
+
+  - No new TypeScript errors introduced (especially from removed column types or
+  unused imports).
+
+  - No unintended changes to `Active` columns in other tables
+  (`components/QuoteFeesTable.tsx`, `master-fees/MasterFeesTable.tsx`).
+reasoning: >-
+  I interpreted the user’s refinement as a change to the prompt contract’s
+  deliverable: the downstream assistant should still remove the `Active` column
+  from the Quote Fee Sets table, but must not include any code output (no
+  unified diff, no snippets). I preserved the original intent and structure,
+  kept the required sections in the specified order, referenced the relevant
+  context file paths explicitly, and adjusted the Output Format and execution
+  steps to emphasize describing changes without showing code while still
+  ensuring correctness checks (imports, modal fields, runtime/type safety).
+refinements:
+  - I don't need a unified diff or any other code shown
+schemaVersion: '1'
+targetModel: gpt-5.2
+timestamp: '2026-01-06T21:45:01.068Z'
