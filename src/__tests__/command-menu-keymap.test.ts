@@ -5,40 +5,58 @@ import { resolveCommandMenuKeyAction } from '../tui/components/core/command-menu
 const createKey = (overrides: Partial<Key> = {}): Key => overrides as Key
 
 describe('resolveCommandMenuKeyAction', () => {
-  it('clamps selection when navigating', () => {
+  it('wraps selection at boundaries', () => {
     expect(
       resolveCommandMenuKeyAction({
         key: createKey({ upArrow: true }),
         selectedIndex: 0,
         itemCount: 3,
+      }),
+    ).toEqual({ type: 'change-selection', nextIndex: 2 })
+
+    expect(
+      resolveCommandMenuKeyAction({
+        key: createKey({ downArrow: true }),
+        selectedIndex: 2,
+        itemCount: 3,
+      }),
+    ).toEqual({ type: 'change-selection', nextIndex: 0 })
+  })
+
+  it('moves selection by one within the list', () => {
+    expect(
+      resolveCommandMenuKeyAction({
+        key: createKey({ downArrow: true }),
+        selectedIndex: 0,
+        itemCount: 3,
+      }),
+    ).toEqual({ type: 'change-selection', nextIndex: 1 })
+
+    expect(
+      resolveCommandMenuKeyAction({
+        key: createKey({ upArrow: true }),
+        selectedIndex: 2,
+        itemCount: 3,
+      }),
+    ).toEqual({ type: 'change-selection', nextIndex: 1 })
+  })
+
+  it('keeps selection stable for a single item', () => {
+    expect(
+      resolveCommandMenuKeyAction({
+        key: createKey({ downArrow: true }),
+        selectedIndex: 0,
+        itemCount: 1,
       }),
     ).toEqual({ type: 'change-selection', nextIndex: 0 })
 
     expect(
       resolveCommandMenuKeyAction({
-        key: createKey({ downArrow: true }),
-        selectedIndex: 2,
-        itemCount: 3,
-      }),
-    ).toEqual({ type: 'change-selection', nextIndex: 2 })
-  })
-
-  it('moves selection by one without wrapping', () => {
-    expect(
-      resolveCommandMenuKeyAction({
-        key: createKey({ downArrow: true }),
-        selectedIndex: 0,
-        itemCount: 3,
-      }),
-    ).toEqual({ type: 'change-selection', nextIndex: 1 })
-
-    expect(
-      resolveCommandMenuKeyAction({
         key: createKey({ upArrow: true }),
-        selectedIndex: 2,
-        itemCount: 3,
+        selectedIndex: 0,
+        itemCount: 1,
       }),
-    ).toEqual({ type: 'change-selection', nextIndex: 1 })
+    ).toEqual({ type: 'change-selection', nextIndex: 0 })
   })
 
   it('closes the palette on Esc', () => {

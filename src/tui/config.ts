@@ -1,4 +1,5 @@
 export const COMMAND_DESCRIPTORS = [
+  { id: 'exit', label: 'Exit', description: 'Exit the app (/exit)' },
   { id: 'model', label: 'Model', description: 'Switch the generation model' },
   {
     id: 'target',
@@ -78,7 +79,6 @@ export const COMMAND_DESCRIPTORS = [
     description: 'Export a selected history payload to JSON/YAML (/export)',
   },
   { id: 'test', label: 'Test', description: 'Run prompt tests (/test prompt-tests.yaml)' },
-  { id: 'exit', label: 'Exit', description: 'Exit the app (/exit)' },
 ] as const
 
 export const TOGGLE_LABELS = {

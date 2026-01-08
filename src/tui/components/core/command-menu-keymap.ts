@@ -24,12 +24,16 @@ export const resolveCommandMenuKeyAction = ({
     return { type: 'close' }
   }
 
+  const clampedIndex = Math.min(Math.max(selectedIndex, 0), itemCount - 1)
+
   if (key.upArrow) {
-    return { type: 'change-selection', nextIndex: Math.max(0, selectedIndex - 1) }
+    const nextIndex = clampedIndex === 0 ? itemCount - 1 : clampedIndex - 1
+    return { type: 'change-selection', nextIndex }
   }
 
   if (key.downArrow) {
-    return { type: 'change-selection', nextIndex: Math.min(itemCount - 1, selectedIndex + 1) }
+    const nextIndex = clampedIndex === itemCount - 1 ? 0 : clampedIndex + 1
+    return { type: 'change-selection', nextIndex }
   }
 
   return { type: 'none' }

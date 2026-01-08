@@ -4,6 +4,10 @@ describe('tui command descriptors', () => {
   const getDescriptor = (id: (typeof COMMAND_DESCRIPTORS)[number]['id']) =>
     COMMAND_DESCRIPTORS.find((entry) => entry.id === id)
 
+  it('surfaces /exit first in the palette list', () => {
+    expect(COMMAND_DESCRIPTORS[0]?.id).toBe('exit')
+  })
+
   it('surfaces series intent prefill guidance', () => {
     const descriptor = getDescriptor('series')
     expect(descriptor).toBeDefined()
