@@ -30,6 +30,14 @@ jest.mock('../prompt-generator-service', () => ({
   isGemini: jest.fn((model: string) => model.startsWith('gemini')),
 }))
 
+jest.mock('../generate/models', () => {
+  const actual = jest.requireActual('../generate/models') as typeof import('../generate/models')
+  return {
+    ...actual,
+    resolveGeminiVideoModel: jest.fn().mockResolvedValue('gemini-2.5-pro'),
+  }
+})
+
 jest.mock('../file-context', () => ({ resolveFileContext: jest.fn().mockResolvedValue([]) }))
 jest.mock('../url-context', () => ({ resolveUrlContext: jest.fn().mockResolvedValue([]) }))
 jest.mock('../smart-context-service', () => ({
