@@ -162,7 +162,7 @@ Notes:
 
 - `ui` only parses `--interactive-transport` (see `docs/prompt-maker-cli-tui-encyclopedia.md`). Do not depend on `ui --help`.
 - Token budgets (`--max-input-tokens`, `--max-context-tokens`, `--context-overflow`) are **generate-mode flags** and are not parsed by `ui`.
-  - To use budgets with the TUI, set defaults via config under `promptGenerator`:
+  - To use budgets with the TUI, set defaults via config under `promptGenerator` (or set them interactively with the TUI `/budgets` popup, which persists back to config):
 
     ```json
     {
@@ -173,6 +173,14 @@ Notes:
       }
     }
     ```
+
+- PR #15 TUI parity workflows (popup-only; no inline args parsing):
+  - Help overlay includes a “Workflows” section (`src/tui/help-config.ts`).
+  - Command palette includes:
+    - `/budgets` (persists `promptGenerator.maxInputTokens`, `promptGenerator.maxContextTokens`, `promptGenerator.contextOverflowStrategy`)
+    - `/resume` (persists `resumeMode`, `resumeSourceKind`)
+    - `/export` (persists `exportFormat`, `exportOutDir`)
+  - These defaults are written back into CLI config (`src/config.ts`), so Sidekick sessions can “learn” settings from prior TUI usage.
 
 - The TUI requires a real TTY; sidekick.nvim’s terminal uses `term=true` (`folke/sidekick.nvim/lua/sidekick/cli/terminal.lua`).
 
@@ -300,6 +308,17 @@ Plugin actions:
 - Notify the user that some context was dropped (this can materially change results).
 - Reconcile any “attached context” UI with `droppedPaths`.
 - Consider offering a one-click re-run with a larger budget or a different overflow strategy.
+
+#### `resume.loaded`
+
+Emitted when resuming from history or a payload file and the CLI attempts to reuse prior `contextPaths`.
+
+Payload: `{ source:'history'|'file', reusedContextPaths:[{path,source}], missingContextPaths:[{path,source}] }`
+
+Plugin actions:
+
+- Surface missing file paths clearly.
+- If you run with strict mode, treat missing `source:"file"` paths as fatal (the CLI will throw).
 
 #### `upload.state`
 

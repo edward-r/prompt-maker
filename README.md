@@ -298,6 +298,21 @@ Notes:
 - `/json` inside the TUI only toggles whether a JSON payload is shown in the history pane; it does not enable generate-mode `--json`.
 - `/json` is blocked when `prompt-maker-cli ui --interactive-transport ...` is active.
 
+#### Workflow popups (`/budgets`, `/resume`, `/export`)
+
+These workflow commands open popups (no inline args parsing) and persist defaults back into CLI config (`src/config.ts`):
+
+- `/budgets`: sets token budgets + overflow strategy.
+  - Persists: `promptGenerator.maxInputTokens`, `promptGenerator.maxContextTokens`, `promptGenerator.contextOverflowStrategy`
+  - Defaulting: when budgets are enabled and overflow is unset, effective overflow defaults to `fail` (`src/tui/budget-settings.ts`).
+- `/resume`: resumes from a selected history entry or an exported payload file.
+  - Persists: `resumeMode` (`best-effort` | `strict`), `resumeSourceKind` (`history` | `file`)
+  - Behavior: resume runs can start with an empty typed intent (the resumed payload supplies intent) (`src/tui/hooks/useGenerationPipeline.ts`).
+  - Context reuse: only `source:"file"` context paths are reusable; `url`/`smart` are treated as missing (`src/generate/pipeline.ts`).
+- `/export`: exports a selected history payload to JSON/YAML.
+  - Persists: `exportFormat` (`json` | `yaml`), `exportOutDir` (directory path)
+  - Schema gating: exporting a history entry with an unsupported `schemaVersion` fails with an actionable error (`src/history/generate-history.ts`).
+
 ### Series generation (“atomic prompts”)
 
 `/series` (or `Tab`) generates:
@@ -1136,13 +1151,20 @@ Example config:
   "geminiApiKey": "gk-...",
   "promptGenerator": {
     "defaultModel": "gpt-4o-mini",
-    "defaultGeminiModel": "gemini-2.5-pro"
+    "defaultGeminiModel": "gemini-2.5-pro",
+    "maxInputTokens": 12000,
+    "maxContextTokens": 8000,
+    "contextOverflowStrategy": "drop-smart"
   },
   "contextTemplates": {
     "scratch": "# Scratch\n\n{{prompt}}"
   },
   "theme": "ocean",
-  "themeMode": "system"
+  "themeMode": "system",
+  "resumeMode": "best-effort",
+  "resumeSourceKind": "history",
+  "exportFormat": "json",
+  "exportOutDir": "runs"
 }
 ```
 
@@ -1158,6 +1180,7 @@ Env vars override config keys:
 
 - Generate-run history (JSONL): `~/.config/prompt-maker-cli/history.jsonl`
 - TUI command history: `~/.config/prompt-maker-cli/tui-history.json`
+- TUI workflow defaults persisted to config: budgets (`promptGenerator.*`), resume (`resumeMode`, `resumeSourceKind`), export (`exportFormat`, `exportOutDir`)
 - Token telemetry:
   - Printed as a summary in non-`--quiet` runs
   - Always emitted as a `context.telemetry` JSONL stream event
