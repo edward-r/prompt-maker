@@ -5,15 +5,19 @@
  */
 
 const PROMPT_CONTRACT_REQUIREMENTS = `
-Prompt Contract Requirements:
-1. Start with a concise "# Title" summarizing the requested deliverable.
-2. Include the following sections in order, each with actionable markdown content:
-   "Role", "Context", "Goals & Tasks", "Inputs", "Constraints", "Execution Plan",
-   "Output Format", "Quality Checks".
-3. Reference any provided context files or inputs explicitly when relevant (e.g., file paths).
-4. Use bullet lists or short paragraphs; keep instructions concrete and testable.
-5. Do NOT execute the task or provide the final deliverable—only craft instructions for another assistant.
-`
+ Prompt Contract Requirements:
+ 1. Start with a concise "# Title" summarizing the requested deliverable.
+ 2. Include the following sections in order, each with actionable markdown content:
+    "Role", "Context", "Goals & Tasks", "Inputs", "Constraints", "Execution Plan",
+    "Output Format", "Quality Checks".
+ 3. Reference any provided context files or inputs explicitly when relevant (e.g., file paths).
+ 4. If the user provided attachments (images/videos/PDFs), assume the assistant executing this contract receives them as context.
+    - Do NOT ask the user to re-upload, paste, or re-provide the attached document.
+    - In "Inputs", explicitly state the attachment(s) are already provided and should be used directly.
+    - Only ask for OCR/text *if* extraction is clearly impossible (e.g., scanned image-only PDF).
+ 5. Use bullet lists or short paragraphs; keep instructions concrete and testable.
+ 6. Do NOT execute the task or provide the final deliverable—only craft instructions for another assistant.
+ `
 
 const META_PROMPT = `
 You are an expert Prompt Engineer. Your goal is to convert the user's intent into an optimized prompt contract that another assistant will later execute.

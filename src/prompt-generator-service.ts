@@ -1,5 +1,7 @@
 import { callLLM, type Message, type MessageContent } from '@prompt-maker/core'
 
+import path from 'node:path'
+
 import {
   GEN_SYSTEM_PROMPT,
   REFINE_SYSTEM_PROMPT,
@@ -9,7 +11,9 @@ import {
 import {
   buildInitialUserMessage,
   buildRefinementMessage,
+  buildRefinementMessageText,
   buildSeriesUserMessage,
+  mergeResolvedMediaWithText,
 } from './prompt-generator/message-builders'
 import { ensureModelCredentials, isGemini } from './prompt-generator/model-credentials'
 import { parseLLMJson } from './prompt-generator/parse-llm-json'
@@ -58,6 +62,81 @@ type CoTResponse = {
   prompt: string
 }
 
+type PdfGroundingAssessment =
+  | { ok: true }
+  | {
+      ok: false
+      reason: 'missing-pdf-filename' | 'asked-for-document' | 'missing-document-snapshot'
+    }
+
+const normalizeForHeuristic = (value: string): string => value.toLowerCase()
+
+const getPdfBasenames = (pdfPaths: readonly string[]): string[] => {
+  return pdfPaths.map((pdfPath) => path.basename(pdfPath)).filter((name) => name.length > 0)
+}
+
+const assessPdfGrounding = (
+  prompt: string,
+  pdfPaths: readonly string[],
+): PdfGroundingAssessment => {
+  if (pdfPaths.length === 0) {
+    return { ok: true }
+  }
+
+  const lowered = normalizeForHeuristic(prompt)
+
+  const forbiddenAsks = [
+    'paste the',
+    'paste the document',
+    'paste document',
+    'provide the document',
+    'provide document',
+    'upload the document',
+    'upload the pdf',
+    'provide as a file',
+    'provide as file',
+  ]
+
+  if (forbiddenAsks.some((needle) => lowered.includes(needle))) {
+    return { ok: false, reason: 'asked-for-document' }
+  }
+
+  const basenames = getPdfBasenames(pdfPaths)
+  const mentionsAnyBasename = basenames.some((name) =>
+    normalizeForHeuristic(prompt).includes(name.toLowerCase()),
+  )
+  if (!mentionsAnyBasename) {
+    return { ok: false, reason: 'missing-pdf-filename' }
+  }
+
+  const hasSnapshot = lowered.includes('document snapshot') || lowered.includes('document outline')
+  if (!hasSnapshot) {
+    return { ok: false, reason: 'missing-document-snapshot' }
+  }
+
+  return { ok: true }
+}
+
+const buildPdfGroundingRepairInstruction = (pdfPaths: readonly string[]): string => {
+  const basenames = getPdfBasenames(pdfPaths)
+
+  return [
+    'Make this prompt contract non-generic and explicitly grounded in the attached PDF(s).',
+    '',
+    'Hard requirements:',
+    `- Mention the attached PDF filename(s) verbatim somewhere in the contract: ${
+      basenames.join(', ') || '(unknown filename)'
+    }.`,
+    '- In "Inputs", do NOT ask the user to paste/upload/provide the PDF/path. The PDF is already attached and must be used directly.',
+    '- Add a new section (in the contract) titled "Document Snapshot" that proves you read the attached PDF:',
+    '  - 5-10 bullet points capturing the document’s specific topics/sections.',
+    '  - 3 short verbatim quotes (10-25 words each) from the PDF (wrap each quote in double quotes).',
+    '  - If the PDF appears image-only/scanned and you cannot quote text, state that explicitly and request OCR as the only missing input.',
+    '',
+    'Do not change the overall prompt-contract format requirements; just make it grounded and actionable.',
+  ].join('\n')
+}
+
 export class PromptGeneratorService {
   async generatePromptDetailed(request: PromptGenerationRequest): Promise<PromptGenerationResult> {
     await ensureModelCredentials(request.model)
@@ -82,6 +161,7 @@ export class PromptGeneratorService {
         request.fileContext,
         request.images,
         request.videos,
+        request.pdfs ?? [],
         request.metaInstructions,
         request.onUploadStateChange,
         geminiApiKey,
@@ -92,6 +172,7 @@ export class PromptGeneratorService {
         request.fileContext,
         request.images,
         request.videos,
+        request.pdfs ?? [],
         request.metaInstructions,
         request.onUploadStateChange,
         geminiApiKey,
@@ -108,6 +189,83 @@ export class PromptGeneratorService {
 
     const rawResponse = await callLLM(messages, request.model)
 
+    const attemptRepair = async (
+      prompt: string,
+      reasoning?: string,
+    ): Promise<PromptGenerationResult> => {
+      const pdfPaths = request.pdfs ?? []
+      const assessment = assessPdfGrounding(prompt, pdfPaths)
+      if (assessment.ok) {
+        return { prompt, ...(reasoning ? { reasoning } : {}) }
+      }
+
+      // Avoid infinite repair loops.
+      const MAX_PDF_GROUNDING_REPAIR_ATTEMPTS = 1
+      for (let attempt = 0; attempt < MAX_PDF_GROUNDING_REPAIR_ATTEMPTS; attempt += 1) {
+        const refinementInstruction = buildPdfGroundingRepairInstruction(pdfPaths)
+
+        request.onPromptAutoRepairAttempt?.({
+          kind: 'pdf-grounding',
+          reason: assessment.reason,
+          attempt: 1,
+          maxAttempts: MAX_PDF_GROUNDING_REPAIR_ATTEMPTS,
+          pdfs: [...pdfPaths],
+        })
+
+        const repairText = buildRefinementMessageText(
+          prompt,
+          refinementInstruction,
+          request.intent,
+          request.fileContext,
+          pdfPaths,
+          request.metaInstructions,
+        )
+
+        const repairUserContent = mergeResolvedMediaWithText(userContent, repairText)
+
+        const repairMessages: Message[] = [
+          { role: 'system', content: REFINE_SYSTEM_PROMPT },
+          ...(targetGuidance ? [{ role: 'system' as const, content: targetGuidance }] : []),
+          { role: 'user', content: repairUserContent },
+        ]
+
+        const repairedRaw = await callLLM(repairMessages, request.model)
+
+        try {
+          const repaired = parseLLMJson<CoTResponse>(repairedRaw)
+          const repairedPrompt = sanitizePromptForTargetModelLeakage({
+            prompt: repaired.prompt,
+            intent: request.intent,
+            targetModel: request.targetModel,
+          })
+
+          const repairedAssessment = assessPdfGrounding(repairedPrompt, pdfPaths)
+          if (repairedAssessment.ok) {
+            return {
+              prompt: repairedPrompt,
+              ...(repaired.reasoning ? { reasoning: repaired.reasoning } : {}),
+            }
+          }
+
+          // If still failing, return the repaired prompt anyway (better than original).
+          return {
+            prompt: repairedPrompt,
+            ...(repaired.reasoning ? { reasoning: repaired.reasoning } : {}),
+          }
+        } catch {
+          // If JSON parse fails, fall back to raw repaired text.
+          const repairedPrompt = sanitizePromptForTargetModelLeakage({
+            prompt: repairedRaw,
+            intent: request.intent,
+            targetModel: request.targetModel,
+          })
+          return { prompt: repairedPrompt }
+        }
+      }
+
+      return { prompt, ...(reasoning ? { reasoning } : {}) }
+    }
+
     try {
       const result = parseLLMJson<CoTResponse>(rawResponse)
 
@@ -123,18 +281,14 @@ export class PromptGeneratorService {
         targetModel: request.targetModel,
       })
 
-      return {
-        prompt: sanitizedPrompt,
-        ...(result.reasoning ? { reasoning: result.reasoning } : {}),
-      }
+      return await attemptRepair(sanitizedPrompt, result.reasoning)
     } catch {
-      return {
-        prompt: sanitizePromptForTargetModelLeakage({
-          prompt: rawResponse,
-          intent: request.intent,
-          targetModel: request.targetModel,
-        }),
-      }
+      const sanitizedPrompt = sanitizePromptForTargetModelLeakage({
+        prompt: rawResponse,
+        intent: request.intent,
+        targetModel: request.targetModel,
+      })
+      return await attemptRepair(sanitizedPrompt)
     }
   }
 
@@ -153,6 +307,7 @@ export class PromptGeneratorService {
       request.fileContext,
       request.images,
       request.videos,
+      request.pdfs ?? [],
       request.metaInstructions,
       request.onUploadStateChange,
       geminiApiKey,

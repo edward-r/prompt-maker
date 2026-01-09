@@ -24,9 +24,21 @@ jest.mock('../image-loader', () => ({
     .fn()
     .mockResolvedValue([{ type: 'image', mimeType: 'image/png', data: 'aaa' }]),
 }))
+
+jest.mock('../prompt-generator/pdf-parts', () => ({
+  resolvePdfParts: jest
+    .fn()
+    .mockResolvedValue([{ type: 'pdf', mimeType: 'application/pdf', filePath: 'doc.pdf' }]),
+}))
+
+const { resolvePdfParts } = jest.requireMock('../prompt-generator/pdf-parts') as {
+  resolvePdfParts: jest.Mock
+}
 jest.mock('../media-loader', () => ({
   uploadFileForGemini: jest.fn().mockResolvedValue('gs://video'),
+  uploadFileForGeminiWithMimeType: jest.fn().mockResolvedValue('gs://pdf'),
   inferVideoMimeType: jest.fn().mockReturnValue('video/mp4'),
+  inferPdfMimeType: jest.fn().mockReturnValue('application/pdf'),
 }))
 
 const { resolveImageParts } = jest.requireMock('../image-loader') as {
@@ -34,7 +46,9 @@ const { resolveImageParts } = jest.requireMock('../image-loader') as {
 }
 const mediaLoader = jest.requireMock('../media-loader') as {
   uploadFileForGemini: jest.Mock
+  uploadFileForGeminiWithMimeType: jest.Mock
   inferVideoMimeType: jest.Mock
+  inferPdfMimeType: jest.Mock
 }
 const configModule = jest.requireMock('../config') as {
   loadCliConfig: jest.Mock
@@ -91,6 +105,7 @@ describe('prompt-generator-service helpers', () => {
 describe('PromptGeneratorService.generatePrompt', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    callLLMMock.mockReset()
     configModule.loadCliConfig.mockResolvedValue({
       promptGenerator: { defaultModel: 'gpt-4o-mini', defaultGeminiModel: 'gemini-1.5-pro' },
     })
@@ -219,6 +234,79 @@ describe('PromptGeneratorService.generatePrompt', () => {
         }),
       ]),
     )
+  })
+
+  it('auto-refines generic PDF prompt contracts to be grounded', async () => {
+    const pdfPath =
+      '/Users/eroberts/Downloads/BP-Adopt AI-based Browser Automation-080126-222458.pdf'
+
+    callLLMMock
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          reasoning: 'x',
+          prompt:
+            '# Title\n\nMake document concise\n\n## Inputs\n- Primary document: already provided in context\n',
+        }),
+      )
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          reasoning: 'y',
+          prompt:
+            '# Title\n\nRewrite attached PDF\n\nDocument Snapshot\n- Topic: Browser automation\n\n"This is a verbatim quote from the PDF content."\n\nInputs\n- Attached PDF: BP-Adopt AI-based Browser Automation-080126-222458.pdf\n',
+        }),
+      )
+
+    const service = await buildService()
+    const prompt = await service.generatePrompt({
+      intent: 'Please make this document more succinct',
+      model: 'gpt-4o-mini',
+      targetModel: 'gpt-5.2',
+      fileContext: [],
+      images: [],
+      videos: [],
+      pdfs: [pdfPath],
+    })
+
+    expect(callLLM).toHaveBeenCalledTimes(2)
+    expect(resolvePdfParts).toHaveBeenCalledTimes(1)
+
+    const secondCallMessages = callLLMMock.mock.calls[1]?.[0] as Array<{
+      role: string
+      content: unknown
+    }>
+    const secondUser = secondCallMessages.find((msg) => msg.role === 'user')
+    expect(JSON.stringify(secondUser?.content)).toContain('Refinement Instruction')
+    expect(JSON.stringify(secondUser?.content)).toContain('Document Snapshot')
+
+    expect(prompt).toContain('BP-Adopt AI-based Browser Automation-080126-222458.pdf')
+    expect(prompt).toContain('Document Snapshot')
+  })
+
+  it('does not refine when PDF contract is already grounded', async () => {
+    const pdfPath = '/Users/eroberts/Downloads/doc.pdf'
+
+    callLLMMock.mockResolvedValueOnce(
+      JSON.stringify({
+        reasoning: 'x',
+        prompt:
+          '# Title\n\nRewrite PDF\n\nDocument Snapshot\n- A\n\n"Quote one from document"\n\nInputs\n- Attached PDF: doc.pdf',
+      }),
+    )
+
+    const service = await buildService()
+    const prompt = await service.generatePrompt({
+      intent: 'Please make this document more succinct',
+      model: 'gpt-4o-mini',
+      targetModel: 'gpt-5.2',
+      fileContext: [],
+      images: [],
+      videos: [],
+      pdfs: [pdfPath],
+    })
+
+    expect(callLLM).toHaveBeenCalledTimes(1)
+    expect(prompt).toContain('Document Snapshot')
+    expect(prompt).toContain('doc.pdf')
   })
 
   it('returns raw response when LLM output is not JSON', async () => {

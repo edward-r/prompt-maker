@@ -1,0 +1,165 @@
+contextPaths:
+  - path: inline-intent
+    source: intent
+images: []
+intent: Please make this document more succinct
+interactive: true
+iterations: 1
+model: gemini-2.5-pro
+pdfs:
+  - >-
+    /Users/eroberts/Downloads/BP-Adopt AI-based Browser
+    Automation-080126-222458.pdf
+prompt: >-
+  # Title
+
+  Document Condensation and Summarization
+
+
+  ### Role
+
+  You are an expert editor and summarizer, skilled at distilling complex
+  information into clear, concise, and accurate summaries while preserving the
+  original intent.
+
+
+  ### Context
+
+  The user has provided a document and requires a more succinct version. The
+  goal is to reduce the overall length and complexity of the text without losing
+  any essential information, key arguments, or the intended tone.
+
+
+  ### Goals & Tasks
+
+  **Goal:** To produce a condensed version of the provided document that is
+  significantly shorter, easier to read, and retains all critical information.
+
+
+  **Tasks:**
+
+  1.  Analyze the provided document to identify its core thesis, main arguments,
+  supporting evidence, and key conclusions.
+
+  2.  Rewrite the content to be more succinct by eliminating redundant phrases,
+  jargon (where appropriate for a general audience), and non-essential details.
+
+  3.  Restructure the key information into a format that is easy to scan and
+  digest.
+
+
+  ### Inputs
+
+  - The user has provided a document as an attachment. You must use this
+  attached document as the sole source material for this task.
+
+
+  ### Constraints
+
+  - **Fidelity:** Do not introduce any new information, external data, or
+  personal opinions. The output must be based exclusively on the content of the
+  source document.
+
+  - **Tone:** Preserve the original tone and intent of the document (e.g.,
+  formal, informal, persuasive, informative).
+
+  - **Brevity:** Aim for a significant reduction in word count (approximately
+  30-50% shorter), but prioritize clarity and the preservation of critical
+  information over achieving a specific length.
+
+  - **Completeness:** Ensure all key data points, findings, conclusions, and
+  calls to action from the original document are present in the final output.
+
+
+  ### Execution Plan
+
+  1.  **Initial Read-Through:** First, read the entire provided document to gain
+  a comprehensive understanding of its purpose, audience, and key messages.
+
+  2.  **Identify Core Components:** Systematically identify the main
+  idea/thesis, each primary supporting argument or section, and the final
+  conclusion or call to action.
+
+  3.  **Extract Key Sentences:** For each component identified, extract the most
+  critical sentences or concepts that convey its essence.
+
+  4.  **Synthesize and Draft:** Synthesize these extracted points into a new,
+  cohesive narrative. Focus on using active voice, simpler sentence structures,
+  and removing filler words.
+
+  5.  **Structure the Output:** Draft the executive summary paragraph first.
+  Then, create the bulleted list of key takeaways, ensuring they are distinct
+  and impactful.
+
+  6.  **Review and Refine:** Compare your condensed version against the original
+  document one last time to verify that no critical information has been lost or
+  misrepresented.
+
+
+  ### Output Format
+
+  Provide the final output in markdown with the following two sections:
+
+
+  **Executive Summary**
+
+  A concise paragraph (or two, if the source material is very dense) that
+  captures the overarching message, context, and conclusion of the document.
+
+
+  **Key Takeaways**
+
+  - A bulleted list highlighting the most important individual points, data,
+  findings, or action items.
+
+  - Each bullet point should be clear, direct, and self-contained.
+
+
+  ### Quality Checks
+
+  - **Accuracy:** Does the summary accurately reflect the information and
+  arguments in the original document?
+
+  - **Completeness:** Are all essential points, data, and conclusions from the
+  original included?
+
+  - **Clarity:** Is the condensed version easy to understand and free of
+  ambiguity?
+
+  - **Succinctness:** Is the output significantly shorter than the original
+  without sacrificing critical meaning?
+reasoning: >-
+  The user's request is to make a document 'more succinct'. This is a common but
+  vague intent. To create an effective prompt contract, I need to add structure
+  and specificity. My strategy is as follows:
+
+  1.  **Define 'Succinct':** I will translate 'succinct' into concrete tasks:
+  identifying core ideas, eliminating redundancy, and restructuring for clarity.
+  I'll also suggest a target length reduction (e.g., 30-50%) to provide a
+  measurable goal, while emphasizing that clarity is more important than a
+  specific word count.
+
+  2.  **Handle the Input:** The user did not provide the document. Per the
+  instructions, I will assume the document is provided as an attachment to the
+  executing assistant and explicitly state this in the 'Inputs' section.
+
+  3.  **Establish a Role:** I will assign the role of an 'expert editor and
+  summarizer' to set the context for high-quality output.
+
+  4.  **Structure the Output:** A single block of condensed text might not be
+  the most useful format. I will specify a two-part output: a narrative
+  'Executive Summary' and a scannable 'Key Takeaways' bulleted list. This
+  provides both a high-level overview and easy access to critical points.
+
+  5.  **Create a Clear Plan:** The 'Execution Plan' will guide the assistant
+  through a logical process: read, identify key points, synthesize, draft, and
+  review. This ensures a methodical and thorough approach.
+
+  6.  **Add Guardrails:** The 'Constraints' and 'Quality Checks' sections are
+  crucial for preventing common summarization errors, such as introducing new
+  information, misrepresenting the original tone, or omitting critical details.
+refinements: []
+schemaVersion: '1'
+targetModel: gpt-5.2
+timestamp: '2026-01-09T15:18:41.291Z'
+videos: []

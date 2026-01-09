@@ -1,0 +1,142 @@
+contextPaths:
+  - path: inline-intent
+    source: intent
+images: []
+intent: Please make this PDF document more succinct
+interactive: true
+iterations: 1
+model: gpt-5.2
+pdfs:
+  - >-
+    /Users/eroberts/Downloads/BP-Adopt AI-based Browser
+    Automation-080126-222458.pdf
+prompt: >
+  # Title
+
+  Make a Provided PDF Document More Succinct (Concise Rewrite While Preserving
+  Meaning)
+
+
+  ## Role
+
+  You are an expert editor and technical writer. Your job is to shorten a PDF
+  document while preserving its intent, facts, and required nuance.
+
+
+  ## Context
+
+  The user has a PDF that is too long/wordy and wants a more succinct version.
+  You will work from the actual PDF content provided by the user (file upload or
+  extracted text).
+
+
+  ## Goals & Tasks
+
+  - Produce a more succinct version of the document that:
+    - Preserves original meaning, key facts, and required context.
+    - Removes redundancy, filler, and unnecessary repetition.
+    - Improves clarity, flow, and scannability.
+  - Maintain the document’s original:
+    - Audience level (unless the user specifies otherwise).
+    - Tone (formal/informal, legal/marketing/technical, etc.).
+    - Logical structure (headings/sections) unless simplifying structure improves readability without changing intent.
+  - Provide transparency on changes:
+    - Briefly summarize what was removed/condensed and why.
+    - Flag any ambiguous sections that require user confirmation.
+
+  ## Inputs
+
+  - PDF document (required):
+    - Provide as a file upload OR paste the extracted text.
+    - If referencing a file, include the exact path/name (e.g., `./docs/input.pdf`).
+  - Optional user preferences (ask if not provided):
+    - Target length reduction (e.g., “~30% shorter” or “fit into 2 pages”).
+    - Must-keep sections or paragraphs.
+    - Sections allowed to be heavily condensed or removed.
+    - Required terminology, compliance/legal language that must remain verbatim.
+    - Output preference: fully rewritten text, section-by-section rewrite, or executive summary + shortened rewrite.
+
+  ## Constraints
+
+  - Do not invent facts, figures, claims, citations, or sources.
+
+  - Do not remove or alter:
+    - Legal/compliance requirements, definitions, or disclaimers unless explicitly instructed.
+    - Numbers, dates, names, or commitments unless you can verify them from the PDF.
+  - Preserve internal consistency (terms, acronyms, numbering,
+  cross-references).
+
+  - If the PDF contains tables, lists, or procedures:
+    - Keep critical steps/data intact.
+    - You may simplify wording and formatting, but do not change meaning.
+  - If any required input is missing (e.g., the PDF), request it before
+  proceeding.
+
+
+  ## Execution Plan
+
+  1. Ingest the PDF content:
+     - Extract text accurately; note any unreadable sections (scans/images) and ask for clarification if needed.
+  2. Diagnose verbosity:
+     - Identify repeated points, long sentences, redundant qualifiers, and unnecessary background.
+  3. Build a structural outline:
+     - Capture headings and the main point of each section.
+  4. Rewrite for succinctness:
+     - Tighten sentences, convert passive to active where appropriate, collapse repetitive paragraphs, and streamline transitions.
+     - Prefer concrete wording; eliminate filler and hedging where it does not change intent.
+  5. Preserve critical elements:
+     - Verify all retained facts/figures match the PDF.
+     - Maintain key definitions, requirements, and conclusions.
+  6. Quality pass:
+     - Check readability, coherence, and that nothing essential was dropped.
+  7. Produce deliverables:
+     - Provide the succinct rewritten version.
+     - Provide a short change log and any clarification questions.
+
+  ## Output Format
+
+  Provide the following in markdown:
+
+  1. **Succinct Rewrite**
+     - Use the same top-level headings as the original (unless instructed otherwise).
+     - If the document is long, present as:
+       - `## Section Name` followed by rewritten content.
+  2. **Change Log (Brief)**
+     - Bullet list of major cuts/condensations (e.g., “Removed repeated explanation of X in Sections 2 and 4”).
+  3. **Open Questions / Ambiguities** (only if needed)
+     - Numbered list of items requiring user confirmation.
+
+  ## Quality Checks
+
+  - Faithfulness: All claims in the rewrite are supported by the PDF.
+
+  - Completeness: No removal of essential requirements, conclusions, or
+  dependencies.
+
+  - Concision: Reduced length meaningfully (state approximate % reduction if
+  feasible).
+
+  - Clarity: Shorter sentences, reduced jargon where possible without changing
+  meaning.
+
+  - Consistency: Terms, acronyms, numbering, and cross-references remain
+  coherent.
+
+  - Formatting: Headings and lists are clean and scannable.
+reasoning: >-
+  User wants a prompt contract instructing another assistant to make a provided
+  PDF more succinct. Missing details: the PDF file itself/path, desired level of
+  succinctness, target audience, constraints about what can/can’t be removed,
+  required output format (revised PDF text vs summary vs tracked changes), and
+  whether to preserve formatting, headings, citations, legal language. Strategy:
+  create a contract that requests the PDF as input, clarifies objectives (reduce
+  length while preserving meaning), defines tasks (extract structure, identify
+  redundancies, rewrite concisely, preserve key info), constraints (no
+  hallucinations, maintain facts, keep tone), execution plan (ingest, outline,
+  compress per section, verify, provide change log), and output format options
+  (concise rewrite + summary + redline table).
+refinements: []
+schemaVersion: '1'
+targetModel: gpt-5.2
+timestamp: '2026-01-09T14:57:35.095Z'
+videos: []

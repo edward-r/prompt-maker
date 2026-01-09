@@ -79,6 +79,13 @@ export type UsePopupKeyboardShortcutsOptions = {
     onRemove: (index: number) => void
   }
 
+  pdf: {
+    items: string[]
+    suggestions: string[]
+    onAdd: (value: string) => void
+    onRemove: (index: number) => void
+  }
+
   history: {
     items: string[]
   }
@@ -122,6 +129,7 @@ export const usePopupKeyboardShortcuts = ({
   url,
   image,
   video,
+  pdf,
   history,
   resume,
   export: exportActions,
@@ -245,6 +253,21 @@ export const usePopupKeyboardShortcuts = ({
           closePopup,
           onRemove: video.onRemove,
           onSelectSuggestion: video.onAdd,
+        })
+        return
+
+      case 'pdf':
+        handleSuggestedSelectedListPopupShortcuts({
+          popupType: 'pdf',
+          popupState,
+          input,
+          key,
+          itemsLength: pdf.items.length,
+          suggestions: pdf.suggestions,
+          setPopupState,
+          closePopup,
+          onRemove: pdf.onRemove,
+          onSelectSuggestion: pdf.onAdd,
         })
         return
 

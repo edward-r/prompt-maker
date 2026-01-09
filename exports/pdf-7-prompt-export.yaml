@@ -1,0 +1,229 @@
+contextPaths:
+  - path: inline-intent
+    source: intent
+images: []
+intent: please make this more succinct
+interactive: true
+iterations: 1
+model: gpt-5.2-pro
+pdfs:
+  - /Users/eroberts/Downloads/test.pdf
+prompt: >-
+  # Title
+
+  Succinct Rewrite of “Adopt AI-based Browser Automat i on” (test.pdf)
+
+
+  ## Role
+
+  You are a technical editor for engineering proposals. Your job is to produce a
+  significantly more succinct rewrite of the attached PDF while preserving
+  decision-critical content, requirement strength levels, and the document’s
+  recommendation.
+
+
+  ## Context
+
+  The attached PDF (**test.pdf**) is an internal-style proposal about
+  modernizing Loantek’s browser-based rate sheet downloads. It contrasts legacy
+  Windows/Selenium “watcher” automation with newer AI-assisted approaches,
+  defines workload requirements (must/should/ideal), evaluates specific tools,
+  and recommends a path forward (Option 1 vs Option 2).
+
+
+  ### Document Snapshot
+
+  Use this snapshot to confirm you are grounded in **test.pdf** (and to guide
+  what must be preserved).
+
+
+  **Key topics/sections present in the document (5–10 bullets):**
+
+  - Loantek’s current rate sheet ingestion context and why browser portals are
+  needed (email/FTP/SFTP/HTTP + scripted portals).
+
+  - Legacy browser automation drawbacks: Windows executable/manual VDI run,
+  hardcoded lender steps requiring redeploys, Selenium/ChromeDriver drift,
+  brittle selectors.
+
+  - The “Publication Downloader” as a modernization inflection point prompting a
+  re-evaluation of browser automation.
+
+  - How traditional browser automation works (Selenium/Playwright): DOM
+  selectors, scripted actions, waits/retries; brittleness under UI changes.
+
+  - AI-based browser automation landscape framed as 4 models: low-level AI
+  primitives; prompt-assisted authoring; declarative/intent-based automation;
+  autonomous agent frameworks.
+
+  - WebVoyager benchmark: what it measures well vs what it does not guarantee;
+  used as capability ceiling signal.
+
+  - Workload requirements & constraints with explicit **must/should/ideal**
+  labels, including deterministic outcomes, observability, data boundaries, and
+  headless/server suitability.
+
+  - Tool evaluations and takeaways for: Vibium, Browser MCP, Browser Use,
+  Stagehand, Magnitude, BrowserBook, Skyvern, Browserable, OpenAI Operator,
+  Amazon Nova Act.
+
+  - Proposal summary with two implementation paths (Option 1 outsource runtime
+  vs Option 2 owned platform), trade-offs/risks, mitigations, and next steps
+  (pilot + decision gate).
+
+
+  **Verbatim quotes (10–25 words each; keep exactly as written):**
+
+  - "The Loantek platform i s respons i ble for download i ng rate sheets from
+  mortgage lenders ."
+
+  - "The automat i on i s i mplemented as a . NET appl i cat i on comp i led i
+  nto a W i ndows executable ."
+
+  - "Proceed w i th Opt i on 1 (M i n i mum V i able Complex i ty) as the
+  default near-term path"
+
+
+  If you cannot access readable embedded text in **test.pdf** (e.g.,
+  image-only/scanned PDF), state that explicitly and request OCR/extracted text
+  as the only missing input.
+
+
+  ## Goals & Tasks
+
+  - Read **test.pdf** end-to-end and rewrite it to be materially more succinct
+  while keeping the proposal’s technical and operational meaning intact.
+
+  - Remove repetition and “throat-clearing” while preserving:
+    - The problem statement and why the legacy “watcher” approach is risky/expensive.
+    - The 4-model landscape (and the axis framing: authoring/execution/ownership).
+    - The WebVoyager interpretation caveats.
+    - The complete requirements list with original numbering and labels (**must/should/ideal**, including **5** and **5a**).
+    - Each evaluated tool’s overview + requirements satisfaction indicators (✅/⚠/❌) + key takeaways (no meaning drift).
+    - The proposal’s two options, the recommendation to pursue Option 1 near-term, “tripwires” for Option 2, risks/mitigations, and suggested next steps.
+  - Fix obvious PDF text artifacts (e.g., broken spacing: “automat i on”, “w i
+  th”) to normal English **without changing meaning**.
+
+  - Keep the tone: engineering proposal (clear, operationally grounded), not
+  marketing.
+
+
+  ## Inputs
+
+  - PDF attachment already provided as context: **test.pdf**
+    - Reference path (context only): `/Users/eroberts/Downloads/test.pdf`
+  - Use the attached PDF directly as the source of truth.
+
+  - Do **not** ask the user to paste/re-upload/provide the PDF or its path.
+
+  - Only request OCR/extracted text if you cannot read usable text from the PDF;
+  explicitly state that limitation.
+
+
+  ## Constraints
+
+  - Do **not** introduce new claims, requirements, tools, benchmark results,
+  pricing, or vendor capabilities not supported by **test.pdf**.
+
+  - Do **not** delete or weaken security/compliance/data-boundary requirements
+  (e.g., credential handling, observability artifacts, deterministic outcomes).
+
+  - Preserve the semantic strength of requirement keywords exactly: **must /
+  should / ideal**.
+
+  - Preserve the document’s internal consistency, especially:
+    - Which tools do/do not support download artifact capture.
+    - Which tools are TypeScript-first vs Python-first.
+    - Which options are recommended and why (Option 1 default near-term; Option 2 later if tripwires hit).
+    - Any licensing note present (e.g., AGPL-3.0 mention around Skyvern) and its framing as a trade-off.
+  - Prefer concise sentences, active voice, and de-duplicated phrasing.
+
+
+  ## Execution Plan
+
+  1. **Parse the document structure** from **test.pdf**:
+     - List the major headings and ensure you keep them in roughly the same narrative order.
+  2. **Compress section-by-section**:
+     - Remove repeated rationale and overlong explanations.
+     - Convert eligible paragraphs into bullet lists (especially requirements, tool comparisons, risks/mitigations, next steps).
+  3. **Normalize and clean text**:
+     - Repair broken words/spacing from PDF extraction.
+     - Standardize headings, numbering, and ✅/⚠/❌ indicators.
+  4. **Preserve decision-critical fidelity**:
+     - Keep requirements numbering and labels.
+     - Keep each tool’s “Requirements Satisfied” content aligned with the PDF.
+     - Keep proposal details: Option 1 architecture elements (managed browser runtime, prompt-list specs, Step Functions/Lambdas runner) and Option 2 concept; retain “tripwires.”
+  5. **Run a coverage/consistency pass** using the Quality Checks section.
+
+
+  ## Output Format
+
+  Provide **two deliverables** in Markdown.
+
+
+  1) **Succinct Rewrite (Primary Output)**
+
+  - Use clear headings and compact prose.
+
+  - Maintain the document’s general flow (do not reorganize into a totally new
+  paper), covering:
+    - Context + objective
+    - How browser automation works today
+    - AI-based browser automation landscape (4 models)
+    - WebVoyager notes (what it measures / doesn’t)
+    - Workload requirements & constraints (must/should/ideal)
+    - Research overview + per-tool summaries (Vibium, Browser MCP, Browser Use, Stagehand, Magnitude, BrowserBook, Skyvern, Browserable, OpenAI Operator, Amazon Nova Act)
+    - Proposal summary (Option 1 vs Option 2), recommendation, risks/mitigations, suggested next steps
+
+  2) **One-Page Executive Summary (Optional but Recommended)**
+
+  - 8–15 bullets maximum.
+
+  - Must include:
+    - Why the legacy watcher/Selenium approach is failing operationally
+    - The top workload requirements (must-haves)
+    - The best-fitting candidates and why (as stated in the PDF)
+    - The recommended path (Option 1) + pilot scope + decision gate timing
+
+  ## Quality Checks
+
+  - **Succinctness target:** reduce word count by ~40–60% vs **test.pdf** while
+  retaining decision-critical content.
+
+  - **Requirements integrity:** all numbered requirements remain, including
+  **5** and **5a**, with correct **must/should/ideal** labels.
+
+  - **Tool fidelity:** for each evaluated tool, ✅/⚠/❌ judgments remain
+  consistent with **test.pdf** (especially download artifact access, execution
+  model, and manageability).
+
+  - **Recommendation preserved:** the rewrite still recommends Option 1 as the
+  default near-term approach and retains the “tripwires” framing for Option 2.
+
+  - **Operational clarity retained:** deterministic outcomes/failure semantics,
+  observability artifacts (logs/screenshots/page snapshots),
+  credential/security, data boundary/compliance, cost/runtime bounds are
+  explicit.
+
+  - **Text cleanup correctness:** spacing/broken-word artifacts are fixed
+  without altering meaning; headings and lists render cleanly.
+
+  - **No extraneous additions:** no new vendors, no unreferenced benchmark
+  claims, no speculative capabilities beyond the PDF.
+reasoning: >-
+  I preserved the original prompt contract structure and required section order,
+  while making it explicitly grounded in the provided attachment. To satisfy the
+  user’s added “Document Snapshot” requirement without violating the mandated
+  section order, I embedded a clearly titled “Document Snapshot” subsection
+  inside the Context section. I referenced the attachment by filename (test.pdf)
+  and treated it as already-available input, only permitting an OCR request if
+  the PDF text is unreadable. I also tightened tasks and checks to be concrete
+  and testable against the PDF’s specific content: Loantek’s legacy “watcher,”
+  Publication Downloader, the 4-model landscape, WebVoyager caveats, numbered
+  requirements (including 5 and 5a), specific tool set, and the Option 1 vs
+  Option 2 proposal with “tripwires.”
+refinements: []
+schemaVersion: '1'
+targetModel: gpt-5.2
+timestamp: '2026-01-09T17:26:32.606Z'
+videos: []

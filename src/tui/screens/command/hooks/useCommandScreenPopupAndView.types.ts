@@ -22,6 +22,7 @@ export type CommandContextOptions = {
   urls: string[]
   images: string[]
   videos: string[]
+  pdfs: string[]
   smartContextEnabled: boolean
   smartContextRoot: string | null
   metaInstructions: string
@@ -41,6 +42,8 @@ export type CommandContextOptions = {
   removeImage: (index: number) => void
   addVideo: (value: string) => void
   removeVideo: (index: number) => void
+  addPdf: (value: string) => void
+  removePdf: (index: number) => void
   toggleSmartContext: () => void
   setSmartRoot: (value: string) => void
   setMetaInstructions: (value: string) => void

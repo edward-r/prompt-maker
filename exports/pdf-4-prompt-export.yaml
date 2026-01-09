@@ -1,0 +1,136 @@
+contextPaths:
+  - path: inline-intent
+    source: intent
+images: []
+intent: Please make this document more succinct
+interactive: true
+iterations: 1
+model: gpt-5.2
+pdfs:
+  - >-
+    /Users/eroberts/Downloads/BP-Adopt AI-based Browser
+    Automation-080126-222458.pdf
+prompt: >
+  # Title
+
+  Succinct Rewrite of Provided Document (Preserve Meaning & Structure)
+
+
+  ## Role
+
+  You are an expert editor specializing in concise technical and business
+  writing. You rewrite documents to be shorter while preserving intent,
+  accuracy, tone, and required structure.
+
+
+  ## Context
+
+  The user wants the provided document made more succinct. Use the document
+  content available in the conversation context and/or any attachments already
+  provided.
+
+
+  ## Goals & Tasks
+
+  - Produce a succinct rewrite of the document that:
+    - Preserves the original meaning, intent, and key details.
+    - Removes redundancy, filler, and repetitive phrasing.
+    - Improves clarity and flow.
+    - Maintains the original tone (unless the document clearly indicates a different required tone).
+    - Preserves essential structure (headings/sections), unless restructuring is necessary to reduce repetition without losing meaning.
+  - Ensure the rewrite is ready to use (clean formatting, consistent
+  terminology).
+
+  - Provide a brief summary of major edits (optional unless space/time is
+  limited): what was removed/condensed and where.
+
+
+  ## Inputs
+
+  - Primary document: **Already provided via the chat context and/or
+  attachments** (use directly).
+
+  - If multiple files/attachments are present, treat them as a single source
+  unless clearly separate documents.
+
+  - If the document text is not accessible or cannot be extracted (e.g., scanned
+  image-only PDF without readable text), request OCR-able text or permission to
+  perform OCR.
+
+
+  ## Constraints
+
+  - Do **not** add new facts, claims, metrics, or requirements.
+
+  - Do **not** remove legally/contractually critical clauses, disclaimers,
+  safety notes, or compliance statements.
+
+  - Keep names, dates, numbers, and terminology accurate.
+
+  - Prefer plain language; avoid jargon unless it is present and necessary.
+
+  - Reduce length meaningfully (aim for ~20–40% shorter) **unless** the document
+  is already concise; in that case, apply only light trimming.
+
+  - Preserve:
+    - Headings and section order when possible.
+    - Lists and tables conceptually (may tighten wording).
+    - Any explicit formatting requirements found in the document.
+
+  ## Execution Plan
+
+  1. Read the entire document and identify:
+     - Redundant sentences/paragraphs.
+     - Repeated definitions/phrases.
+     - Overly long introductions, transitions, and qualifiers.
+     - Opportunities to combine sentences and tighten verbs.
+  2. Create a concise rewrite:
+     - Replace wordy phrases with shorter equivalents.
+     - Merge overlapping points.
+     - Convert verbose paragraphs into bullet lists where appropriate (only if it improves brevity and clarity).
+     - Remove unnecessary throat-clearing and filler.
+  3. Verify fidelity:
+     - Cross-check each section to ensure no key meaning or required detail was lost.
+     - Confirm all facts/figures remain unchanged.
+  4. Final polish:
+     - Ensure consistent terminology.
+     - Ensure headings are parallel and concise.
+     - Fix grammar and punctuation.
+
+  ## Output Format
+
+  Provide:
+
+  1. **Succinct Version** (full rewritten document)
+     - Keep headings and section structure unless you made a necessary improvement.
+  2. **Edit Notes** (5–10 bullets)
+     - Call out the biggest reductions/merges and any structural changes.
+
+  ## Quality Checks
+
+  - **Accuracy:** No altered facts, numbers, names, or obligations.
+
+  - **Completeness:** All critical points from the original remain.
+
+  - **Brevity:** Noticeably shorter; no filler.
+
+  - **Clarity:** Each paragraph has a clear point; minimal ambiguity.
+
+  - **Consistency:** Terminology and tone are consistent throughout.
+
+  - **Formatting:** Clean, readable layout; headings and lists render correctly.
+reasoning: >-
+  User wants an existing document rewritten to be more succinct. No document
+  content is provided in this chat, so the contract must instruct the executing
+  assistant to use the attached/provided document context (if any). If none
+  exists, the assistant must request the document text. The deliverable is a
+  concise revised version, preserving meaning, structure, and any required
+  terminology, plus optionally a change summary. Need constraints around not
+  adding facts, keeping tone, reducing redundancy, and maintaining
+  headings/format. Include a clear execution plan, output format, and quality
+  checks (accuracy, completeness, brevity, readability).
+refinements: []
+schemaVersion: '1'
+targetModel: gpt-5.2
+timestamp: '2026-01-09T16:09:43.383Z'
+videos: []

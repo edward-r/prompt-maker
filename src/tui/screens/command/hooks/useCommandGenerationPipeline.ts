@@ -19,6 +19,7 @@ export type UseCommandGenerationPipelineOptions = {
   urls: string[]
   images: string[]
   videos: string[]
+  pdfs: string[]
 
   smartContextEnabled: boolean
   smartContextRoot: string | null
@@ -63,7 +64,9 @@ export const useCommandGenerationPipeline = ({
   urls,
   images,
   videos,
+  pdfs,
   smartContextEnabled,
+
   smartContextRoot,
   metaInstructions,
   budgets,
@@ -94,6 +97,7 @@ export const useCommandGenerationPipeline = ({
     urls,
     images,
     videos,
+    pdfs,
     smartContextEnabled,
     smartContextRoot,
     currentModel,

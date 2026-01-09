@@ -13,6 +13,7 @@ describe('popup manager command mapping', () => {
     urls: [],
     images: [],
     videos: [],
+    pdfs: [],
     smartContextEnabled: false,
     smartContextRoot: null,
   }

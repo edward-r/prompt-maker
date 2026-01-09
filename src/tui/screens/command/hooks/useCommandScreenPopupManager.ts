@@ -34,8 +34,10 @@ type UseCommandScreenPopupManagerOptions = {
   addUrl: (value: string) => void
   images: string[]
   videos: string[]
+  pdfs: string[]
   addImage: (value: string) => void
   addVideo: (value: string) => void
+  addPdf: (value: string) => void
   lastTestFile: string | null
   interactiveTransportPath?: string | undefined
   isGenerating: boolean
@@ -104,8 +106,10 @@ export const useCommandScreenPopupManager = ({
   addUrl,
   images,
   videos,
+  pdfs,
   addImage,
   addVideo,
+  addPdf,
   lastTestFile,
   interactiveTransportPath,
   isGenerating,
@@ -213,8 +217,10 @@ export const useCommandScreenPopupManager = ({
     addUrl,
     images,
     videos,
+    pdfs,
     addImage,
     addVideo,
+    addPdf,
     lastTestFile,
     defaultTestFile: DEFAULT_TEST_FILE,
     ...(interactiveTransportPath ? { interactiveTransportPath } : {}),

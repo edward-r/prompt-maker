@@ -19,6 +19,7 @@ export type UseCommandScreenContextPopupBindingsOptions = {
   urls: string[]
   images: string[]
   videos: string[]
+  pdfs: string[]
   smartContextEnabled: boolean
   smartContextRoot: string | null
 
@@ -31,6 +32,8 @@ export type UseCommandScreenContextPopupBindingsOptions = {
   removeImage: (index: number) => void
   addVideo: (value: string) => void
   removeVideo: (index: number) => void
+  addPdf: (value: string) => void
+  removePdf: (index: number) => void
   toggleSmartContext: () => void
   setSmartRoot: (value: string) => void
 
@@ -65,6 +68,7 @@ export const useCommandScreenContextPopupBindings = ({
   urls,
   images,
   videos,
+  pdfs,
   smartContextEnabled,
   smartContextRoot,
   addFile,
@@ -76,6 +80,8 @@ export const useCommandScreenContextPopupBindings = ({
   removeImage,
   addVideo,
   removeVideo,
+  addPdf,
+  removePdf,
   toggleSmartContext,
   setSmartRoot,
   setInputValue,
@@ -88,7 +94,10 @@ export const useCommandScreenContextPopupBindings = ({
   consumeSuppressedTextInputChange,
 }: UseCommandScreenContextPopupBindingsOptions): UseCommandScreenContextPopupBindingsResult => {
   const popupDraftInput =
-    popupState?.type === 'file' || popupState?.type === 'image' || popupState?.type === 'video'
+    popupState?.type === 'file' ||
+    popupState?.type === 'image' ||
+    popupState?.type === 'video' ||
+    popupState?.type === 'pdf'
       ? popupState.draft
       : ''
 
@@ -107,6 +116,7 @@ export const useCommandScreenContextPopupBindings = ({
     urls,
     images,
     videos,
+    pdfs,
     smartContextEnabled,
     smartContextRoot,
     addFile,
@@ -118,6 +128,8 @@ export const useCommandScreenContextPopupBindings = ({
     removeImage,
     addVideo,
     removeVideo,
+    addPdf,
+    removePdf,
     toggleSmartContext,
     setSmartRoot,
     setInputValue,

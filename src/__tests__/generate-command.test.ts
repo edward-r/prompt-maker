@@ -77,7 +77,12 @@ jest.mock('../history-logger', () => {
 })
 jest.mock('../io', () => ({ readFromStdin: jest.fn().mockResolvedValue(null) }))
 jest.mock('../image-loader', () => ({ resolveImageParts: jest.fn().mockResolvedValue([]) }))
-jest.mock('../media-loader', () => ({ resolveVideoParts: jest.fn().mockResolvedValue([]) }))
+jest.mock('../prompt-generator/video-parts', () => ({
+  resolveVideoParts: jest.fn().mockResolvedValue([]),
+}))
+jest.mock('../prompt-generator/pdf-parts', () => ({
+  resolvePdfParts: jest.fn().mockResolvedValue([]),
+}))
 jest.mock('../token-counter', () => ({
   countTokens: jest.fn().mockReturnValue(10),
   formatTokenCount: jest.fn((count: number) => `${count} tokens`),

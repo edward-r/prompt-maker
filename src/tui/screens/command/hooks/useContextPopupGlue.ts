@@ -6,6 +6,7 @@ import type { CommandDescriptor, PopupState } from '../../../types'
 
 import { useFilePopupGlue } from './context-popup-glue/useFilePopupGlue'
 import { useImagePopupGlue } from './context-popup-glue/useImagePopupGlue'
+import { usePdfPopupGlue } from './context-popup-glue/usePdfPopupGlue'
 import { useSmartPopupGlue } from './context-popup-glue/useSmartPopupGlue'
 import { useUrlPopupGlue } from './context-popup-glue/useUrlPopupGlue'
 import { useVideoPopupGlue } from './context-popup-glue/useVideoPopupGlue'
@@ -25,6 +26,7 @@ export type UseContextPopupGlueOptions = {
   urls: string[]
   images: string[]
   videos: string[]
+  pdfs: string[]
   smartContextEnabled: boolean
   smartContextRoot: string | null
 
@@ -37,6 +39,8 @@ export type UseContextPopupGlueOptions = {
   removeImage: (index: number) => void
   addVideo: (value: string) => void
   removeVideo: (index: number) => void
+  addPdf: (value: string) => void
+  removePdf: (index: number) => void
 
   toggleSmartContext: () => void
   setSmartRoot: (value: string) => void
@@ -86,6 +90,14 @@ export type UseContextPopupGlueResult = {
   onAddVideo: (value: string) => void
   onRemoveVideo: (index: number) => void
 
+  // PDF
+  pdfPopupSuggestions: string[]
+  pdfPopupSuggestionSelectionIndex: number
+  pdfPopupSuggestionsFocused: boolean
+  onPdfPopupDraftChange: (next: string) => void
+  onAddPdf: (value: string) => void
+  onRemovePdf: (index: number) => void
+
   // Smart
   smartPopupSuggestions: string[]
   smartPopupSuggestionSelectionIndex: number
@@ -108,6 +120,7 @@ export const useContextPopupGlue = ({
   urls,
   images,
   videos,
+  pdfs,
   smartContextEnabled,
   smartContextRoot,
   addFile,
@@ -119,6 +132,8 @@ export const useContextPopupGlue = ({
   removeImage,
   addVideo,
   removeVideo,
+  addPdf,
+  removePdf,
   toggleSmartContext,
   setSmartRoot,
   setInputValue,
@@ -175,6 +190,17 @@ export const useContextPopupGlue = ({
     isFilePath,
   })
 
+  const pdfGlue = usePdfPopupGlue({
+    popupState,
+    pdfs,
+    setPopupState,
+    pushHistory,
+    addPdf,
+    removePdf,
+    consumeSuppressedTextInputChange,
+    isFilePath,
+  })
+
   const smartGlue = useSmartPopupGlue({
     popupState,
     smartContextEnabled,
@@ -218,6 +244,7 @@ export const useContextPopupGlue = ({
     ...urlGlue,
     ...imageGlue,
     ...videoGlue,
+    ...pdfGlue,
     ...smartGlue,
   }
 }

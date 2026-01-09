@@ -61,6 +61,7 @@ export type UseGenerationPipelineOptions = {
   urls: string[]
   images: string[]
   videos: string[]
+  pdfs: string[]
   smartContextEnabled: boolean
   smartContextRoot: string | null
   metaInstructions: string
@@ -87,6 +88,7 @@ export const useGenerationPipeline = ({
   urls,
   images,
   videos,
+  pdfs,
   smartContextEnabled,
   smartContextRoot,
   metaInstructions,
@@ -571,6 +573,7 @@ export const useGenerationPipeline = ({
           urls: shouldIgnoreContextForResume ? [] : [...urls],
           images: [...images],
           video: [...videos],
+          pdf: [...pdfs],
           smartContext: shouldIgnoreContextForResume ? false : smartContextEnabled,
           model: generationModel,
           target: normalizedTargetModel,
@@ -863,6 +866,7 @@ export const useGenerationPipeline = ({
           fileContext: contextEntries.map(({ path, content }) => ({ path, content })),
           images: [...images],
           videos: [...videos],
+          pdfs: [...pdfs],
           onUploadStateChange: handleUploadState,
           onSeriesRepairAttempt: ({ attempt, maxAttempts, validationError }) => {
             const normalizedError = validationError.replace(/\s+/g, ' ').trim()

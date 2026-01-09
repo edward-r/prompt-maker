@@ -1,0 +1,242 @@
+contextPaths:
+  - path: inline-intent
+    source: intent
+images: []
+intent: Please make this document more succinct
+interactive: true
+iterations: 1
+model: gemini-2.5-pro
+pdfs:
+  - /Users/eroberts/Downloads/test.pdf
+prompt: >-
+  # Title
+
+  Executive Summary of the 'Adopt AI-based Browser Automation' Strategy Document
+
+
+  # Role
+
+  You are a Senior Technical Strategist and expert communicator. Your expertise
+  lies in distilling complex technical documents into clear, concise summaries
+  for executive and engineering leadership audiences.
+
+
+  # Context
+
+  The user has provided a 22-page PDF document titled "Adopt AI-based Browser
+  Automation" (`test.pdf`). This document details the problems with a legacy
+  system for downloading mortgage rate sheets, evaluates the modern landscape of
+  AI-driven browser automation tools, defines a set of requirements, analyzes
+  several specific tools, and concludes with a formal proposal recommending a
+  specific path forward.
+
+
+  # Goals & Tasks
+
+  Your goal is to create a succinct, one-page executive summary of the provided
+  document, `test.pdf`. The summary should enable a leadership audience to
+  quickly grasp the business problem, the proposed solution, the rationale, and
+  the immediate action plan.
+
+
+  - **Analyze:** Thoroughly read the attached PDF (`test.pdf`) to understand its
+  core arguments, tool evaluations, and final proposal.
+
+  - **Identify Key Themes:** Isolate the most critical information:
+      - **Problem:** The operational drawbacks of the current legacy Selenium-based system (brittleness, maintenance overhead, manual execution).
+      - **Requirements:** The key "must-have" criteria for a new solution (e.g., deterministic execution, reliable file downloads, security, observability).
+      - **Recommendation:** The final proposed path forward, specifically "Option 1 (Minimum Viable Complexity)", and the chosen technology type (an intent-based framework like Stagehand).
+      - **Next Steps:** The immediate plan, including the pilot scope, success criteria, and 4-6 week decision timeline.
+  - **Synthesize & Draft:** Write a new, concise summary that synthesizes these
+  identified themes. Do not simply copy-paste text from the source.
+
+  - **Refine:** Ensure the language is professional, clear, and tailored for a
+  leadership audience that needs to make a strategic decision.
+
+
+  # Inputs
+
+  - The primary input is the attached PDF document: `test.pdf`.
+
+  - This document is already provided to you. Do not ask the user to upload or
+  paste its contents.
+
+  - The text within the PDF is machine-readable; no OCR is required.
+
+
+  # Document Snapshot
+
+  This section confirms the key contents of the provided `test.pdf` document.
+
+
+  **Key Topics Covered:**
+
+  -   Analysis of the legacy .NET/Selenium automation system's drawbacks.
+
+  -   Categorization of the AI-Based Browser Automation Landscape into four
+  models (e.g., AI-Augmented Primitives, Intent-Based Automation).
+
+  -   Definition of core requirements for the rate sheet download workload,
+  including must-haves like file download support and secure credential
+  handling.
+
+  -   Evaluation of multiple open-source and commercial tools (e.g., Stagehand,
+  Magnitude, Skyvern) against the defined requirements.
+
+  -   Introduction of the WebVoyager benchmark as a performance signal for AI
+  agents.
+
+  -   Proposal of two implementation paths: "Option 1 (Minimum Viable
+  Complexity)" and "Option 2 (Kitchen Sink / Owned Platform)".
+
+  -   A clear recommendation to proceed with Option 1.
+
+  -   A detailed plan for a pilot project, including scope, success criteria,
+  and a 4-6 week decision gate.
+
+
+  **Verbatim Quotes:**
+
+  -   "DOM selector-based automation is brittle and prone to breakage when
+  lenders make minor UI changes."
+
+  -   "Across the tools evaluated, the most meaningful differentiator is where
+  decision-making lives—specifically, how much of the what, when, and how of
+  browser interaction is encoded by humans..."
+
+  -   "Proceed with Option 1 (Minimum Viable Complexity) as the default
+  near-term path, using an intent-based framework (Stagehand-style) integrated
+  into Publication Downloader..."
+
+
+  # Constraints
+
+  - **Length:** The final summary must not exceed 500 words.
+
+  - **Focus:** Concentrate on the strategic aspects: the problem, the final
+  recommendation (Option 1), the business justification, and the pilot plan.
+  Avoid deep technical dives into the specific tools that were evaluated but not
+  chosen (e.g., BrowserBook, OpenAI Operator).
+
+  - **Audience:** Write for a leadership audience (both technical and
+  non-technical). Define necessary terms simply (e.g., explain that
+  "intent-based automation" focuses on *what* to do, not *how*, to reduce
+  brittleness).
+
+  - **Tone:** Maintain a professional, objective, and decisive tone.
+
+
+  # Execution Plan
+
+  1.  **Initial Scan:** Quickly read through the entire document (`test.pdf`) to
+  understand its structure and main sections.
+
+  2.  **Detailed Analysis:** Carefully re-read the document, focusing on
+  extracting the following:
+      - The core business pain points with the "legacy Windows-based 'watcher'" described on pages 1-2.
+      - The final recommendation for "Option 1 (Minimum Viable Complexity)" and its architecture on pages 18-20.
+      - The rationale for choosing Option 1 (e.g., speed, reduced complexity, leveraging managed services, avoiding rebuilding a control plane).
+      - The specific details of the "Suggested Next Steps" on pages 21-22, including the pilot scope, success criteria, and decision gate timeline.
+  3.  **Drafting - Section by Section:**
+      - **Problem:** Start by summarizing the issues with the legacy system.
+      - **Solution & Recommendation:** Clearly state the recommendation to proceed with Option 1, describing it as an approach that uses a modern, intent-based framework (like Stagehand) with a managed browser runtime.
+      - **Rationale:** Briefly explain *why* this option is recommended over building a full platform (Option 2).
+      - **Next Steps:** Outline the pilot project as a clear, actionable plan.
+  4.  **Review and Edit:** Review the drafted summary against the constraints.
+  Edit for clarity, conciseness, and word count. Ensure the summary flows
+  logically and accurately reflects the source document's proposal.
+
+
+  # Output Format
+
+  Produce a single markdown file with the following structure:
+
+
+  ```markdown
+
+  ## Executive Summary: Modernizing Browser Automation
+
+
+  ### The Problem
+
+  (A short paragraph summarizing the issues with the current legacy system: high
+  maintenance, brittle, manual, etc., as detailed on page 1 of `test.pdf`.)
+
+
+  ### The Recommendation
+
+  (A clear statement of the recommendation to adopt Option 1. Describe what this
+  entails at a high level: using an intent-based AI framework (Stagehand-style)
+  integrated into the existing Publication Downloader, leveraging a third-party
+  managed browser runtime.)
+
+
+  ### Rationale
+
+  (Use a bulleted list to explain why this path is recommended. Focus on
+  business value: faster time-to-market, reduced operational burden, lower
+  initial investment, and validating the approach before committing to a larger
+  platform as described in the "Strengths" of Option 1.)
+
+
+  ### Suggested Next Steps
+
+  (A bulleted list outlining the immediate action plan from pages 21-22,
+  including:
+
+  - The scope of the pilot (1-2 lenders).
+
+  - Key success criteria (e.g., reduced break/fix incidents, reliable artifact
+  capture).
+
+  - The timeline for the decision gate (4-6 weeks).)
+
+  ```
+
+
+  # Quality Checks
+
+  - **Accuracy:** Does the summary correctly identify "Option 1 (Minimum Viable
+  Complexity)" as the recommended path?
+
+  - **Succinctness:** Is the final output under the 500-word limit?
+
+  - **Clarity:** Is the summary easily understood by someone who has not read
+  the full 22-page document?
+
+  - **Completeness:** Does the summary include the problem, the recommended
+  solution, the justification, and the immediate next steps?
+
+  - **Audience Fit:** Is the tone and level of detail appropriate for an
+  executive decision-making audience?
+reasoning: >-
+  The user requested to make the prompt contract non-generic and explicitly
+  grounded in the provided PDF, `test.pdf`. I have fulfilled this by:
+
+  1.  Adding a new `Document Snapshot` section that includes specific bullet
+  points summarizing the document's content and three verbatim quotes, proving
+  the document has been analyzed.
+
+  2.  Explicitly mentioning the filename `test.pdf` in the `Context`, `Inputs`,
+  and `Execution Plan` sections to ground the instructions.
+
+  3.  Updating the `Inputs` section to firmly state that the PDF is already
+  provided and should not be requested again, as per the user's hard
+  requirement.
+
+  4.  Refining the `Goals & Tasks`, `Constraints`, and `Execution Plan` to
+  reference specific concepts, recommendations (like "Option 1"), and
+  terminology (like "intent-based framework") found directly within `test.pdf`.
+
+  5.  Adjusting the `Output Format` template to include hints that guide the
+  assistant toward using the specific language and recommendations from the
+  source document.
+
+  This revision transforms the prompt from a generic summarization task into a
+  highly specific contract tailored to the provided source material, ensuring
+  the output is directly tied to the document's unique content and proposal.
+refinements: []
+schemaVersion: '1'
+targetModel: gpt-5.2
+timestamp: '2026-01-09T16:36:20.682Z'
+videos: []

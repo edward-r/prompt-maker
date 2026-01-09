@@ -39,8 +39,10 @@ export const useCommandScreenBindings = (
     addUrl: context.addUrl,
     images: context.images,
     videos: context.videos,
+    pdfs: context.pdfs,
     addImage: context.addImage,
     addVideo: context.addVideo,
+    addPdf: context.addPdf,
     lastTestFile: history.lastTestFile,
     ...(context.interactiveTransportPath
       ? { interactiveTransportPath: context.interactiveTransportPath }
@@ -195,6 +197,7 @@ export const useCommandScreenBindings = (
       urls: context.urls,
       images: context.images,
       videos: context.videos,
+      pdfs: context.pdfs,
       smartContextEnabled: context.smartContextEnabled,
       smartContextRoot: context.smartContextRoot,
       addFile: context.addFile,
@@ -206,6 +209,8 @@ export const useCommandScreenBindings = (
       removeImage: context.removeImage,
       addVideo: context.addVideo,
       removeVideo: context.removeVideo,
+      addPdf: context.addPdf,
+      removePdf: context.removePdf,
       toggleSmartContext: context.toggleSmartContext,
       setSmartRoot: context.setSmartRoot,
       notify,
