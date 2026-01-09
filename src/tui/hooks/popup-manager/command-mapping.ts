@@ -40,6 +40,7 @@ type OpenPopupStep = {
     | 'url'
     | 'image'
     | 'video'
+    | 'pdf'
     | 'history'
     | 'resume'
     | 'export'
@@ -78,6 +79,11 @@ type AddImageStep = {
 
 type AddVideoStep = {
   type: 'add-video'
+  value: string
+}
+
+type AddPdfStep = {
+  type: 'add-pdf'
   value: string
 }
 
@@ -124,6 +130,7 @@ export type PopupManagerCommandStep =
   | AddUrlStep
   | AddImageStep
   | AddVideoStep
+  | AddPdfStep
   | SmartContextToggleStep
   | SetSmartRootStep
   | SetIntentFileStep
@@ -144,6 +151,7 @@ export type CommandMappingContext = {
   urls: readonly string[]
   images: readonly string[]
   videos: readonly string[]
+  pdfs: readonly string[]
   smartContextEnabled: boolean
   smartContextRoot: string | null
 }
@@ -356,6 +364,37 @@ export const mapPopupCommandSelection = ({
         steps: [
           { type: 'add-video', value: trimmedArgs },
           { type: 'push-history', message: `[video] Attached: ${trimmedArgs}`, kind: 'system' },
+          { type: 'set-input', value: '' },
+          { type: 'close-popup' },
+        ],
+      }
+    }
+
+    case 'pdf': {
+      if (!trimmedArgs) {
+        return { kind: 'steps', steps: [{ type: 'open-popup', popup: 'pdf' }] }
+      }
+
+      if (context.pdfs.includes(trimmedArgs)) {
+        return {
+          kind: 'steps',
+          steps: [
+            {
+              type: 'push-history',
+              message: `[pdf] Already attached: ${trimmedArgs}`,
+              kind: 'system',
+            },
+            { type: 'set-input', value: '' },
+            { type: 'close-popup' },
+          ],
+        }
+      }
+
+      return {
+        kind: 'steps',
+        steps: [
+          { type: 'add-pdf', value: trimmedArgs },
+          { type: 'push-history', message: `[pdf] Attached: ${trimmedArgs}`, kind: 'system' },
           { type: 'set-input', value: '' },
           { type: 'close-popup' },
         ],

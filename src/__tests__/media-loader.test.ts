@@ -1,4 +1,9 @@
-import { uploadFileForGemini, inferVideoMimeType } from '../media-loader'
+import {
+  inferPdfMimeType,
+  inferVideoMimeType,
+  uploadFileForGemini,
+  uploadFileForGeminiWithMimeType,
+} from '../media-loader'
 
 jest.mock('node:fs/promises', () => ({
   access: jest.fn(),
@@ -38,6 +43,11 @@ describe('media-loader', () => {
     expect(() => inferVideoMimeType('clip.txt')).toThrow('Unsupported media type')
   })
 
+  it('infers PDF mime type', () => {
+    expect(inferPdfMimeType('doc.pdf')).toBe('application/pdf')
+    expect(() => inferPdfMimeType('doc.txt')).toThrow('Unsupported PDF type')
+  })
+
   it('uploads file and waits for active state', async () => {
     process.env.GEMINI_API_KEY = 'env-key'
     const uri = await uploadFileForGemini('clip.mp4', 'injected-key')
@@ -45,6 +55,16 @@ describe('media-loader', () => {
     expect(manager.uploadFile).toHaveBeenCalledWith('clip.mp4', {
       mimeType: 'video/mp4',
       displayName: 'clip.mp4',
+    })
+    expect(uri).toBe('gs://files/123')
+  })
+
+  it('uploads arbitrary mime types via uploadFileForGeminiWithMimeType', async () => {
+    const uri = await uploadFileForGeminiWithMimeType('doc.pdf', 'application/pdf', 'injected-key')
+    expect(googleModule.GoogleAIFileManager).toHaveBeenCalledWith('injected-key')
+    expect(manager.uploadFile).toHaveBeenCalledWith('doc.pdf', {
+      mimeType: 'application/pdf',
+      displayName: 'doc.pdf',
     })
     expect(uri).toBe('gs://files/123')
   })

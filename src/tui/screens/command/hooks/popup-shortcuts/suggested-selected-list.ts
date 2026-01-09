@@ -10,11 +10,12 @@ import {
   type PopupType,
 } from './types'
 
-export type SuggestedSelectedListPopupType = Extract<PopupType, 'file' | 'image' | 'video'>
+export type SuggestedSelectedListPopupType = Extract<PopupType, 'file' | 'image' | 'video' | 'pdf'>
 export type SuggestedSelectedListPopupState =
   | PopupStateFor<'file'>
   | PopupStateFor<'image'>
   | PopupStateFor<'video'>
+  | PopupStateFor<'pdf'>
 
 export type GetSuggestedSelectedListEffectOptions = {
   popupType: SuggestedSelectedListPopupType

@@ -676,6 +676,7 @@ export const runGeneratePipeline = async (
         fileContext,
         images: args.images,
         videos: args.video,
+        pdfs: args.pdf,
         metaInstructions: trimmedMetaInstructions,
       },
       telemetry,
@@ -732,6 +733,9 @@ export const runGeneratePipeline = async (
       interactive: interactiveMode !== 'none',
       timestamp: new Date().toISOString(),
       contextPaths,
+      images: [...args.images],
+      videos: [...args.video],
+      pdfs: [...args.pdf],
       ...(outputPath ? { outputPath } : {}),
     }
 

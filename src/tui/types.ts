@@ -85,6 +85,15 @@ export type PopupState =
       suggestedSelectionIndex: number
       suggestedFocused: boolean
     }
+  | {
+      type: 'pdf'
+      draft: string
+      selectionIndex: number
+      selectedFocused: boolean
+      suggestedItems: string[]
+      suggestedSelectionIndex: number
+      suggestedFocused: boolean
+    }
   | { type: 'history'; draft: string; selectionIndex: number }
   | {
       type: 'resume'

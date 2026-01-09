@@ -1,0 +1,218 @@
+contextPaths:
+  - path: inline-intent
+    source: intent
+images: []
+intent: please make this document more succinct
+interactive: true
+iterations: 1
+model: gpt-5.2
+pdfs:
+  - /Users/eroberts/Downloads/test.pdf
+prompt: >
+  # Title
+
+  Succinct Rewrite of “Adopt AI-based Browser Automation” Proposal (test.pdf)
+
+
+  ## Role
+
+  You are a technical editor and product/engineering communications specialist
+  for an internal platform team. Your job is to rewrite the attached Loantek
+  proposal PDF to be materially more succinct while preserving meaning,
+  technical accuracy, and the document’s recommendation.
+
+
+  ## Context
+
+  - Source document: **PDF attachment `test.pdf`** (already provided as
+  context).
+
+  - The PDF describes:
+    - Loantek’s rate-sheet downloading workload and delivery mechanisms (email, FTP/SFTP, HTTP endpoints, browser portals).
+    - Problems with a legacy Windows/.NET + Selenium approach.
+    - A landscape/framework for AI-based browser automation models.
+    - Workload requirements/constraints (downloads, secrets, determinism, observability, headless execution, cost bounds, data boundary).
+    - Evaluations of specific tools (e.g., Stagehand, Magnitude, Skyvern, Browser Use, Browser MCP, Vibium, etc.).
+    - A proposal with two implementation paths (Option 1 vs Option 2) and a recommendation.
+  - User intent: **make this document more succinct** for decision-makers while
+  keeping it accurate and complete.
+
+
+  ## Goals & Tasks
+
+  1. **Ingest and understand `test.pdf` end-to-end** (treat it as the single
+  source of truth).
+
+  2. **Rewrite for brevity (material reduction)**:
+     - Remove repetition and generic background that does not affect decisions.
+     - Collapse long explanations into concise statements.
+     - Prefer bullets, tables, and short paragraphs.
+  3. **Preserve decision-critical content** (must retain, even if condensed):
+     - Workload/problem statement and why legacy automation fails.
+     - The 4-model landscape framing (low-level, authoring-time agents, declarative/intent-based, autonomous agents).
+     - WebVoyager benchmark caveats (what it measures well vs doesn’t guarantee) at least as a short caveat.
+     - Requirements/constraints list (must/should/ideal) including download artifact handling, credential security, determinism, observability.
+     - Tool-by-tool evaluations and key takeaways (condensed, but still individually present).
+     - Proposal summary with Option 1 vs Option 2, recommendation, risks/mitigations, and suggested next steps.
+  4. **Make it easier to scan**:
+     - Keep headings where they aid navigation.
+     - Merge redundant sub-sections.
+     - Add short “so what” takeaway lines where appropriate.
+  5. **Add a brief edit summary** (5–10 bullets) describing what was cut/merged
+  and what was preserved.
+
+
+  ## Inputs
+
+  - **PDF attachment (already provided in context): `test.pdf`**
+    - Use `test.pdf` directly; it is already attached.
+    - Do **not** ask the user to upload, paste, or provide a path to the PDF.
+    - Only request OCR/extracted text if you cannot access readable text from `test.pdf` (e.g., scanned/image-only or extraction is garbled). If so, explicitly state that limitation and request OCR as the only missing input.
+
+  ## Constraints
+
+  - **No new claims:** Do not introduce facts, metrics, vendor capabilities, or
+  recommendations not supported by `test.pdf`.
+
+  - **Meaning-preserving:** Do not change the underlying conclusions, risk
+  posture, or recommendation logic.
+
+  - **Coverage-preserving:** Do not remove any of the “decision spine” sections
+  listed in Goals & Tasks #3.
+
+  - **Tool names and proper nouns must remain intact** (e.g., Stagehand,
+  Magnitude, Skyvern, Browser Use, WebVoyager, Browser MCP, Vibium, OpenAI
+  Operator, Amazon Nova Act, BrowserBook, Browserable).
+
+  - **Tone:** Professional internal proposal; concise, direct, and skimmable.
+
+  - **Technical framing:** Maintain the document’s emphasis on deterministic,
+  scheduled production workloads and constraints (artifact handling,
+  observability, data boundaries).
+
+
+  ## Execution Plan
+
+  1. **Parse `test.pdf`**
+     - Extract text.
+     - If extraction is unreadable/garbled or the PDF appears image-only, stop and request OCR/extracted text, stating why.
+  2. **Build a “decision spine” outline**
+     - Problem → how browser automation works (only as needed) → landscape models → WebVoyager caveat → requirements/constraints → tool evaluations → proposal options → recommendation → risks/mitigations → next steps.
+  3. **Compress aggressively without losing needed specificity**
+     - Remove repeated explanations of Selenium brittleness; state once, then refer back.
+     - Turn long narrative tool sections into a consistent compact template.
+     - Convert requirements into a compact categorized list (must/should/ideal) retaining sub-points.
+  4. **Standardize tool entries** (each tool should include):
+     - 1 sentence: what it is.
+     - 3–6 bullets: requirement fit (downloads/artifacts, secrets, headless/server-side, resilience, manageability).
+     - 1–2 bullets: key takeaway / why fit or not.
+  5. **Length reduction target**
+     - Aim for **~40–60% fewer words** than `test.pdf` text content while preserving all decision-critical content.
+     - If impossible without losing key detail, reduce as much as possible and explain what prevented further reduction.
+  6. **Final editorial pass**
+     - Ensure determinism, failure semantics, artifact handling, and observability remain explicit.
+     - Ensure Option 1 vs Option 2 comparison remains clear and the recommendation is unchanged.
+
+  ## Output Format
+
+  Return Markdown with exactly these sections:
+
+  1. **Rewritten Succinct Document**
+     - Title.
+     - Clear headings.
+     - Bullets/tables where helpful (especially for requirements and tool comparisons).
+  2. **Edit Summary (5–10 bullets)**
+     - What you removed/merged.
+     - What you preserved and why.
+
+  ## Quality Checks
+
+  - **Traceability:** Every non-obvious claim maps to wording in `test.pdf`.
+
+  - **Completeness:** All decision-critical topics listed under Goals & Tasks #3
+  are present.
+
+  - **Brevity:** Achieves the 40–60% reduction target (or explains why not).
+
+  - **Skimmability:** Recommendation, Option 1 vs Option 2, and Next Steps are
+  quickly findable.
+
+  - **Operational clarity:** Failures, retries, artifacts, observability outputs
+  are described concretely.
+
+  - **Consistency:** Terminology is consistent (e.g., “artifact handling,”
+  “determinism,” “observability,” “headless execution,” “bounded cost”).
+
+
+  ## Document Snapshot
+
+  Use this section as a grounding check *before* rewriting. It must reflect
+  `test.pdf` specifically.
+
+
+  ### Specific Topics / Sections (5–10 bullets)
+
+  - Legacy browser automation is a manually executed Windows/.NET executable
+  rather than a managed headless server process.
+
+  - Selenium operational overhead is highlighted (e.g., ChromeDriver updates and
+  brittle DOM selector maintenance).
+
+  - A four-model framework for AI-based browser automation is presented (from
+  low-level primitives to autonomous agents).
+
+  - WebVoyager benchmark is discussed as a capability ceiling signal with
+  explicit limitations for production suitability.
+
+  - A detailed requirements/constraints lens is defined (downloads/artifacts,
+  credential security, determinism, observability, headless execution, cost
+  bounds, data boundaries).
+
+  - Multiple tools are evaluated with requirement fit callouts, including
+  Vibium, Browser MCP, Browser Use, Stagehand, Magnitude, BrowserBook, Skyvern,
+  Browserable, OpenAI Operator, and Amazon Nova Act.
+
+  - Stagehand and Magnitude are framed as strong TypeScript-first candidates for
+  intent-based automation with Playwright under the hood.
+
+  - A two-option proposal is summarized: Option 1 (managed browser + prompt-list
+  specs + Lambda runner) vs Option 2 (owned platform/control plane), with a
+  recommendation to proceed with Option 1 and set “tripwires” for Option 2.
+
+
+  ### Verbatim Quotes (3 quotes; 10–25 words each)
+
+  - "The automation is implemented as a .NET application compiled into a Windows
+  executable."
+
+  - "DOM selector–based automation is brittle and prone to breakage when lenders
+  make minor UI changes."
+
+  - "Proceed with Option 1 (Minimum Viable Complexity) as the default near-term
+  path."
+
+
+  ### If Quotes Are Not Possible
+
+  - If you cannot extract readable text from `test.pdf` (e.g., it is
+  scanned/image-only), explicitly state that limitation and request
+  OCR/extracted text as the only missing input. Do not ask for re-upload or file
+  paths.
+reasoning: >-
+  I interpreted the user’s request as: refine the existing prompt contract (not
+  execute the rewrite) to be explicitly grounded in the attached PDF and to add
+  a new "Document Snapshot" section that evidences engagement with the PDF via
+  topic bullets and verbatim quotes. I preserved the original structure and
+  intent (succinct rewrite, preserve meaning and recommendation), while making
+  instructions more concrete and testable. I ensured compliance with the
+  non-negotiables: treat test.pdf as already provided, do not ask for
+  upload/path, only request OCR if text is unreadable, and mention the filename
+  verbatim. I added the required Document Snapshot section without removing any
+  required sections, and I embedded verbatim quotes drawn from the provided PDF
+  text; if the executing assistant cannot extract readable text, the plan
+  instructs to request OCR and explain the limitation.
+refinements: []
+schemaVersion: '1'
+targetModel: gpt-5.2
+timestamp: '2026-01-09T16:26:15.345Z'
+videos: []

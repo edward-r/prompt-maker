@@ -38,6 +38,7 @@ export const COMMAND_DESCRIPTORS = [
   },
   { id: 'image', label: 'Image', description: 'Attach reference images' },
   { id: 'video', label: 'Video', description: 'Attach reference videos' },
+  { id: 'pdf', label: 'PDF', description: 'Attach reference PDFs' },
   { id: 'polish', label: 'Polish', description: 'Select a model for prompt polishing' },
   {
     id: 'series',
@@ -94,6 +95,7 @@ export const POPUP_HEIGHTS = {
   url: 12,
   image: 16,
   video: 16,
+  pdf: 16,
   history: 16,
   resume: 18,
   export: 18,

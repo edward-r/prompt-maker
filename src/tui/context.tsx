@@ -9,6 +9,7 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [urls, setUrls] = useState<string[]>([])
   const [images, setImages] = useState<string[]>([])
   const [videos, setVideos] = useState<string[]>([])
+  const [pdfs, setPdfs] = useState<string[]>([])
   const [smartContextEnabled, setSmartContextEnabled] = useState(false)
   const [smartContextRoot, setSmartContextRoot] = useState<string | null>(null)
   const [metaInstructions, setMetaInstructions] = useState('')
@@ -74,6 +75,9 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const addVideo = useCallback((value: string) => addEntry(value, setVideos), [addEntry])
   const removeVideo = useCallback((index: number) => removeEntry(index, setVideos), [removeEntry])
 
+  const addPdf = useCallback((value: string) => addEntry(value, setPdfs), [addEntry])
+  const removePdf = useCallback((index: number) => removeEntry(index, setPdfs), [removeEntry])
+
   const toggleSmartContext = useCallback(() => {
     setSmartContextEnabled((prev) => !prev)
   }, [])
@@ -88,6 +92,7 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setUrls([])
     setImages([])
     setVideos([])
+    setPdfs([])
     setSmartContextEnabled(false)
     setSmartContextRoot(null)
     setMetaInstructions('')
@@ -136,6 +141,8 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({ child
         urls,
         images,
         videos,
+        pdfs,
+
         smartContextEnabled,
         smartContextRoot,
         metaInstructions,
@@ -157,6 +164,8 @@ export const ContextProvider: React.FC<{ children: React.ReactNode }> = ({ child
           removeImage,
           addVideo,
           removeVideo,
+          addPdf,
+          removePdf,
           toggleSmartContext,
           setSmartRoot,
           setMetaInstructions,

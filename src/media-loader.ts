@@ -17,14 +17,19 @@ const VIDEO_MIME_TYPES: Record<string, string> = {
   '.gif': 'image/gif',
 }
 
+const PDF_MIME_TYPE = 'application/pdf'
+
 type GeminiFile = Awaited<ReturnType<GoogleAIFileManager['getFile']>>
 
 type FileState = 'STATE_UNSPECIFIED' | 'PROCESSING' | 'ACTIVE' | 'FAILED'
 
-export const uploadFileForGemini = async (filePath: string, apiKey?: string): Promise<string> => {
+export const uploadFileForGeminiWithMimeType = async (
+  filePath: string,
+  mimeType: string,
+  apiKey?: string,
+): Promise<string> => {
   await assertReadableFile(filePath)
 
-  const mimeType = inferVideoMimeType(filePath)
   const manager = createFileManager(apiKey)
 
   const uploadResponse = await manager.uploadFile(filePath, {
@@ -45,6 +50,11 @@ export const uploadFileForGemini = async (filePath: string, apiKey?: string): Pr
   return readyFile.uri
 }
 
+export const uploadFileForGemini = async (filePath: string, apiKey?: string): Promise<string> => {
+  const mimeType = inferVideoMimeType(filePath)
+  return await uploadFileForGeminiWithMimeType(filePath, mimeType, apiKey)
+}
+
 const assertReadableFile = async (filePath: string): Promise<void> => {
   try {
     await fs.access(filePath)
@@ -60,6 +70,14 @@ export const inferVideoMimeType = (filePath: string): string => {
     throw new Error(`Unsupported media type for ${filePath}.`)
   }
   return mimeType
+}
+
+export const inferPdfMimeType = (filePath: string): 'application/pdf' => {
+  const ext = path.extname(filePath).toLowerCase()
+  if (ext !== '.pdf') {
+    throw new Error(`Unsupported PDF type for ${filePath}.`)
+  }
+  return PDF_MIME_TYPE
 }
 
 const createFileManager = (apiKey?: string): GoogleAIFileManager => {

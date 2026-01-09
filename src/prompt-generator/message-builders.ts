@@ -1,24 +1,44 @@
-import type { MessageContent } from '@prompt-maker/core'
+import type { MessageContent, TextPart } from '@prompt-maker/core'
 
 import { formatContextForPrompt, type FileContext } from '../file-context'
 import { resolveImageParts } from '../image-loader'
 
+import { resolvePdfParts } from './pdf-parts'
 import type { UploadStateChange } from './types'
 import { resolveVideoParts } from './video-parts'
 
-export const buildInitialUserMessage = async (
+const buildPdfAttachmentSection = (pdfPaths: string[]): string | null => {
+  if (pdfPaths.length === 0) {
+    return null
+  }
+
+  return [
+    'PDF Attachments (already provided as context):',
+    pdfPaths.join('\n'),
+    '',
+    'Non-negotiable requirements for the prompt contract you will generate:',
+    '- Treat the attached PDF as the source document and as already-available input.',
+    '- In the contract "Inputs" section, do NOT ask the user to paste the document or provide a file/path.',
+    '- Proceed assuming the executing assistant has the PDF attached.',
+    '- Only request OCR / extracted text if you cannot access readable text from the PDF and you explicitly say so.',
+  ].join('\n')
+}
+
+export const buildInitialUserMessageText = (
   intent: string,
   files: FileContext[],
-  imagePaths: string[],
-  videoPaths: string[],
+  pdfPaths: string[],
   metaInstructions?: string,
-  onUploadStateChange?: UploadStateChange,
-  apiKey?: string,
-): Promise<MessageContent> => {
+): string => {
   const sections: string[] = []
 
   if (files.length > 0) {
     sections.push('Context Files:\n' + formatContextForPrompt(files))
+  }
+
+  const pdfSection = buildPdfAttachmentSection(pdfPaths)
+  if (pdfSection) {
+    sections.push(pdfSection)
   }
 
   sections.push(`User Intent:\n${intent.trim()}`)
@@ -35,25 +55,47 @@ export const buildInitialUserMessage = async (
     ].join(' '),
   )
 
-  const text = sections.join('\n\n')
-  return await mergeMediaWithText(text, imagePaths, videoPaths, onUploadStateChange, apiKey)
+  return sections.join('\n\n')
 }
 
-export const buildRefinementMessage = async (
-  previousPrompt: string,
-  refinementInstruction: string,
+export const buildInitialUserMessage = async (
   intent: string,
   files: FileContext[],
   imagePaths: string[],
   videoPaths: string[],
+  pdfPaths: string[],
   metaInstructions?: string,
   onUploadStateChange?: UploadStateChange,
   apiKey?: string,
 ): Promise<MessageContent> => {
+  const text = buildInitialUserMessageText(intent, files, pdfPaths, metaInstructions)
+  return await mergeMediaWithText(
+    text,
+    imagePaths,
+    videoPaths,
+    pdfPaths,
+    onUploadStateChange,
+    apiKey,
+  )
+}
+
+export const buildRefinementMessageText = (
+  previousPrompt: string,
+  refinementInstruction: string,
+  intent: string,
+  files: FileContext[],
+  pdfPaths: string[],
+  metaInstructions?: string,
+): string => {
   const sections: string[] = []
 
   if (files.length > 0) {
     sections.push('Context Files:\n' + formatContextForPrompt(files))
+  }
+
+  const pdfSection = buildPdfAttachmentSection(pdfPaths)
+  if (pdfSection) {
+    sections.push(pdfSection)
   }
 
   sections.push(`Original Intent (for reference):\n${intent.trim()}`)
@@ -72,23 +114,55 @@ export const buildRefinementMessage = async (
     ].join(' '),
   )
 
-  const text = sections.join('\n\n')
-  return await mergeMediaWithText(text, imagePaths, videoPaths, onUploadStateChange, apiKey)
+  return sections.join('\n\n')
 }
 
-export const buildSeriesUserMessage = async (
+export const buildRefinementMessage = async (
+  previousPrompt: string,
+  refinementInstruction: string,
   intent: string,
   files: FileContext[],
   imagePaths: string[],
   videoPaths: string[],
+  pdfPaths: string[],
   metaInstructions?: string,
   onUploadStateChange?: UploadStateChange,
   apiKey?: string,
 ): Promise<MessageContent> => {
+  const text = buildRefinementMessageText(
+    previousPrompt,
+    refinementInstruction,
+    intent,
+    files,
+    pdfPaths,
+    metaInstructions,
+  )
+
+  return await mergeMediaWithText(
+    text,
+    imagePaths,
+    videoPaths,
+    pdfPaths,
+    onUploadStateChange,
+    apiKey,
+  )
+}
+
+export const buildSeriesUserMessageText = (
+  intent: string,
+  files: FileContext[],
+  pdfPaths: string[],
+  metaInstructions?: string,
+): string => {
   const sections: string[] = []
 
   if (files.length > 0) {
     sections.push('Context Files:\n' + formatContextForPrompt(files))
+  }
+
+  const pdfSection = buildPdfAttachmentSection(pdfPaths)
+  if (pdfSection) {
+    sections.push(pdfSection)
   }
 
   sections.push(`User Intent:\n${intent.trim()}`)
@@ -114,25 +188,68 @@ export const buildSeriesUserMessage = async (
     ].join(' '),
   )
 
-  const text = sections.join('\n\n')
-  return await mergeMediaWithText(text, imagePaths, videoPaths, onUploadStateChange, apiKey)
+  return sections.join('\n\n')
+}
+
+export const buildSeriesUserMessage = async (
+  intent: string,
+  files: FileContext[],
+  imagePaths: string[],
+  videoPaths: string[],
+  pdfPaths: string[],
+  metaInstructions?: string,
+  onUploadStateChange?: UploadStateChange,
+  apiKey?: string,
+): Promise<MessageContent> => {
+  const text = buildSeriesUserMessageText(intent, files, pdfPaths, metaInstructions)
+  return await mergeMediaWithText(
+    text,
+    imagePaths,
+    videoPaths,
+    pdfPaths,
+    onUploadStateChange,
+    apiKey,
+  )
+}
+
+const isTextPart = (part: Exclude<MessageContent, string>[number]): part is TextPart => {
+  return part.type === 'text'
+}
+
+export const mergeResolvedMediaWithText = (
+  content: MessageContent,
+  text: string,
+): MessageContent => {
+  if (typeof content === 'string') {
+    return text
+  }
+
+  const mediaParts = content.filter((part) => !isTextPart(part))
+  if (mediaParts.length === 0) {
+    return text
+  }
+
+  return [...mediaParts, { type: 'text', text }]
 }
 
 const mergeMediaWithText = async (
   text: string,
   imagePaths: string[],
   videoPaths: string[],
+  pdfPaths: string[],
   onUploadStateChange?: UploadStateChange,
   apiKey?: string,
 ): Promise<MessageContent> => {
-  const [imageParts, videoParts] = await Promise.all([
+  const [imageParts, videoParts, pdfParts] = await Promise.all([
     resolveImageParts(imagePaths, onUploadStateChange),
     resolveVideoParts(videoPaths, onUploadStateChange, apiKey),
+    resolvePdfParts(pdfPaths, onUploadStateChange, apiKey),
   ])
 
-  if (imageParts.length === 0 && videoParts.length === 0) {
+  if (imageParts.length === 0 && videoParts.length === 0 && pdfParts.length === 0) {
     return text
   }
 
-  return [...imageParts, ...videoParts, { type: 'text', text }]
+  // Deterministic ordering: images → videos → PDFs → text.
+  return [...imageParts, ...videoParts, ...pdfParts, { type: 'text', text }]
 }

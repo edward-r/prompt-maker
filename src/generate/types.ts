@@ -43,6 +43,7 @@ export type GenerateArgs = {
   urls: string[]
   images: string[]
   video: string[]
+  pdf: string[]
   metaInstructions?: string
   smartContext: boolean
   smartContextRoot?: string
@@ -71,6 +72,9 @@ export type GenerateJsonPayload = {
   interactive: boolean
   timestamp: string
   contextPaths: ContextPathMetadata[]
+  images?: string[]
+  videos?: string[]
+  pdfs?: string[]
   outputPath?: string
   polishedPrompt?: string
   polishModel?: string
@@ -123,6 +127,7 @@ export type LoopContext = {
   fileContext: FileContext[]
   images: string[]
   videos: string[]
+  pdfs: string[]
   metaInstructions: string
 }
 

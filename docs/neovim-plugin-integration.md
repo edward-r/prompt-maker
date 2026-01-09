@@ -99,6 +99,7 @@ _Comprehensive reference for building a NeoVim plugin that orchestrates prompt-m
   - All stream events include `event` and `timestamp`.
   - `context.telemetry` → `{ telemetry:{ files:[{path,tokens}], intentTokens, fileTokens, systemTokens, totalTokens } }`
   - `context.overflow` → `{ strategy, before, after, droppedPaths:[{path, source}] }`
+  - `resume.loaded` → `{ source:'history'|'file', reusedContextPaths:[{path,source}], missingContextPaths:[{path,source}] }`
   - `progress.update` → `{ label, state:'start|update|stop', scope?:'url|smart|generate|polish|generic' }`
   - `upload.state` → `{ state:'start|finish', detail:{kind:'image|video', filePath} }`
   - `generation.iteration.start` → `{ iteration, intent, model, interactive, inputTokens, refinements[], latestRefinement? }`
@@ -128,6 +129,7 @@ _Comprehensive reference for building a NeoVim plugin that orchestrates prompt-m
 - **Invalid path/URL**: warnings are emitted but runs continue. Capture stderr so the user sees skipped files.
 - **Oversized/binary intent files**: fail fast with descriptive errors (size in KB, binary detection). Provide guardrails in the plugin UI (file picker + size hint).
 - **Credential errors**: `ensureModelCredentials` throws if API keys are absent—surface these immediately with actionable messaging (e.g., open plugin settings).
+- **Schema mismatch (history exports)**: `prompt-maker-cli export --from-history ...` validates `schemaVersion` and fails if the selected entry is unsupported. Surface the error and suggest upgrading/downgrading prompt-maker-cli or regenerating/exporting with a matching version (`src/history/generate-history.ts`).
 - **Transport disconnects**: CLI emits `transport.client.disconnected` and drains pending refinement promises; the plugin should reconnect or end the session gracefully.
 - **Upload failures**: warnings identify the file and root cause. Consider showing a quickfix entry pointing at the asset path.
 - **Smart context indexing failure**: CLI logs warnings but continues. Plugin may retry with reduced scope or inform the user to run without smart context.

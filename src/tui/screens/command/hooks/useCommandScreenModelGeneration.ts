@@ -22,6 +22,7 @@ export type UseCommandScreenModelGenerationOptions = {
   urls: string[]
   images: string[]
   videos: string[]
+  pdfs: string[]
 
   smartContextEnabled: boolean
   smartContextRoot: string | null
@@ -61,6 +62,7 @@ export const useCommandScreenModelGeneration = ({
   urls,
   images,
   videos,
+  pdfs,
   smartContextEnabled,
   smartContextRoot,
   metaInstructions,
@@ -124,6 +126,7 @@ export const useCommandScreenModelGeneration = ({
     urls,
     images,
     videos,
+    pdfs,
     smartContextEnabled,
     smartContextRoot,
     metaInstructions,

@@ -61,6 +61,13 @@ export type UseCommandScreenViewModelOptions = {
       onVideoPopupDraftChange: (next: string) => void
       onAddVideo: (value: string) => void
 
+      pdfs: string[]
+      pdfPopupSuggestions: string[]
+      pdfPopupSuggestionSelectionIndex: number
+      pdfPopupSuggestionsFocused: boolean
+      onPdfPopupDraftChange: (next: string) => void
+      onAddPdf: (value: string) => void
+
       smartContextEnabled: boolean
       smartContextRoot: string | null
       smartPopupSuggestions: string[]

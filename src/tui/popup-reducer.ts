@@ -29,7 +29,7 @@ import type { ThemeMode } from './theme/theme-types'
 // Keeping it local avoids importing React into a pure helper.
 export type SetStateAction<State> = State | ((prev: State) => State)
 
-export type PopupScanKind = 'file' | 'image' | 'video' | 'smart' | 'intent' | 'resume'
+export type PopupScanKind = 'file' | 'image' | 'video' | 'pdf' | 'smart' | 'intent' | 'resume'
 
 export type PopupManagerState = {
   popupState: PopupState
@@ -50,6 +50,7 @@ export type PopupAction =
   | { type: 'open-url' }
   | { type: 'open-image'; scanId: number }
   | { type: 'open-video'; scanId: number }
+  | { type: 'open-pdf'; scanId: number }
   | { type: 'open-history' }
   | {
       type: 'open-resume'
@@ -123,6 +124,16 @@ const buildVideoPopupState = (): PopupState => ({
   suggestedFocused: false,
 })
 
+const buildPdfPopupState = (): PopupState => ({
+  type: 'pdf',
+  draft: '',
+  selectionIndex: 0,
+  selectedFocused: false,
+  suggestedItems: [],
+  suggestedSelectionIndex: 0,
+  suggestedFocused: false,
+})
+
 const buildSmartPopupState = (draft: string): PopupState => ({
   type: 'smart',
   draft,
@@ -163,6 +174,15 @@ const applySuggestions = (
   }
 
   if (kind === 'video' && popupState?.type === 'video') {
+    return {
+      ...popupState,
+      suggestedItems: suggestions,
+      suggestedSelectionIndex: 0,
+      suggestedFocused: false,
+    }
+  }
+
+  if (kind === 'pdf' && popupState?.type === 'pdf') {
     return {
       ...popupState,
       suggestedItems: suggestions,
@@ -264,6 +284,12 @@ export const popupReducer = (state: PopupManagerState, action: PopupAction): Pop
       return {
         popupState: buildVideoPopupState(),
         activeScan: { kind: 'video', id: action.scanId },
+      }
+
+    case 'open-pdf':
+      return {
+        popupState: buildPdfPopupState(),
+        activeScan: { kind: 'pdf', id: action.scanId },
       }
 
     case 'open-history':

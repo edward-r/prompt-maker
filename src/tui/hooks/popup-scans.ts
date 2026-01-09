@@ -13,6 +13,8 @@ const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif'])
 
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.m4v', '.webm', '.avi', '.mpeg', '.mpg', '.gif'])
 
+const PDF_EXTENSIONS = new Set(['.pdf'])
+
 export const scanFileSuggestions = async (
   options: DiscoverFileSuggestionsOptions = {},
 ): Promise<string[]> => discoverFileSuggestions(options)
@@ -34,6 +36,16 @@ export const scanVideoSuggestions = async (
   return suggestions.filter((candidate) => {
     const ext = path.extname(candidate).toLowerCase()
     return VIDEO_EXTENSIONS.has(ext)
+  })
+}
+
+export const scanPdfSuggestions = async (
+  options: DiscoverFileSuggestionsOptions = {},
+): Promise<string[]> => {
+  const suggestions = await discoverFileSuggestions(options)
+  return suggestions.filter((candidate) => {
+    const ext = path.extname(candidate).toLowerCase()
+    return PDF_EXTENSIONS.has(ext)
   })
 }
 

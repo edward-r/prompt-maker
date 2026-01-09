@@ -27,6 +27,11 @@ const isGenerateJsonPayload = (value: unknown): value is GenerateJsonPayload => 
     return false
   }
 
+  const hasMediaLists =
+    (value.images === undefined || isStringArray(value.images)) &&
+    (value.videos === undefined || isStringArray(value.videos)) &&
+    (value.pdfs === undefined || isStringArray(value.pdfs))
+
   return (
     value.schemaVersion === GENERATE_JSON_PAYLOAD_SCHEMA_VERSION &&
     typeof value.intent === 'string' &&
@@ -38,7 +43,8 @@ const isGenerateJsonPayload = (value: unknown): value is GenerateJsonPayload => 
     Number.isFinite(value.iterations) &&
     typeof value.interactive === 'boolean' &&
     typeof value.timestamp === 'string' &&
-    isContextPaths(value.contextPaths)
+    isContextPaths(value.contextPaths) &&
+    hasMediaLists
   )
 }
 

@@ -1,11 +1,11 @@
 # Prompt Maker CLI
 
-Terminal-first prompt generator with a built-in Ink TUI. It turns rough intent + optional context (files, URLs, smart context, images, videos) into a structured **prompt contract**, with optional polishing, streaming telemetry, and automatic history logging.
+Terminal-first prompt generator with a built-in Ink TUI. It turns rough intent + optional context (files, URLs, smart context, images, videos, PDFs) into a structured **prompt contract**, with optional polishing, streaming telemetry, and automatic history logging.
 
 Highlights:
 
 - **Generate workflow**: run from flags or from the TUI.
-- **Context ingestion**: file globs (`--context`), URLs (`--url`, including GitHub trees), optional smart context (`--smart-context`), and media (`--image`, `--video`).
+- **Context ingestion**: file globs (`--context`), URLs (`--url`, including GitHub trees), optional smart context (`--smart-context`), and media (`--image`, `--video`, `--pdf`).
 - **Auditable runs**: token telemetry, token budgets (optional trimming), structured stream events (`--stream jsonl`), and JSONL history (`~/.config/prompt-maker-cli/history.jsonl`) with export + resume workflows.
 - **TUI-first**: `prompt-maker-cli` with no args launches the TUI.
 
@@ -68,7 +68,7 @@ Context + Media:
 - [D6. Context Ingestion Decision Tree](#d6-context-ingestion-decision-tree) — how sources merge and when failures warn vs fail.
 - [D7. Smart Context Workflow](#d7-smart-context-workflow) — scan → cache/index → top‑k → de-dupe append.
 - [D8. URL + GitHub Context Resolution](#d8-url--github-context-resolution) — remote fetch behavior and safety limits.
-- [D9. Media Handling (Images + Videos)](#d9-media-handling-images--videos) — image parts vs video uploads and Gemini switching.
+- [D9. Media Handling (Images + Videos + PDFs)](#d9-media-handling-images--videos--pdfs) — image parts, video uploads, and PDF attachment behavior.
 
 TUI:
 
@@ -298,6 +298,21 @@ Notes:
 - `/json` inside the TUI only toggles whether a JSON payload is shown in the history pane; it does not enable generate-mode `--json`.
 - `/json` is blocked when `prompt-maker-cli ui --interactive-transport ...` is active.
 
+#### Workflow popups (`/budgets`, `/resume`, `/export`)
+
+These workflow commands open popups (no inline args parsing) and persist defaults back into CLI config (`src/config.ts`):
+
+- `/budgets`: sets token budgets + overflow strategy.
+  - Persists: `promptGenerator.maxInputTokens`, `promptGenerator.maxContextTokens`, `promptGenerator.contextOverflowStrategy`
+  - Defaulting: when budgets are enabled and overflow is unset, effective overflow defaults to `fail` (`src/tui/budget-settings.ts`).
+- `/resume`: resumes from a selected history entry or an exported payload file.
+  - Persists: `resumeMode` (`best-effort` | `strict`), `resumeSourceKind` (`history` | `file`)
+  - Behavior: resume runs can start with an empty typed intent (the resumed payload supplies intent) (`src/tui/hooks/useGenerationPipeline.ts`).
+  - Context reuse: only `source:"file"` context paths are reusable; `url`/`smart` are treated as missing (`src/generate/pipeline.ts`).
+- `/export`: exports a selected history payload to JSON/YAML.
+  - Persists: `exportFormat` (`json` | `yaml`), `exportOutDir` (directory path)
+  - Schema gating: exporting a history entry with an unsupported `schemaVersion` fails with an actionable error (`src/history/generate-history.ts`).
+
 ### Series generation (“atomic prompts”)
 
 `/series` (or `Tab`) generates:
@@ -473,6 +488,7 @@ prompt-maker-cli "Summarize" --stream jsonl --quiet > runs/events.jsonl
 | `--smart-context-root <path>`               | Limit smart-context scanning to a specific directory (default: CWD).                  |
 | `--image <path>` (repeatable)               | Attach reference images (PNG/JPG/JPEG/WEBP/GIF, ≤20MB).                               |
 | `--video <path>` (repeatable)               | Attach reference videos (Gemini only; non-Gemini models are auto-switched).           |
+| `--pdf <path>` (repeatable)                 | Attach reference PDFs (Gemini native; OpenAI best-effort fallback).                   |
 | `--model <name>`                            | Override the generation model used by the CLI.                                        |
 | `--target <name>`                           | Target/runtime model recorded in JSON/history (not included in prompt text).          |
 | `-i, --interactive`                         | Enable a TTY refinement loop (requires a TTY).                                        |
@@ -500,7 +516,7 @@ Notes:
 - `--json` cannot be combined with interactive refinement (`--interactive` or `--interactive-transport`).
 - `--show-context` prints to **stderr** when `--json` is enabled (so stdout stays machine-readable).
 - `--stream jsonl` is designed for machine consumption; for clean JSONL output on stdout use `--quiet` and avoid other human-output flags.
-- Token budgets apply only to **text** context entries (`--context`, `--url`, `--smart-context`); images/videos are not trimmed by these strategies.
+- Token budgets apply only to **text** context entries (`--context`, `--url`, `--smart-context`); images/videos/pdfs are not trimmed by these strategies.
 - `DEBUG=1` or `VERBOSE=1` prints the model’s `reasoning` (if provided) to stderr.
 
 ### Conceptual architecture
@@ -532,7 +548,7 @@ flowchart TD
   C --> CU["Remote URL context<br>--url http(s)"]
   C --> CG[GitHub URL expansion<br>--url github.com/...]
   C --> CS[Optional smart context<br>--smart-context]
-  C --> CM[Optional media<br>--image / --video]
+  C --> CM[Optional media<br>--image / --video / --pdf]
 
   CF --> DEDUPE[De-dupe / merge context paths]
   CU --> DEDUPE
@@ -592,7 +608,7 @@ Context can be attached from:
 - Local file globs: `--context` (repeatable)
 - Remote URLs: `--url` (repeatable)
 - Smart context: `--smart-context` (+ `--smart-context-root`)
-- Media: `--image`, `--video`
+- Media: `--image`, `--video`, `--pdf`
 
 #### D6. Context Ingestion Decision Tree
 
@@ -632,7 +648,7 @@ flowchart TD
   E4 -- No --> SKIPSC[Skip smart context]
   E4 -- Yes --> SC[Scan/index/search local files<br><=25KB]
 
-  D --> E5[Media attachments<br>--image / --video]
+  D --> E5[Media attachments<br>--image / --video / --pdf]
   E5 --> E5W[Unsupported/oversize -> warn + skip]
 
   E1R --> MERGE["De-dupe context paths<br>(avoid duplicates across sources)"]
@@ -741,10 +757,13 @@ flowchart TD
   - If any `--video` is present and the requested model is not Gemini, the CLI auto-switches to a Gemini model (`gemini-3-pro-preview` or configured default).
   - Uploads use Google’s Files API and poll until the file becomes `ACTIVE`.
   - Upload progress emits stream events.
+- **PDFs** (`--pdf`): Gemini native + OpenAI text extraction.
+  - Gemini: uploaded via Files API and sent as `application/pdf` `fileData` parts.
+  - OpenAI: extracts text from PDFs in-process (uses `pdfjs-dist`, no external binaries). Configure `PROMPT_MAKER_PDF_MAX_PAGES`, `PROMPT_MAKER_PDF_MAX_TEXT_CHARS`, and `PROMPT_MAKER_PDF_MAX_STREAMS`.
 
-#### D9. Media Handling (Images + Videos)
+#### D9. Media Handling (Images + Videos + PDFs)
 
-Shows validation, model switching for videos, and upload attachment.
+Shows validation, model switching for videos, and PDF attachment behavior.
 
 <details>
 <summary>Diagram</summary>
@@ -773,12 +792,26 @@ flowchart TD
   VOK -- No --> VW["Warn/Fail (upload error)<br>(run continues where possible)"]
   VOK -- Yes --> V4[Attach video reference<br>into request parts]
 
+  A --> P{--pdf provided?}
+  P -- No --> P0[No PDF work]
+  P -- Yes --> P1{Is selected model Gemini?}
+  P1 -- Yes --> P2["Upload PDF<br>(GoogleAIFileManager)"]
+  P2 --> P3["Poll until ACTIVE<br>(or fail with error)"]
+  P3 --> POK{Upload ok?}
+  POK -- No --> PW[Fail (upload error)]
+  POK -- Yes --> P4[Attach PDF reference<br>into request parts]
+  P1 -- No --> P5["Extract PDF text<br>(in-process) + attach as text"]
+
   I2 --> DONE[Media ready]
   IW --> DONE
   I0 --> DONE
   V0 --> DONE
   V4 --> DONE
   VW --> DONE
+  P0 --> DONE
+  P4 --> DONE
+  P5 --> DONE
+  PW --> DONE
 ```
 
 </details>
@@ -796,7 +829,7 @@ Event types (integration-relevant highlights):
 - `context.telemetry` (intent/system/context/total token counts)
 - `context.overflow` (emitted when budgets force text-context trimming)
 - `progress.update` (machine-readable progress)
-- `upload.state` (image/video upload start/finish)
+- `upload.state` (image/video/pdf upload start/finish)
 - `generation.iteration.start` / `generation.iteration.complete`
 - `interactive.state` / `interactive.awaiting`
 - `transport.listening`, `transport.client.connected`, `transport.client.disconnected`
@@ -1118,13 +1151,20 @@ Example config:
   "geminiApiKey": "gk-...",
   "promptGenerator": {
     "defaultModel": "gpt-4o-mini",
-    "defaultGeminiModel": "gemini-2.5-pro"
+    "defaultGeminiModel": "gemini-2.5-pro",
+    "maxInputTokens": 12000,
+    "maxContextTokens": 8000,
+    "contextOverflowStrategy": "drop-smart"
   },
   "contextTemplates": {
     "scratch": "# Scratch\n\n{{prompt}}"
   },
   "theme": "ocean",
-  "themeMode": "system"
+  "themeMode": "system",
+  "resumeMode": "best-effort",
+  "resumeSourceKind": "history",
+  "exportFormat": "json",
+  "exportOutDir": "runs"
 }
 ```
 
@@ -1140,6 +1180,7 @@ Env vars override config keys:
 
 - Generate-run history (JSONL): `~/.config/prompt-maker-cli/history.jsonl`
 - TUI command history: `~/.config/prompt-maker-cli/tui-history.json`
+- TUI workflow defaults persisted to config: budgets (`promptGenerator.*`), resume (`resumeMode`, `resumeSourceKind`), export (`exportFormat`, `exportOutDir`)
 - Token telemetry:
   - Printed as a summary in non-`--quiet` runs
   - Always emitted as a `context.telemetry` JSONL stream event

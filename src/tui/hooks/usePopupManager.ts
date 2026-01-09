@@ -28,6 +28,7 @@ import {
   scanFileSuggestions,
   scanImageSuggestions,
   scanIntentSuggestions,
+  scanPdfSuggestions,
   scanSmartSuggestions,
   scanVideoSuggestions,
 } from './popup-scans'
@@ -63,6 +64,7 @@ export type PopupManagerActions = {
   openUrlPopup: () => void
   openImagePopup: () => void
   openVideoPopup: () => void
+  openPdfPopup: () => void
   openHistoryPopup: () => void
   openResumePopup: () => void
   openExportPopup: () => void
@@ -109,8 +111,10 @@ export type UsePopupManagerOptions = {
   addUrl: (value: string) => void
   images: string[]
   videos: string[]
+  pdfs: string[]
   addImage: (value: string) => void
   addVideo: (value: string) => void
+  addPdf: (value: string) => void
   lastTestFile: string | null
   defaultTestFile: string
   interactiveTransportPath?: string | undefined
@@ -195,8 +199,10 @@ export const usePopupManager = ({
   addUrl,
   images,
   videos,
+  pdfs,
   addImage,
   addVideo,
+  addPdf,
   lastTestFile,
   defaultTestFile,
   interactiveTransportPath,
@@ -333,6 +339,14 @@ export const usePopupManager = ({
       kind: 'video',
       open: (scanId) => ({ type: 'open-video', scanId }),
       scan: () => scanVideoSuggestions({ cwd: process.cwd(), limit: POPUP_SUGGESTION_SCAN_LIMIT }),
+    })
+  }, [runSuggestionScan])
+
+  const openPdfPopup = useCallback(() => {
+    runSuggestionScan({
+      kind: 'pdf',
+      open: (scanId) => ({ type: 'open-pdf', scanId }),
+      scan: () => scanPdfSuggestions({ cwd: process.cwd(), limit: POPUP_SUGGESTION_SCAN_LIMIT }),
     })
   }, [runSuggestionScan])
 
@@ -910,6 +924,10 @@ export const usePopupManager = ({
               case 'video':
                 openVideoPopup()
                 break
+              case 'pdf':
+                openPdfPopup()
+                break
+
               case 'history':
                 openHistoryPopup()
                 break
@@ -970,6 +988,10 @@ export const usePopupManager = ({
 
           case 'add-video':
             addVideo(step.value)
+            break
+
+          case 'add-pdf':
+            addPdf(step.value)
             break
 
           case 'toggle-smart-context':
@@ -1143,7 +1165,9 @@ export const usePopupManager = ({
           urls,
           images,
           videos,
+          pdfs,
           smartContextEnabled,
+
           smartContextRoot,
         },
       })
@@ -1167,6 +1191,7 @@ export const usePopupManager = ({
       smartContextRoot,
       urls,
       videos,
+      pdfs,
     ],
   )
 
@@ -1182,6 +1207,7 @@ export const usePopupManager = ({
       openUrlPopup,
       openImagePopup,
       openVideoPopup,
+      openPdfPopup,
       openHistoryPopup,
       openResumePopup,
       openExportPopup,
@@ -1216,6 +1242,7 @@ export const usePopupManager = ({
       openUrlPopup,
       openImagePopup,
       openVideoPopup,
+      openPdfPopup,
       openHistoryPopup,
       openResumePopup,
       openExportPopup,

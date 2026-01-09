@@ -131,7 +131,11 @@ You want `prompt-maker-cli` to run without re-exporting env vars every time, and
 - Env vars override config:
   - `OPENAI_API_KEY` (optional `OPENAI_BASE_URL`)
   - `GEMINI_API_KEY` (optional `GEMINI_BASE_URL`)
-- Some TUI choices persist by writing back into the same config file (see `src/config.ts`): `theme`/`themeMode`, budgets (`promptGenerator.*`), and resume/export defaults.
+- Some TUI choices persist by writing back into the same config file (see `src/config.ts`):
+  - Theme: `theme`, `themeMode`
+  - Budgets (`/budgets`): `promptGenerator.maxInputTokens`, `promptGenerator.maxContextTokens`, `promptGenerator.contextOverflowStrategy`
+  - Resume defaults (`/resume`): `resumeMode`, `resumeSourceKind`
+  - Export defaults (`/export`): `exportFormat`, `exportOutDir`
 
 ### Recipe: Learn the TUI quickly
 
@@ -405,6 +409,11 @@ prompt-maker-cli export --from-history last:3 --format yaml --out runs/third-fro
 - “No generate payload entries found …”: your history file may contain non-payload JSONL; run a normal generate and try again.
 - “Unsupported history payload schemaVersion=…”: upgrade/downgrade prompt-maker-cli, or re-run generation to create a compatible history entry.
 
+**TUI equivalent**
+
+- In the TUI, run `/export` to pick a history entry and write JSON/YAML.
+- The picker marks incompatible history entries as unsupported, and export will fail if you select one (`src/history/generate-history.ts`).
+
 ---
 
 ### Recipe: Resume from history or an exported payload (`resume.loaded`)
@@ -457,6 +466,13 @@ With `--stream jsonl`, the run emits `resume.loaded` early:
 - Explicit `--context ...` overrides resumed `contextPaths`.
 - `--resume-mode best-effort` warns on missing files and continues.
 - `--resume-mode strict` fails fast if any resumed `source:"file"` paths are missing.
+
+**TUI equivalent**
+
+- In the TUI, run `/resume` and select:
+  - `Source: history` (pick `last`, `last:2`, …), or
+  - `Source: file` (enter a payload path)
+- The TUI persists the default source/mode (`resumeSourceKind`, `resumeMode`) back into config (`src/config.ts`).
 
 **Troubleshooting / pitfalls**
 

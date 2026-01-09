@@ -1,16 +1,34 @@
 /// <reference types="jest" />
 
-import { callLLM, getEmbedding, type Message } from '../lib/llm'
+import type { Message } from '../lib/llm'
+
+jest.mock('node:fs/promises', () => ({
+  readFile: jest.fn(),
+}))
 
 declare const global: typeof globalThis & { fetch: jest.Mock }
 
 describe('prompt-maker-core llm wrapper', () => {
   const fetchMock = jest.fn()
 
+  let callLLM: typeof import('../lib/llm').callLLM
+  let getEmbedding: typeof import('../lib/llm').getEmbedding
+
+  const fsPromises = jest.requireMock('node:fs/promises') as { readFile: jest.Mock }
+
+  beforeAll(async () => {
+    const llm = await import('../lib/llm')
+    callLLM = llm.callLLM
+    getEmbedding = llm.getEmbedding
+  })
+
   beforeEach(() => {
     fetchMock.mockReset()
     global.fetch = fetchMock
+    fsPromises.readFile.mockReset()
+
     process.env.OPENAI_API_KEY = 'openai-key'
+
     process.env.GEMINI_API_KEY = 'gemini-key'
     process.env.OPENAI_BASE_URL = 'https://api.openai.com/v1'
     process.env.GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com'
@@ -118,6 +136,36 @@ describe('prompt-maker-core llm wrapper', () => {
       expect.stringContaining('/chat/completions'),
       expect.objectContaining({ method: 'POST' }),
     )
+  })
+
+  it('extracts PDF text for OpenAI requests', async () => {
+    fsPromises.readFile.mockResolvedValue(
+      Buffer.from(
+        '%PDF-1.4\n1 0 obj\n<<>>\nstream\nBT\n(Hello PDF) Tj\nET\nendstream\n%%EOF',
+        'latin1',
+      ),
+    )
+
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: 'result text' } }] }),
+    })
+
+    const result = await callLLM(
+      [
+        {
+          role: 'user',
+          content: [{ type: 'pdf', mimeType: 'application/pdf', filePath: 'doc.pdf' }],
+        } as Message,
+      ],
+      'gpt-4o',
+    )
+
+    expect(result).toBe('result text')
+
+    const [, options] = fetchMock.mock.calls[0]
+    const body = JSON.parse((options as { body: string }).body)
+    expect(JSON.stringify(body.messages[0].content)).toContain('Hello PDF')
   })
 
   it('routes Gemini models to Gemini endpoint', async () => {

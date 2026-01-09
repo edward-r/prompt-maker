@@ -104,6 +104,7 @@ export type UseCommandScreenPopupBindingsOptions = {
     urls: string[]
     images: string[]
     videos: string[]
+    pdfs: string[]
 
     smartContextEnabled: boolean
     smartContextRoot: string | null
@@ -117,6 +118,8 @@ export type UseCommandScreenPopupBindingsOptions = {
     removeImage: (index: number) => void
     addVideo: (value: string) => void
     removeVideo: (index: number) => void
+    addPdf: (value: string) => void
+    removePdf: (index: number) => void
     toggleSmartContext: () => void
     setSmartRoot: (value: string) => void
 
@@ -187,6 +190,14 @@ export type UseCommandScreenPopupBindingsResult = {
         onAdd: (value: string) => void
         onRemove: (index: number) => void
       }
+      pdf: {
+        suggestions: string[]
+        suggestionSelectionIndex: number
+        suggestionsFocused: boolean
+        onDraftChange: (next: string) => void
+        onAdd: (value: string) => void
+        onRemove: (index: number) => void
+      }
       smart: {
         suggestions: string[]
         suggestionSelectionIndex: number
@@ -248,6 +259,7 @@ export const useCommandScreenPopupBindings = (
     urls: options.context.urls,
     images: options.context.images,
     videos: options.context.videos,
+    pdfs: options.context.pdfs,
     smartContextEnabled: options.context.smartContextEnabled,
     smartContextRoot: options.context.smartContextRoot,
     addFile: options.context.addFile,
@@ -259,6 +271,8 @@ export const useCommandScreenPopupBindings = (
     removeImage: options.context.removeImage,
     addVideo: options.context.addVideo,
     removeVideo: options.context.removeVideo,
+    addPdf: options.context.addPdf,
+    removePdf: options.context.removePdf,
     toggleSmartContext: options.context.toggleSmartContext,
     setSmartRoot: options.context.setSmartRoot,
     setInputValue: options.input.setValue,
@@ -359,6 +373,13 @@ export const useCommandScreenPopupBindings = (
       suggestions: context.videoPopupSuggestions,
       onAdd: context.onAddVideo,
       onRemove: context.onRemoveVideo,
+    },
+
+    pdf: {
+      items: options.context.pdfs,
+      suggestions: context.pdfPopupSuggestions,
+      onAdd: context.onAddPdf,
+      onRemove: context.onRemovePdf,
     },
 
     history: {
@@ -482,6 +503,14 @@ export const useCommandScreenPopupBindings = (
           onAdd: context.onAddVideo,
           onRemove: context.onRemoveVideo,
         },
+        pdf: {
+          suggestions: context.pdfPopupSuggestions,
+          suggestionSelectionIndex: context.pdfPopupSuggestionSelectionIndex,
+          suggestionsFocused: context.pdfPopupSuggestionsFocused,
+          onDraftChange: context.onPdfPopupDraftChange,
+          onAdd: context.onAddPdf,
+          onRemove: context.onRemovePdf,
+        },
         smart: {
           suggestions: context.smartPopupSuggestions,
           suggestionSelectionIndex: context.smartPopupSuggestionSelectionIndex,
@@ -538,6 +567,12 @@ export const useCommandScreenPopupBindings = (
       context.onVideoPopupDraftChange,
       context.onAddVideo,
       context.onRemoveVideo,
+      context.pdfPopupSuggestions,
+      context.pdfPopupSuggestionSelectionIndex,
+      context.pdfPopupSuggestionsFocused,
+      context.onPdfPopupDraftChange,
+      context.onAddPdf,
+      context.onRemovePdf,
       context.smartPopupSuggestions,
       context.smartPopupSuggestionSelectionIndex,
       context.smartPopupSuggestionsFocused,

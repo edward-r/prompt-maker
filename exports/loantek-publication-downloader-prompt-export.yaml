@@ -1,0 +1,270 @@
+contextPaths:
+  - path: inline-intent
+    source: intent
+  - path: .github/copilot-instructions.md
+    source: smart
+  - path: README.md
+    source: smart
+  - path: packages/ui/README.md
+    source: smart
+  - path: packages/ui/package.json
+    source: smart
+  - path: packages/api/package.json
+    source: smart
+intent: |-
+  I need to start supporting this application. I need to know:
+  - A general summary for how it works
+  - A detailed analysis of the main modules and the programmatic flow
+  - How to run it locally
+  - All database details
+  - How to perform detailed troubleshooting and diagnosis
+
+  Please write your response into a markdown file in the root of the project.
+interactive: true
+iterations: 1
+model: gpt-5.2
+prompt: >
+  # Title
+
+  Create Root-Level Support & Operations Guide (Markdown) for LoanTek
+  Publication Downloader
+
+
+  ## Role
+
+  You are a senior software engineer and technical writer onboarding into an AWS
+  serverless Nx monorepo. You produce accurate, actionable internal
+  documentation for support/maintenance.
+
+
+  ## Context
+
+  This repository is the **LoanTek Publication Downloader**: an AWS serverless
+  system (Nx monorepo) that downloads financial publications from **SFTP, email,
+  and websites**, orchestrated by **AWS Step Functions**, processed by **Lambda
+  functions**, and stored in **S3**, with metadata tracked in **PostgreSQL via
+  Prisma**.
+
+
+  You must base the documentation on the provided context files:
+
+  - `.github/copilot-instructions.md`
+
+  - `README.md`
+
+  - `packages/ui/README.md`
+
+  - `packages/ui/package.json`
+
+  - `packages/api/package.json`
+
+
+  If you have access to the repository contents beyond these files during
+  execution, you may inspect them to improve accuracy (e.g.,
+  `libs/database/prisma/schema.prisma`, `nx.json`, `vitest.config.ts`,
+  `infrastructure/terraform`, Step Functions definitions). If you do **not**
+  have access, explicitly note what cannot be confirmed and provide safe
+  guidance.
+
+
+  ## Goals & Tasks
+
+  Create a **single markdown file in the project root** that enables someone to
+  start supporting this application. The document must include:
+
+
+  1. **General Summary (How it works)**
+     - High-level architecture and workflow
+     - Key AWS services and responsibilities
+     - What “a run” is and how artifacts flow through the system
+
+  2. **Detailed Analysis of Main Modules + Programmatic Flow**
+     - Map the monorepo structure (packages vs libs)
+     - Describe each major Lambda package (email/sftp/website/persist-artifact) and shared libs (artifact-storage/database/logger/secrets-manager/common)
+     - Explain the end-to-end execution flow:
+       - Trigger → Step Functions → Lambda sequence → S3 temp/permanent storage → DB Run tracking
+     - Call out important conventions:
+       - ESM-only
+       - Node.js 22+, TypeScript 5.9+
+       - Scoped internal imports (`@loantek-publication-downloader/*`)
+       - `setEnvFromSSM` usage
+       - Zod validation using generated schemas
+
+  3. **How to Run Locally**
+     - Prerequisites (Node/npm versions, Docker optional, AWS profile setup)
+     - Install steps
+     - DB local setup options (Docker compose if present; otherwise explain expected approach)
+     - Prisma generation/migrations commands from `README.md`
+     - How to run:
+       - Individual lambdas locally (describe typical approach using provided scripts/patterns)
+       - API (`packages/api` scripts)
+       - UI (`packages/ui` scripts)
+     - Environment variable management via `conductor` and `.env` files
+
+  4. **All Database Details**
+     - Summarize entities and relationships described in `README.md`:
+       - Publication, AutomationPlan, Run, Source, AuthenticationProfile
+     - Enumerations:
+       - AutomationType, RunStatus, SourceType (as described)
+     - Prisma usage patterns:
+       - prisma client import source
+       - Zod schema validation imports
+     - Schema generation and migrations:
+       - `db:generate`, `db:migrate:dev`, `db:validate`
+     - Configuration:
+       - `DATABASE_URL` and where env comes from (SSM/Secrets)
+     - If actual Prisma schema is accessible, include:
+       - Table/model names, key fields, indexes/constraints, and notable JSON fields (e.g., `payload`, `browser_steps`)
+       - Any important invariants (unique constraints, foreign keys)
+
+  5. **Detailed Troubleshooting & Diagnosis**
+     - Local debugging checklist:
+       - install/build/test/typecheck commands
+       - clearing Nx cache (`npx nx reset`)
+       - common ESM/module resolution issues
+     - Runtime diagnosis in AWS:
+       - CloudWatch logs strategy
+       - Correlation IDs / context logging expectations
+       - X-Ray tracing guidance
+       - Rollbar (if applicable per docs)
+     - Data-path troubleshooting:
+       - S3 paths (tmp vs permanent) and how to confirm objects exist
+       - Run status lifecycle (IN_PROGRESS → COMPLETED/FAILED)
+       - Common failure modes per source type (SFTP auth, email parsing, website automation)
+     - Testing strategy and how to interpret coverage thresholds
+     - Provide “symptom → likely cause → checks → fix” tables for at least:
+       - Build failures
+       - Test failures
+       - Env/SSM credential failures
+       - DB connection/migration failures
+
+  ## Inputs
+
+  Use the following files as primary sources and cite them inline in the doc
+  where relevant:
+
+  - `.github/copilot-instructions.md`
+
+  - `README.md`
+
+  - `packages/ui/README.md`
+
+  - `packages/ui/package.json`
+
+  - `packages/api/package.json`
+
+
+  Optional (only if accessible during execution):
+
+  - `libs/database/prisma/schema.prisma`
+
+  - `libs/database/*` (env examples, prisma client exports)
+
+  - `infrastructure/terraform/*`
+
+  - Step Functions definitions (wherever stored)
+
+  - `nx.json`, `vitest.config.ts`, per-project vitest configs
+
+
+  ## Constraints
+
+  - **Do not invent details** not supported by the provided files. If something
+  is unknown, label it explicitly as:
+    - “Not confirmed from available files”
+    - Provide a safe next step: “Check file X / run command Y / look in AWS console location Z”.
+  - Keep all commands consistent with the repo’s tooling:
+    - Node.js 22+, npm workspaces, Nx
+    - TypeScript ESM
+    - Vitest usage and coverage requirements
+  - Follow the repository conventions from `.github/copilot-instructions.md`
+  (imports, lambda patterns, env loading).
+
+  - Output must be **a markdown file content** intended to be written to the
+  **repository root**.
+
+
+  ## Execution Plan
+
+  1. Parse the provided context files and extract:
+     - Architecture/workflow
+     - Repo structure and packages/libs
+     - Script commands for UI and API
+     - DB entities/enums and Prisma workflows
+     - Testing/troubleshooting guidance
+  2. If repository browsing is available, inspect key missing sources (Prisma
+  schema, infra, Step Functions) and integrate verified facts.
+
+  3. Draft the root markdown doc with clear headings and an operator-friendly
+  flow:
+     - “What it is” → “How it works” → “Codebase map” → “Flow diagrams (text-based)” → “Local run” → “DB deep dive” → “Troubleshooting runbook”.
+  4. Add command snippets and checklists. Ensure all commands are plausible for
+  npm workspaces.
+
+  5. Add a final section: “Open Questions / Where to Look Next” for any gaps.
+
+
+  ## Output Format
+
+  Produce **only** the contents of a single file to be created at:
+
+  - `./SUPPORT_GUIDE.md` (or another clear name) in the **project root**.
+
+
+  Markdown structure requirements:
+
+  - H1 title
+
+  - Table of contents
+
+  - Sections matching the 5 requested areas
+
+  - At least one:
+    - Architecture diagram in ASCII/mermaid (if allowed) or bullet flow
+    - Troubleshooting tables
+    - “Quickstart” command block
+
+  ## Quality Checks
+
+  Before finalizing, verify:
+
+  - All 5 user-requested topics are covered with dedicated sections.
+
+  - Every claim is traceable to provided context or clearly marked as
+  unconfirmed.
+
+  - Commands reference actual scripts from the provided `package.json` files
+  where possible.
+
+  - Local run instructions include UI + API + DB + Prisma generation.
+
+  - Database section includes entities + enums + Prisma/Zod usage patterns.
+
+  - Troubleshooting includes both local and AWS diagnosis steps and at least 4
+  symptom→cause→check→fix entries.
+
+  - Writing is concise, skimmable, and actionable for on-call/support engineers.
+reasoning: >-
+  The user wants onboarding/support documentation for an existing Nx monorepo
+  AWS serverless system. They provided multiple context files that describe
+  architecture, conventions, and some run-local steps, plus package scripts for
+  UI and API. The deliverable is a new markdown file placed at the repository
+  root. Missing details include exact filenames to create, specifics of
+  Terraform/state machine definitions, exact Prisma schema and env var keys, and
+  any operational runbooks; therefore the prompt should instruct the assistant
+  to (1) rely strictly on provided context files, (2) inspect repository files
+  if available in the execution environment, and (3) clearly label assumptions
+  and unknowns while proposing next steps for gaps. The prompt contract should
+  request: general system summary, module-by-module deep dive, programmatic flow
+  (Step Functions -> Lambdas -> S3/DB), local run instructions (backend lambdas,
+  API, UI, DB via Docker), database details (entities/enums/Prisma generation,
+  migrations, env vars), and troubleshooting/diagnosis (logs, CloudWatch, X-Ray,
+  Rollbar, common build/test/env issues). It should enforce repo conventions:
+  ESM, Node 22, scoped imports, setEnvFromSSM, Vitest coverage thresholds.
+  Output format should be a single markdown file at root with clear sections and
+  actionable commands. Quality checks should ensure completeness vs requested
+  bullets and consistency with provided docs.
+refinements: []
+schemaVersion: '1'
+targetModel: gpt-5.2
+timestamp: '2026-01-08T19:22:13.801Z'

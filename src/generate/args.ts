@@ -13,6 +13,7 @@ const VALUE_FLAGS = new Set([
   '-c',
   '--image',
   '--video',
+  '--pdf',
   '--url',
   '--context-file',
   '--context-format',
@@ -174,6 +175,12 @@ export const parseGenerateArgs = (argv: string[]): ParsedArgs => {
       default: [],
       describe: 'Attach a video file (repeatable)',
     })
+    .option('pdf', {
+      type: 'string',
+      array: true,
+      default: [],
+      describe: 'Attach a PDF file (repeatable)',
+    })
     .option('context-file', {
       type: 'string',
       describe: 'Write resolved context to the specified file',
@@ -327,6 +334,7 @@ export const parseGenerateArgs = (argv: string[]): ParsedArgs => {
     urls: normalizeListArg(parsed.url),
     images: normalizeListArg(parsed.image),
     video: normalizeListArg(parsed.video),
+    pdf: normalizeListArg(parsed.pdf),
     smartContext: parsed.smartContext ?? false,
     ...(parsed.contextTemplate ? { contextTemplate: parsed.contextTemplate } : {}),
     ...(parsed.interactiveTransport ? { interactiveTransport: parsed.interactiveTransport } : {}),

@@ -217,6 +217,15 @@ const generateAndMaybeDisplay = async (
     fileContext: context.fileContext,
     images: context.images,
     videos: context.videos,
+    pdfs: context.pdfs,
+    onPromptAutoRepairAttempt: (detail) => {
+      stream.emit({
+        event: 'progress.update',
+        scope: 'generate',
+        state: 'update',
+        label: `Auto-repair (${detail.kind}) ${detail.reason} (${detail.attempt}/${detail.maxAttempts})`,
+      })
+    },
   }
 
   if (context.metaInstructions) {

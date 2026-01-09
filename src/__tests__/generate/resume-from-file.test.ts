@@ -76,6 +76,7 @@ const createBaseArgs = (): GenerateArgs => ({
   urls: [],
   images: [],
   video: [],
+  pdf: [],
   smartContext: false,
 })
 

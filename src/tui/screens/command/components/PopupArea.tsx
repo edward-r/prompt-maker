@@ -73,6 +73,14 @@ export type PopupAreaProps = {
   onVideoPopupDraftChange: (next: string) => void
   onAddVideo: (value: string) => void
 
+  // PDF popup
+  pdfs: string[]
+  pdfPopupSuggestions: string[]
+  pdfPopupSuggestionSelectionIndex: number
+  pdfPopupSuggestionsFocused: boolean
+  onPdfPopupDraftChange: (next: string) => void
+  onAddPdf: (value: string) => void
+
   // History popup
   historyPopupItems: string[]
   onHistoryPopupDraftChange: (next: string) => void
@@ -259,6 +267,29 @@ const renderVideoPopup = (props: PopupAreaProps, popupState: PopupStateFor<'vide
     maxHeight: props.overlayHeight,
     onDraftChange: props.onVideoPopupDraftChange,
     onSubmitDraft: props.onAddVideo,
+  } satisfies ComponentProps<typeof ListPopup>
+
+  return <ListPopup {...viewModel} />
+}
+
+const renderPdfPopup = (props: PopupAreaProps, popupState: PopupStateFor<'pdf'>) => {
+  const viewModel = {
+    title: 'PDFs',
+    placeholder: 'path/to/document.pdf',
+    draft: popupState.draft,
+    items: props.pdfs,
+    selectedIndex: popupState.selectionIndex,
+    selectedFocused: popupState.selectedFocused,
+    layout: 'selected-first',
+    emptyLabel: 'No PDFs attached',
+    instructions:
+      "Enter add · ↑/↓ focus list · Del/Backspace remove · Tab suggestions · Esc close\nfzf: ^start $end 'exact",
+    suggestedItems: props.pdfPopupSuggestions,
+    suggestedSelectionIndex: props.pdfPopupSuggestionSelectionIndex,
+    suggestedFocused: props.pdfPopupSuggestionsFocused,
+    maxHeight: props.overlayHeight,
+    onDraftChange: props.onPdfPopupDraftChange,
+    onSubmitDraft: props.onAddPdf,
   } satisfies ComponentProps<typeof ListPopup>
 
   return <ListPopup {...viewModel} />
@@ -468,6 +499,9 @@ export const PopupArea = (props: PopupAreaProps) => {
       return renderImagePopup(props, popupState)
     case 'video':
       return renderVideoPopup(props, popupState)
+
+    case 'pdf':
+      return renderPdfPopup(props, popupState)
     case 'history':
       return renderHistoryPopup(props, popupState)
 

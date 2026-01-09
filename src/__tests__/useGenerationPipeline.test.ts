@@ -88,6 +88,7 @@ describe('useGenerationPipeline', () => {
     urls: [] as string[],
     images: [] as string[],
     videos: [] as string[],
+    pdfs: [] as string[],
     smartContextEnabled: false,
     smartContextRoot: null,
     metaInstructions: '',
