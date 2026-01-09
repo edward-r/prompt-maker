@@ -798,7 +798,7 @@ flowchart TD
   P1 -- Yes --> P2["Upload PDF<br>(GoogleAIFileManager)"]
   P2 --> P3["Poll until ACTIVE<br>(or fail with error)"]
   P3 --> POK{Upload ok?}
-  POK -- No --> PW[Fail (upload error)]
+  POK -- No --> PW["Fail (upload error)"]
   POK -- Yes --> P4[Attach PDF reference<br>into request parts]
   P1 -- No --> P5["Extract PDF text<br>(in-process) + attach as text"]
 
