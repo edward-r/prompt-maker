@@ -2,7 +2,7 @@
 
 This document describes the _current_ Ink-based TUI: its UX goals, input routing invariants, and how the code is organized.
 
-If you’re looking for a user guide, the fastest way to learn the TUI is to run it and hit `?`.
+If you’re looking for a user guide, the fastest way to learn the TUI is to run it and type `/help`.
 
 ## Goals
 
@@ -19,13 +19,13 @@ If you’re looking for a user guide, the fastest way to learn the TUI is to run
   - Everything else runs the generate workflow.
 - TUI renderer: `src/tui/index.tsx` (parses `--interactive-transport`, then mounts `AppContainer`).
 
-## Global keybinds
+## Global controls
 
-Defined by `src/tui/app-container-keymap.ts` and shown in help (`?`).
+Global keybinds are defined by `src/tui/app-container-keymap.ts`. The help overlay is opened via the `/help` command.
 
 - `Ctrl+G`: open command palette (Generate view)
 - `Ctrl+T`: switch to Test Runner view
-- `?`: toggle help overlay
+- `/help`: open help overlay
 - `Ctrl+C`: exit
 - `Esc`: dismiss UI elements (never exits)
 

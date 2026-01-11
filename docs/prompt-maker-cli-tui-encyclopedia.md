@@ -615,7 +615,7 @@ Authoritative sources:
 
 - `Ctrl+G`: open command palette (and switch to Generate view if needed)
 - `Ctrl+T`: switch to Test Runner view
-- `?`: toggle help overlay
+- `/help`: open help overlay
 - `Ctrl+C`: exit
 - `Esc`: dismiss UI elements (never exits)
 
@@ -655,6 +655,7 @@ Execution is split:
 
 | Command                   | Args                     | Behavior                                                                                |
 | ------------------------- | ------------------------ | --------------------------------------------------------------------------------------- |
+| `/help`                   | -                        | Show keyboard shortcuts (help overlay)                                                  |
 | `/model`                  | -                        | Open model picker popup (generation model)                                              |
 | `/target`                 | -                        | Open target model picker popup                                                          |
 | `/polish`                 | `off\|clear\|--clear`    | Clear polish model; otherwise open polish model picker                                  |

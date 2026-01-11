@@ -198,7 +198,7 @@ Example config skeleton (do not commit secrets):
 - TUI global keys (`docs/cookbook.md`, `docs/prompt-maker-cli-tui-encyclopedia.md`):
   - `Ctrl+G`: open command palette
   - `Ctrl+T`: switch to Test Runner view
-  - `?`: toggle help overlay (definitive keybind list)
+  - `/help`: open help overlay (definitive keybind list)
   - `Esc`: dismiss popups
 - The TUI is “keyboard-first” and follows strict input routing:
   1. Help overlay
@@ -216,7 +216,7 @@ prompt-maker-cli
 
 In the UI:
 
-1. Press `?` to open help.
+1. Type `/help` to open help.
 2. Press `Ctrl+G` to open the command palette.
 3. Type `/` (or keep palette open) and browse commands.
 
@@ -231,19 +231,19 @@ In the UI:
 
 ## Validation
 
-- You can open and close help (`?`) and the command palette (`Ctrl+G`).
+- You can open help (`/help`) and the command palette (`Ctrl+G`).
 - A prompt is generated and appears in the history pane.
 - `/history` shows prior commands/runs.
 
 ## Troubleshooting
 
-- **Keys don’t work**: a popup or help overlay likely owns input—press `Esc` or `?`.
+- **Keys don’t work**: a popup or help overlay likely owns input—press `Esc`.
 - **Generation fails**: check credential setup (Lesson 1).
 
 ## Video Script (Lesson 2)
 
 - Show `prompt-maker-cli` launch.
-- Demo: `?`, `Ctrl+G`, run `/settings`, run `/history`.
+- Demo: `/help`, `Ctrl+G`, run `/settings`, run `/history`.
 - Generate one intent and point out history updates.
 
 ---

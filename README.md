@@ -200,11 +200,11 @@ Important caveats:
 
 ### Keybindings
 
-Global keybinds:
+Global controls:
 
 - `Ctrl+G`: open command palette (Generate view)
 - `Ctrl+T`: switch to Test Runner view
-- `?`: toggle help overlay
+- `/help`: open help overlay
 - `Ctrl+C` or `/exit`: exit
 - `Esc`: dismiss popups/menus (never exits)
 
@@ -251,7 +251,7 @@ flowchart TD
   S -- Yes --> HNDS["Screen handles key<br>(e.g., history scroll, submit)"]
   S -- No --> G{Global keybind?}
 
-  G -- Yes --> HNDG["AppContainer global key<br>(exit, toggle views, help)"]
+  G -- Yes --> HNDG["AppContainer global key<br>(exit, toggle views)"]
   G -- No --> IGN[Ignored]
 ```
 
@@ -263,6 +263,7 @@ Commands:
 
 | Command                   | Args                     | What it does                                                                                        |
 | ------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------- |
+| `/help`                   | -                        | Show keyboard shortcuts (help overlay)                                                              |
 | `/model`                  | -                        | Pick the generation model (popup)                                                                   |
 | `/target`                 | -                        | Pick the target/runtime model (recorded; not included in prompt text) (popup)                       |
 | `/polish`                 | `off\|clear\|--clear`    | Clear polish model, or pick the polish model (popup)                                                |

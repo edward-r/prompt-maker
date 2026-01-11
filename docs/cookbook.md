@@ -147,7 +147,7 @@ prompt-maker-cli
 
 Then:
 
-- Press `?` to open the help overlay (it is the definitive keybind list).
+- Type `/help` to open the help overlay (it is the definitive keybind list).
 - Press `Ctrl+G` to open the command palette.
 - Press `Ctrl+T` to switch to the Test Runner view.
 
@@ -175,7 +175,7 @@ You want to discover what the TUI can do (models, context, tests, theming) witho
 
 **Troubleshooting**
 
-- If keys “don’t work,” check whether the help overlay is open (`?`) or a popup is active; those layers intentionally suppress screen/global keys.
+- If keys “don’t work,” check whether the help overlay is open (`/help`) or a popup is active; those layers intentionally suppress screen/global keys.
 
 ### Recipe: Add context in the TUI (files, URLs, images, video, smart)
 
