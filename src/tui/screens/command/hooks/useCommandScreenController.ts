@@ -27,6 +27,7 @@ export type UseCommandScreenControllerOptions = {
     commandMenuSignal?: number
     helpOpen: boolean
     reservedRows: number
+    onOpenHelp?: () => void
   }
   notify: (message: string, options?: NotifyOptions) => void
 }
@@ -47,7 +48,7 @@ export const useCommandScreenController = ({
 
   const interactiveTransportPath = transport?.interactiveTransportPath
 
-  const { onPopupVisibilityChange, commandMenuSignal, helpOpen, reservedRows } = popup
+  const { onPopupVisibilityChange, commandMenuSignal, helpOpen, reservedRows, onOpenHelp } = popup
 
   const {
     files,
@@ -251,8 +252,9 @@ export const useCommandScreenController = ({
       commandMenuSignal,
       helpOpen,
       reservedRows,
+      ...(onOpenHelp ? { onOpenHelp } : {}),
     }),
-    [onPopupVisibilityChange, commandMenuSignal, helpOpen, reservedRows],
+    [onPopupVisibilityChange, commandMenuSignal, helpOpen, reservedRows, onOpenHelp],
   )
 
   const historyOptions: UseCommandScreenPopupAndViewOptions['history'] = useMemo(

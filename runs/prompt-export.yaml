@@ -1,0 +1,240 @@
+contextPaths:
+  - path: inline-intent
+    source: intent
+  - path: packages/ui/README.md
+    source: smart
+  - path: packages/ui/package.json
+    source: smart
+  - path: packages/ui/src/app/layout.tsx
+    source: smart
+  - path: packages/api/package.json
+    source: smart
+  - path: vitest.config.ts
+    source: smart
+images: []
+intent: >-
+  I need to know how to run the UI for this project locally.
+
+
+  I have a `.env` file setup in the `packages/ui/env` folder, but I'm not sure
+  this is the correct place. Please let me know if it is correct and if it is
+  missing any information, just to make sure I have everything setup.
+interactive: true
+iterations: 2
+model: gpt-5.2
+pdfs: []
+prompt: >
+  # Title
+
+  Local Development Runbook for LoanTek Publication Downloader UI + `.env`
+  Placement Validation + AWS Connectivity Setup (Step-by-Step)
+
+
+  ## Role
+
+  You are a senior full-stack engineer experienced with Next.js (App Router),
+  Node/TypeScript monorepos, and AWS (SSM Parameter Store, IAM, AWS CLI/SSO,
+  credential resolution).
+
+
+  ## Context
+
+  The repository contains a UI package at `packages/ui`.
+
+  You must use the provided context files to determine:
+
+  - How the UI is intended to be run locally
+
+  - How environment variables are loaded (local `.env`, generated `.env`, and/or
+  AWS SSM)
+
+  - Whether placing a `.env` file inside `packages/ui/env` is correct, and what
+  the correct location should be
+
+  - What AWS settings/steps are required locally to successfully connect to AWS
+  services used by the UI (especially SSM Parameter Store) and how to validate
+  connectivity
+
+
+  Relevant files already provided (assume you can inspect them directly as
+  context):
+
+  - `packages/ui/README.md`
+
+  - `packages/ui/package.json`
+
+  - `packages/ui/src/app/layout.tsx`
+
+  - `vitest.config.ts`
+
+
+  Key known facts to leverage explicitly:
+
+  - `packages/ui/README.md` documents running locally and AWS_PROFILE usage,
+  plus SSM path convention `/qa/loantek/publication-downloader-ui/` derived from
+  `APP_ENV`.
+
+  - `packages/ui/package.json` defines scripts: `dev`, `start`, `env-sync`,
+  `generate-env`.
+
+  - `packages/ui/src/app/layout.tsx` calls `await loadEnv()` at runtime,
+  implying server-side env loading.
+
+
+  ## Goals & Tasks
+
+  1. Provide step-by-step instructions to run the UI locally using the repo’s
+  documented scripts.
+
+  2. Determine and explain the correct `.env` file location(s) for local UI
+  development.
+     - Explicitly address the user’s current setup: `.env` inside `packages/ui/env`.
+  3. Explain how env vars are expected to be sourced in this repo:
+     - Next.js env loading expectations (app root env files)
+     - From generated env via `npm run generate-env`
+     - From AWS SSM via `npm run env-sync` and/or runtime loading mentioned in the README
+  4. Add an ordered, “basic principles” AWS connectivity setup section with
+  exact steps to make AWS calls succeed locally.
+     - Cover credential acquisition (AWS SSO or access keys), profile selection, region configuration, and verification.
+     - Cover required access to SSM Parameter Store paths used by this UI and how to confirm permissions.
+     - Tie steps to the repo’s conventions: `APP_ENV`, SSM path prefix, and `AWS_PROFILE` usage.
+  5. Identify what information might be missing from the user’s env setup.
+     - Provide a concrete checklist of likely required variables and how to discover them from code (without inventing names).
+  6. Include troubleshooting steps for common failures:
+     - Missing env, wrong env file location, missing AWS credentials, wrong profile, wrong region
+     - SSM permission errors, parameter path mismatch, APP_ENV mismatch
+     - Next dev server issues, New Relic preload issues from `NODE_OPTIONS` in scripts
+
+  ## Inputs
+
+  - Context files (use directly):
+    - `packages/ui/README.md`
+    - `packages/ui/package.json`
+    - `packages/ui/src/app/layout.tsx`
+    - `vitest.config.ts`
+  - No additional user attachments are required.
+
+
+  ## Constraints
+
+  - Do not ask the user to re-upload or paste any of the provided files.
+
+  - Only ask clarifying questions if the answer truly depends on unknowns not
+  inferable from the provided context (e.g., whether their org uses AWS SSO vs
+  access keys; which AWS account/role; intended APP_ENV).
+
+  - Keep recommendations consistent with scripts and conventions shown in
+  `packages/ui/package.json` and `packages/ui/README.md`.
+
+  - Do not invent specific environment variable names unless you can justify
+  them from code found in the provided files. If uncertain, provide a precise
+  method to discover them.
+
+  - Provide “exact steps, in order” for AWS connectivity from basics
+  (credentials → config → verify identity → verify SSM access → run UI).
+
+
+  ## Execution Plan
+
+  1. Extract official local run steps from `packages/ui/README.md` and reflect
+  them verbatim where applicable.
+
+  2. Enumerate and explain UI scripts from `packages/ui/package.json`:
+     - What `dev` does (including `NODE_OPTIONS` preload)
+     - What `start` does
+     - What `env-sync` does (SSM path argument pattern)
+     - What `generate-env` does (source template location under `packages/ui/env`)
+  3. Use `packages/ui/src/app/layout.tsx` to highlight runtime env loading via
+  `loadEnv()` and explain implications (server-side execution during app
+  startup).
+
+  4. Determine correct `.env` placement based on Next.js conventions:
+     - Explain which directory Next uses as the “project root” (the Next app directory `packages/ui/`) and which `.env*` filenames are loaded.
+     - Compare against `packages/ui/env/.env` and state whether it will be auto-loaded by Next.
+  5. Provide **AWS connectivity setup (ordered)** from first principles:
+     - Step 1: Confirm AWS tooling presence (AWS CLI) and baseline environment (Node/npm).
+     - Step 2: Choose credential method:
+       - If AWS SSO: configure SSO profile and login.
+       - If access keys: configure credentials file and default/selected profile.
+     - Step 3: Ensure region is set (env var or config), explain why region matters for SSM.
+     - Step 4: Verify credentials resolution:
+       - Command to confirm identity (e.g., STS caller identity) and interpret output.
+     - Step 5: Verify SSM access:
+       - Determine expected parameter path prefix from README: `/${APP_ENV}/loantek/publication-downloader-ui/`.
+       - Provide commands to test listing/getting parameters under that path.
+       - If denied, explain required IAM permissions at a high level (actions and resource patterns) without fabricating account IDs.
+     - Step 6: Apply repo workflow:
+       - Option A: Run `npm run env-sync` to populate `packages/ui/.env`.
+       - Option B: Rely on runtime loading (as described in README) and ensure `APP_ENV` and `AWS_PROFILE` are set.
+     - Step 7: Run the UI and validate expected behavior.
+  6. Provide “missing env var discovery” method:
+     - Direct the assistant to search for `process.env` usage and inspect `packages/ui/src/lib/serverInit` (mentioned in `layout.tsx` import) if available; otherwise clearly state the limitation and provide search instructions.
+  7. Troubleshooting matrix:
+     - Symptom → likely cause → exact fix steps (including AWS_PROFILE/APP_ENV/region, SSM permissions, New Relic preload issues, wrong `.env` location).
+
+  ## Output Format
+
+  Provide a single markdown response with these sections (in this order):
+
+  1. **Quick Start (Local UI)** — exact commands to run; include prerequisites.
+
+  2. **Where the `.env` should live (and what `packages/ui/env` is for)** —
+  explicit answer about `packages/ui/env/.env` vs `packages/ui/.env*` and how
+  `generate-env` relates.
+
+  3. **AWS Connectivity Setup (Exact Steps, In Order)**
+     - Subsections: Credentials, Profile selection (`AWS_PROFILE`), Region, Verify identity, Verify SSM path access, Sync/load env, Run UI.
+     - Include concrete terminal commands and what success/failure looks like.
+  4. **Recommended Env Workflows** — (A) local-only, (B) AWS SSM-backed, (C)
+  template-based `generate-env`.
+
+  5. **How to Verify If Your `.env` Is Missing Anything** — concrete steps; how
+  to locate required vars from code.
+
+  6. **Troubleshooting** — table or bullet list: symptom → cause → fix.
+
+  7. **Clarifying Questions (only if needed)** — maximum 3 short questions.
+
+
+  ## Quality Checks
+
+  - All commands must match scripts shown in `packages/ui/package.json` (e.g.,
+  `npm run dev`, `npm run env-sync`, `npm run generate-env`).
+
+  - Must explicitly reference and align with guidance in
+  `packages/ui/README.md`:
+    - `AWS_PROFILE=... npm run dev`
+    - `APP_ENV` usage
+    - SSM path convention `/qa/loantek/publication-downloader-ui/` and generalized `/${APP_ENV}/loantek/publication-downloader-ui/`.
+  - Must directly answer whether `packages/ui/env/.env` is the correct place and
+  explain what Next.js loads by default.
+
+  - AWS section must be “from basic principles” and strictly ordered with
+  verification steps and expected outcomes.
+
+  - Must not claim specific env variable names unless verified from provided
+  code; otherwise provide a method to discover.
+
+  - Ensure the runbook is usable end-to-end for a developer on a fresh clone.
+reasoning: >-
+  I interpreted the refinement instruction as requiring the prompt contract to
+  explicitly add an ordered, from-first-principles AWS setup path for local UI
+  execution, including credentials sourcing (AWS_PROFILE), region,
+  permissions/SSM path, and verification steps, while still grounding everything
+  in the provided repo context (README/package scripts/layout loadEnv). I
+  preserved the existing structure and goals, expanded the AWS section into
+  concrete, sequential tasks (configure AWS CLI/SSO, set region, validate
+  identity, validate SSM access, then run env-sync or rely on runtime loading),
+  and added constraints to avoid inventing env var names while still providing
+  exact operational steps and checks. No task execution is performed; it remains
+  a contract for another assistant and references the provided context files by
+  path.
+refinements:
+  - >-
+    I also need to understand any AWS settings that I might need to add/change
+    in order to get a connection. I need exact steps, in order, from basic
+    principles
+schemaVersion: '1'
+targetModel: gpt-5.2
+timestamp: '2026-01-09T18:57:39.623Z'
+videos: []

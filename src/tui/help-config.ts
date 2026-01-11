@@ -49,7 +49,7 @@ export const createHelpSections = ({ commandDescriptors }: HelpConfigOptions): H
       lines: [
         'Ctrl+G: Generate + open command palette',
         'Ctrl+T: Switch to Test Runner',
-        '?: Toggle this help overlay',
+        '/help: Show this help overlay',
         'Ctrl+C: Exit (or /exit)',
         'Esc: Dismiss UI (never exits)',
       ],
@@ -59,7 +59,7 @@ export const createHelpSections = ({ commandDescriptors }: HelpConfigOptions): H
       lines: [
         'Type natural language requests or start a command with /.',
         'Press Enter to log input; arrow keys scroll history.',
-        'Press ? anytime to view keyboard shortcuts.',
+        'Type /help anytime to view keyboard shortcuts.',
         'Series: /series generates standalone atomic prompts (no cross-references); it prefills from typed/last intent (or /intent file).',
         'Tests: /test prompt-tests.yaml runs the prompt test suite.',
         'Tokens: /tokens shows token usage breakdown.',

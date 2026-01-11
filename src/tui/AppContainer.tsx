@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Text, useApp, useInput, useStdout } from 'ink'
 import cliCursor from 'cli-cursor'
 
@@ -59,6 +59,20 @@ const AppContainerInner: React.FC<AppContainerProps> = ({ interactiveTransport }
       setPendingCommandMenu(false)
     }
   }, [pendingCommandMenu, view])
+
+  const openHelp = useCallback(() => {
+    if (isHelpOpen) {
+      return
+    }
+
+    if (view === 'generate') {
+      commandScreenRef.current?.suppressNextInput()
+    } else {
+      testRunnerRef.current?.suppressNextInput()
+    }
+
+    setIsHelpOpen(true)
+  }, [isHelpOpen, view])
 
   useInput((input, key) => {
     const action = resolveAppContainerKeyAction({
@@ -136,8 +150,10 @@ const AppContainerInner: React.FC<AppContainerProps> = ({ interactiveTransport }
       >
         <Text {...inkColorProps(theme.accent)}>Prompt Maker · Command Palette Preview</Text>
         <Text {...inkColorProps(theme.mutedText)}>
-          Ctrl+G → Command Palette · Ctrl+T → Test Runner · ? → Help · Ctrl+C or /exit to exit.
+          Ctrl+G → Command Palette · Ctrl+T → Test Runner · Type /help for help · Ctrl+C or /exit to
+          exit.
         </Text>
+
         <Box flexDirection="column" flexGrow={1} marginTop={1}>
           {view === 'generate' ? (
             <>
@@ -158,6 +174,7 @@ const AppContainerInner: React.FC<AppContainerProps> = ({ interactiveTransport }
                   commandMenuSignal={commandMenuSignal}
                   helpOpen={isHelpOpen}
                   reservedRows={reservedRows}
+                  onOpenHelp={openHelp}
                   notify={notify}
                 />
               </Box>

@@ -19,6 +19,7 @@ type CommandScreenProps = {
   commandMenuSignal?: number
   helpOpen?: boolean
   reservedRows?: number
+  onOpenHelp?: () => void
   notify: (message: string, options?: NotifyOptions) => void
 }
 
@@ -35,8 +36,10 @@ export const CommandScreen = memo(
         commandMenuSignal,
         helpOpen = false,
         reservedRows = 0,
+        onOpenHelp,
         notify,
       },
+
       ref,
     ) => {
       const {
@@ -55,6 +58,7 @@ export const CommandScreen = memo(
           ...(commandMenuSignal !== undefined ? { commandMenuSignal } : {}),
           helpOpen,
           reservedRows,
+          ...(onOpenHelp ? { onOpenHelp } : {}),
         },
         notify,
       })

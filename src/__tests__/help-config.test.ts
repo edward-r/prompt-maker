@@ -9,7 +9,7 @@ describe('createHelpSections', () => {
     expect(global).toBeDefined()
     expect(global?.lines.join(' ')).toContain('Ctrl+G')
     expect(global?.lines.join(' ')).toContain('Ctrl+T')
-    expect(global?.lines.join(' ')).toContain('?')
+    expect(global?.lines.join(' ')).toContain('/help')
   })
 
   it('mentions every configured command', () => {

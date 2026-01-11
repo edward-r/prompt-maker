@@ -44,6 +44,7 @@ export type UseIntentSubmitHandlerOptions = {
   handleReuseCommand: () => void
 
   lastUserIntentRef: MutableRefObject<string | null>
+  openHelp?: () => void
 }
 
 export const useIntentSubmitHandler = ({
@@ -65,6 +66,7 @@ export const useIntentSubmitHandler = ({
   handleNewCommand,
   handleReuseCommand,
   lastUserIntentRef,
+  openHelp,
 }: UseIntentSubmitHandlerOptions): ((value: string) => void) => {
   return useCallback(
     (value: string) => {
@@ -133,6 +135,15 @@ export const useIntentSubmitHandler = ({
             break
           }
           case 'run-command': {
+            if (action.commandId === 'help') {
+              if (openHelp) {
+                openHelp()
+              } else {
+                pushHistory('Help overlay is unavailable in this view.', 'system')
+              }
+              break
+            }
+
             handleCommandSelection(action.commandId, action.argsRaw)
             break
           }
@@ -155,6 +166,7 @@ export const useIntentSubmitHandler = ({
       isCommandMode,
       isGenerating,
       lastUserIntentRef,
+      openHelp,
       popupState,
       pushHistory,
       runGeneration,

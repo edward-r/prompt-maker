@@ -48,6 +48,7 @@ export type UseCommandScreenPopupBindingsOptions = {
     setState: SetPopupState
     isOpen: boolean
     helpOpen: boolean
+    openHelp?: () => void
     close: () => void
 
     actions: {
@@ -431,6 +432,7 @@ export const useCommandScreenPopupBindings = (
     handleReuseCommand: options.menu.actions.handleReuseCommand,
     lastUserIntentRef: options.input.lastUserIntentRef,
     handleSeriesIntentSubmit: options.popup.actions.handleSeriesIntentSubmit,
+    ...(options.popup.openHelp ? { openHelp: options.popup.openHelp } : {}),
   } satisfies UseCommandScreenSubmitBindingsOptions)
 
   const miscDraftHandlers = useMiscPopupDraftHandlers({

@@ -158,6 +158,7 @@ export const useCommandScreenBindings = (
       setState: popupManager.setPopupState,
       isOpen: popupManager.isPopupOpen,
       helpOpen: popup.helpOpen,
+      ...(popup.onOpenHelp ? { openHelp: popup.onOpenHelp } : {}),
       close: popupManager.actions.closePopup,
       actions: {
         handleCommandSelection: popupManager.actions.handleCommandSelection,

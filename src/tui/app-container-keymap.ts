@@ -33,13 +33,6 @@ const matchesControlKey = (input: string, key: Key, target: string): boolean => 
   return controlChar ? input === controlChar : false
 }
 
-const isHelpToggle = (input: string, key: Key): boolean => {
-  if (key.ctrl || key.meta) {
-    return false
-  }
-  return input === '?'
-}
-
 export type ResolveAppContainerKeyActionOptions = {
   input: string
   key: Key
@@ -56,14 +49,10 @@ export const resolveAppContainerKeyAction = ({
   isHelpOpen,
 }: ResolveAppContainerKeyActionOptions): AppContainerKeyAction => {
   if (isHelpOpen) {
-    if (key.escape || isHelpToggle(input, key)) {
+    if (key.escape) {
       return { type: 'toggle-help', nextIsHelpOpen: false }
     }
     return { type: 'none' }
-  }
-
-  if (isHelpToggle(input, key)) {
-    return { type: 'toggle-help', nextIsHelpOpen: true }
   }
 
   if (matchesControlKey(input, key, 'c')) {

@@ -99,6 +99,7 @@ export type CommandPopupOptions = {
   commandMenuSignal?: number | undefined
   helpOpen: boolean
   reservedRows: number
+  onOpenHelp?: (() => void) | undefined
 }
 
 export type CommandHistoryOptions = {

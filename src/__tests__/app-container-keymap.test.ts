@@ -5,7 +5,7 @@ import { resolveAppContainerKeyAction } from '../tui/app-container-keymap'
 const createKey = (overrides: Partial<Key> = {}): Key => overrides as Key
 
 describe('resolveAppContainerKeyAction', () => {
-  it('toggles help open on ?', () => {
+  it('does not toggle help open on ?', () => {
     const action = resolveAppContainerKeyAction({
       input: '?',
       key: createKey({}),
@@ -14,7 +14,7 @@ describe('resolveAppContainerKeyAction', () => {
       isHelpOpen: false,
     })
 
-    expect(action).toEqual({ type: 'toggle-help', nextIsHelpOpen: true })
+    expect(action).toEqual({ type: 'none' })
   })
 
   it('closes help on Esc', () => {
@@ -27,6 +27,18 @@ describe('resolveAppContainerKeyAction', () => {
     })
 
     expect(action).toEqual({ type: 'toggle-help', nextIsHelpOpen: false })
+  })
+
+  it('does not close help on ?', () => {
+    const action = resolveAppContainerKeyAction({
+      input: '?',
+      key: createKey({}),
+      view: 'generate',
+      isPopupOpen: false,
+      isHelpOpen: true,
+    })
+
+    expect(action).toEqual({ type: 'none' })
   })
 
   it('swallows navigation keys while help is open', () => {

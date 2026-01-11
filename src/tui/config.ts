@@ -1,5 +1,6 @@
 export const COMMAND_DESCRIPTORS = [
   { id: 'exit', label: 'Exit', description: 'Exit the app (/exit)' },
+  { id: 'help', label: 'Help', description: 'Show keyboard shortcuts (/help)' },
   { id: 'model', label: 'Model', description: 'Switch the generation model' },
   {
     id: 'target',

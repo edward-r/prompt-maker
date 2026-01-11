@@ -42,6 +42,8 @@ export type UseCommandScreenSubmitBindingsOptions = {
   lastUserIntentRef: import('react').MutableRefObject<string | null>
 
   handleSeriesIntentSubmit: (value: string) => void
+
+  openHelp?: () => void
 }
 
 export type UseCommandScreenSubmitBindingsResult = {
@@ -69,6 +71,7 @@ export const useCommandScreenSubmitBindings = ({
   handleReuseCommand,
   lastUserIntentRef,
   handleSeriesIntentSubmit,
+  openHelp,
 }: UseCommandScreenSubmitBindingsOptions): UseCommandScreenSubmitBindingsResult => {
   const handleSubmit = useIntentSubmitHandler({
     popupState,
@@ -89,6 +92,7 @@ export const useCommandScreenSubmitBindings = ({
     handleNewCommand,
     handleReuseCommand,
     lastUserIntentRef,
+    ...(openHelp ? { openHelp } : {}),
   })
 
   const onSeriesSubmit = useCallback(
