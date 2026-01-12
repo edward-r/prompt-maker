@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Text, useInput, type Key } from 'ink'
+import { Box, Text, useInput, useStdout, type Key } from 'ink'
 
 import {
   backspace,
@@ -10,6 +10,7 @@ import {
   moveCursorRight,
   type MultilineTextBufferState,
 } from './multiline-text-buffer'
+import { softWrapLine, getSoftWrappedCursorOffset } from './soft-wrap'
 import { isBackspaceKey } from './text-input-keys'
 import {
   expandTokenizedLines,
@@ -57,17 +58,31 @@ type RenderLine = {
   isPlaceholder: boolean
 }
 
-const toRenderLines = (
+type WrappedLayout = {
+  readonly lines: readonly RenderLine[]
+  readonly cursorRow: number
+  readonly cursorColumn: number
+}
+
+const toHardLines = (
   value: string,
   placeholder: string | undefined,
   tokenLabel: TokenLabelLookup,
-): RenderLine[] => {
+): readonly RenderLine[] => {
   if (!value) {
     return [{ id: 'placeholder', content: placeholder ?? '', isPlaceholder: true }]
   }
 
   const lines = expandTokenizedLines(value, tokenLabel)
   return lines.map((line, index) => ({ id: `line-${index}`, content: line, isPlaceholder: false }))
+}
+
+const normalizeColumns = (columns: number): number => {
+  if (!Number.isFinite(columns)) {
+    return 0
+  }
+
+  return Math.max(0, Math.floor(columns))
 }
 
 export const MultilineTextInput: React.FC<MultilineTextInputProps> = ({
@@ -85,6 +100,7 @@ export const MultilineTextInput: React.FC<MultilineTextInputProps> = ({
   backgroundColor,
 }) => {
   const { theme } = useTheme()
+  const { stdout } = useStdout()
   const [cursor, setCursor] = useState<number>(value.length)
   const internalUpdateRef = useRef(false)
 
@@ -171,22 +187,119 @@ export const MultilineTextInput: React.FC<MultilineTextInputProps> = ({
     [tokenLabel],
   )
 
-  const lines = useMemo(
-    () => toRenderLines(value, placeholder, resolvedTokenLabel),
+  const hardLines = useMemo(
+    () => toHardLines(value, placeholder, resolvedTokenLabel),
     [placeholder, resolvedTokenLabel, value],
   )
-  const { row: cursorRow, column: cursorColumn } = useMemo(
+
+  const tokenizedCursor = useMemo(
     () => getTokenizedCursorCoordinates(value, cursor, resolvedTokenLabel),
     [cursor, resolvedTokenLabel, value],
   )
 
+  const gutterSpacer = gutter?.spacer ?? 0
+  const safeSpacer = Number.isFinite(gutterSpacer) ? Math.max(0, Math.floor(gutterSpacer)) : 0
+
+  const gutterColumns = gutter ? gutter.glyph.length + safeSpacer : 0
+
+  const totalColumns = useMemo(() => {
+    if (typeof width === 'number') {
+      return normalizeColumns(width)
+    }
+
+    return normalizeColumns(stdout?.columns ?? 80)
+  }, [stdout?.columns, width])
+
+  const wrapped = useMemo<WrappedLayout>(() => {
+    const lines: RenderLine[] = []
+
+    let cursorRow = 0
+    let cursorColumn = 0
+
+    for (let hardIndex = 0; hardIndex < hardLines.length; hardIndex += 1) {
+      const hardLine = hardLines[hardIndex]
+      if (!hardLine) {
+        continue
+      }
+
+      const hardLineStart = lines.length
+
+      const isFirstHardLine = hardIndex === 0
+      const firstPrefixColumns = isFirstHardLine ? PROMPT.length : PROMPT_SPACER.length
+
+      const firstWrapWidth = Math.max(1, totalColumns - gutterColumns - firstPrefixColumns)
+      const restWrapWidth = Math.max(1, totalColumns - gutterColumns - PROMPT_SPACER.length)
+
+      const wrappedHardLine = softWrapLine(hardLine.content, {
+        first: firstWrapWidth,
+        rest: restWrapWidth,
+      })
+
+      const isCursorHardLine = hardIndex === tokenizedCursor.row
+      const cursorOffset = isCursorHardLine
+        ? getSoftWrappedCursorOffset(wrappedHardLine, tokenizedCursor.column)
+        : null
+
+      if (isCursorHardLine && cursorOffset) {
+        cursorRow = hardLineStart + cursorOffset.rowOffset
+        cursorColumn = cursorOffset.column
+      }
+
+      for (
+        let segmentIndex = 0;
+        segmentIndex < wrappedHardLine.segments.length;
+        segmentIndex += 1
+      ) {
+        const segment = wrappedHardLine.segments[segmentIndex]
+        if (segment === undefined) {
+          continue
+        }
+
+        lines.push({
+          id: `${hardLine.id}-seg-${segmentIndex}`,
+          content: segment,
+          isPlaceholder: hardLine.isPlaceholder,
+        })
+      }
+
+      if (isCursorHardLine && cursorOffset?.needsTrailingEmptyLine) {
+        lines.push({
+          id: `${hardLine.id}-seg-${wrappedHardLine.segments.length}`,
+          content: '',
+          isPlaceholder: hardLine.isPlaceholder,
+        })
+      }
+    }
+
+    if (lines.length === 0) {
+      return {
+        lines: [{ id: 'empty', content: '', isPlaceholder: true }],
+        cursorRow: 0,
+        cursorColumn: 0,
+      }
+    }
+
+    const safeCursorRow = Math.max(0, Math.min(cursorRow, lines.length - 1))
+
+    const cursorLine = lines[safeCursorRow]
+    const safeCursorColumn = cursorLine
+      ? Math.max(0, Math.min(cursorColumn, cursorLine.content.length))
+      : 0
+
+    return {
+      lines,
+      cursorRow: safeCursorRow,
+      cursorColumn: safeCursorColumn,
+    }
+  }, [gutterColumns, hardLines, tokenizedCursor.column, tokenizedCursor.row, totalColumns])
+
   const backgroundProps = inkBackgroundColorProps(backgroundColor)
 
   return (
-    <Box flexDirection="column" height={lines.length}>
-      {lines.map((line, lineIndex) => {
-        const isCursorLine = lineIndex === cursorRow
-        const safeColumn = isCursorLine ? Math.min(cursorColumn, line.content.length) : 0
+    <Box flexDirection="column" height={wrapped.lines.length}>
+      {wrapped.lines.map((line, lineIndex) => {
+        const isCursorLine = lineIndex === wrapped.cursorRow
+        const safeColumn = isCursorLine ? Math.min(wrapped.cursorColumn, line.content.length) : 0
         const before = isCursorLine ? line.content.slice(0, safeColumn) : line.content
         const cursorCharacter = isCursorLine
           ? safeColumn < line.content.length
@@ -199,11 +312,8 @@ export const MultilineTextInput: React.FC<MultilineTextInputProps> = ({
         const prefix = lineIndex === 0 ? PROMPT : PROMPT_SPACER
         const lineColorProps = line.isPlaceholder ? inkColorProps(theme.mutedText) : {}
 
-        const gutterSpacer = gutter?.spacer ?? 0
-        const safeSpacer = Number.isFinite(gutterSpacer) ? Math.max(0, Math.floor(gutterSpacer)) : 0
         const spacerText = safeSpacer > 0 ? ' '.repeat(safeSpacer) : ''
 
-        const gutterColumns = gutter ? gutter.glyph.length + safeSpacer : 0
         const renderedColumns = isCursorLine
           ? before.length + cursorCharacter.length + after.length
           : before.length
