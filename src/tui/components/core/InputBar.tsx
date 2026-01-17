@@ -84,22 +84,30 @@ export const InputBar: React.FC<InputBarProps> = ({
 
   const backgroundProps = inkBackgroundColorProps(theme.panelBackground)
 
+  const busyStatusSuffix = ' (working)'
+  const busySpinnerLabel = '  Ctrl+c interrupt'
+
+  const busySpinnerMaxLength = 12
+  const busySpinnerLength = Math.min(busySpinnerMaxLength, Math.max(1, barWidth - 2))
+  const busySpinnerLabelWidth = Math.max(0, barWidth - 2 - busySpinnerLength)
+  const busySpinnerLabelText = busySpinnerLabel.slice(0, busySpinnerLabelWidth)
+
   const statusLineColumns = React.useMemo(() => {
     const joinerColumns = ' · '.length
     let columns = 0
     let partCount = 0
 
-    const addPart = (value: string, extraColumns = 0): void => {
+    const addPart = (value: string): void => {
       if (partCount > 0) {
         columns += joinerColumns
       }
-      columns += value.length + extraColumns
+      columns += value.length
       partCount += 1
     }
 
     if (summary.status) {
-      const spinnerColumns = isBusy ? 12 + 1 : 0
-      addPart(`Status: ${summary.status.value}`, spinnerColumns)
+      const suffix = isBusy ? busyStatusSuffix : ''
+      addPart(`Status: ${summary.status.value}${suffix}`)
     }
 
     if (summary.model) {
@@ -116,6 +124,7 @@ export const InputBar: React.FC<InputBarProps> = ({
 
     return columns
   }, [
+    busyStatusSuffix,
     isBusy,
     summary.model?.value,
     summary.polish?.value,
@@ -134,141 +143,158 @@ export const InputBar: React.FC<InputBarProps> = ({
     </>
   )
 
+  const renderBareBorderPrefix = (): React.ReactNode => <Text>{padRight('', 2)}</Text>
+
   return (
-    <Box
-      flexDirection="column"
-      paddingLeft={0}
-      paddingRight={0}
-      paddingY={0}
-      width="100%"
-      {...inkBackgroundColorProps(theme.panelBackground)}
-    >
-      <Box flexDirection="row" width="100%">
-        {renderBorderPrefix()}
-        <Text {...backgroundProps} {...inkColorProps(labelColor)} bold={presentation.labelBold}>
-          {presentation.label}
-        </Text>
-        <Text {...backgroundProps}>
-          {padRight('', Math.max(0, barWidth - 2 - presentation.label.length))}
-        </Text>
+    <Box flexDirection="column" paddingLeft={0} paddingRight={0} paddingY={0} width="100%">
+      <Box flexDirection="column" width="100%" {...inkBackgroundColorProps(theme.panelBackground)}>
+        <Box flexDirection="row" width="100%">
+          {renderBorderPrefix()}
+          <Text {...backgroundProps} {...inkColorProps(labelColor)} bold={presentation.labelBold}>
+            {presentation.label}
+          </Text>
+          <Text {...backgroundProps}>
+            {padRight('', Math.max(0, barWidth - 2 - presentation.label.length))}
+          </Text>
+        </Box>
+
+        {hint ? (
+          <Box flexDirection="row" width="100%">
+            {renderBorderPrefix()}
+            <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+              {hint}
+            </Text>
+            <Text {...backgroundProps}>
+              {padRight('', Math.max(0, barWidth - 2 - hint.length))}
+            </Text>
+          </Box>
+        ) : null}
+
+        {debugLine ? (
+          <Box flexDirection="row" width="100%">
+            {renderBorderPrefix()}
+            <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+              {debugLine}
+            </Text>
+            <Text {...backgroundProps}>
+              {padRight('', Math.max(0, barWidth - 2 - debugLine.length))}
+            </Text>
+          </Box>
+        ) : null}
+
+        <MultilineTextInput
+          value={value}
+          onChange={onChange}
+          onSubmit={onSubmit}
+          placeholder={placeholder ?? 'Describe your goal or type /command'}
+          focus={!isDisabled}
+          isDisabled={isDisabled}
+          isPasteActive={isPasteActive}
+          tokenLabel={tokenLabel}
+          onDebugKeyEvent={onDebugKeyEvent}
+          gutter={{ glyph: BORDER_GLYPH, color: borderColor, spacer: 1 }}
+          width={barWidth}
+          backgroundColor={theme.panelBackground}
+        />
+
+        {summary.status || summary.model || summary.polish || summary.target ? (
+          <Box flexDirection="row" width="100%">
+            {renderBorderPrefix()}
+
+            {summary.status ? (
+              <>
+                <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+                  Status:{' '}
+                </Text>
+                <Text {...backgroundProps} {...inkColorProps(theme.accent)}>
+                  {summary.status.value}
+                </Text>
+                {isBusy ? (
+                  <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+                    {busyStatusSuffix}
+                  </Text>
+                ) : null}
+              </>
+            ) : null}
+
+            {summary.status && (summary.model || summary.polish || summary.target) ? (
+              <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+                {' · '}
+              </Text>
+            ) : null}
+
+            {summary.model ? (
+              <>
+                <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+                  Model:{' '}
+                </Text>
+                <Text {...backgroundProps} {...inkColorProps(theme.text)}>
+                  {summary.model.value}
+                </Text>
+              </>
+            ) : null}
+
+            {summary.model && (summary.polish || summary.target) ? (
+              <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+                {' · '}
+              </Text>
+            ) : null}
+
+            {summary.polish ? (
+              <>
+                <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+                  Polish:{' '}
+                </Text>
+                <Text {...backgroundProps} {...inkColorProps(theme.text)}>
+                  {summary.polish.value}
+                </Text>
+              </>
+            ) : null}
+
+            {summary.polish && summary.target ? (
+              <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+                {' · '}
+              </Text>
+            ) : null}
+
+            {summary.target ? (
+              <>
+                <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
+                  Target:{' '}
+                </Text>
+                <Text {...backgroundProps} {...inkColorProps(theme.text)}>
+                  {summary.target.value}
+                </Text>
+              </>
+            ) : null}
+
+            <Text {...backgroundProps}>
+              {padRight('', Math.max(0, barWidth - 2 - statusLineColumns))}
+            </Text>
+          </Box>
+        ) : null}
       </Box>
 
-      {hint ? (
-        <Box flexDirection="row" width="100%">
-          {renderBorderPrefix()}
-          <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
-            {hint}
-          </Text>
-          <Text {...backgroundProps}>{padRight('', Math.max(0, barWidth - 2 - hint.length))}</Text>
-        </Box>
-      ) : null}
+      <Box flexDirection="row" width="100%">
+        {renderBareBorderPrefix()}
 
-      {debugLine ? (
-        <Box flexDirection="row" width="100%">
-          {renderBorderPrefix()}
-          <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
-            {debugLine}
-          </Text>
-          <Text {...backgroundProps}>
-            {padRight('', Math.max(0, barWidth - 2 - debugLine.length))}
-          </Text>
-        </Box>
-      ) : null}
+        {isBusy ? (
+          <>
+            <OpencodeSpinner length={busySpinnerLength} />
+            <Text {...inkColorProps(theme.mutedText)}>{busySpinnerLabelText}</Text>
+          </>
+        ) : null}
 
-      <MultilineTextInput
-        value={value}
-        onChange={onChange}
-        onSubmit={onSubmit}
-        placeholder={placeholder ?? 'Describe your goal or type /command'}
-        focus={!isDisabled}
-        isDisabled={isDisabled}
-        isPasteActive={isPasteActive}
-        tokenLabel={tokenLabel}
-        onDebugKeyEvent={onDebugKeyEvent}
-        gutter={{ glyph: BORDER_GLYPH, color: borderColor, spacer: 1 }}
-        width={barWidth}
-        backgroundColor={theme.panelBackground}
-      />
-
-      {summary.status || summary.model || summary.polish || summary.target ? (
-        <Box flexDirection="row" width="100%">
-          {renderBorderPrefix()}
-
-          {summary.status ? (
-            <>
-              <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
-                Status:{' '}
-              </Text>
-              {isBusy ? (
-                <>
-                  <OpencodeSpinner backgroundColor={theme.panelBackground} />
-                  <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
-                    {' '}
-                  </Text>
-                </>
-              ) : null}
-              <Text {...backgroundProps} {...inkColorProps(theme.accent)}>
-                {summary.status.value}
-              </Text>
-            </>
-          ) : null}
-
-          {summary.status && (summary.model || summary.polish || summary.target) ? (
-            <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
-              {' · '}
-            </Text>
-          ) : null}
-
-          {summary.model ? (
-            <>
-              <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
-                Model:{' '}
-              </Text>
-              <Text {...backgroundProps} {...inkColorProps(theme.text)}>
-                {summary.model.value}
-              </Text>
-            </>
-          ) : null}
-
-          {summary.model && (summary.polish || summary.target) ? (
-            <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
-              {' · '}
-            </Text>
-          ) : null}
-
-          {summary.polish ? (
-            <>
-              <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
-                Polish:{' '}
-              </Text>
-              <Text {...backgroundProps} {...inkColorProps(theme.text)}>
-                {summary.polish.value}
-              </Text>
-            </>
-          ) : null}
-
-          {summary.polish && summary.target ? (
-            <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
-              {' · '}
-            </Text>
-          ) : null}
-
-          {summary.target ? (
-            <>
-              <Text {...backgroundProps} {...inkColorProps(theme.mutedText)}>
-                Target:{' '}
-              </Text>
-              <Text {...backgroundProps} {...inkColorProps(theme.text)}>
-                {summary.target.value}
-              </Text>
-            </>
-          ) : null}
-
-          <Text {...backgroundProps}>
-            {padRight('', Math.max(0, barWidth - 2 - statusLineColumns))}
-          </Text>
-        </Box>
-      ) : null}
+        <Text>
+          {padRight(
+            '',
+            Math.max(
+              0,
+              barWidth - 2 - (isBusy ? busySpinnerLength + busySpinnerLabelText.length : 0),
+            ),
+          )}
+        </Text>
+      </Box>
     </Box>
   )
 }
